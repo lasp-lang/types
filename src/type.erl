@@ -32,7 +32,7 @@
 -type value() :: term().
 -type error() :: term().
 -type iterator() :: term().
--type decomposition() :: {ok, crdt()} | {ok, crdt(), iterator()}.
+-type decomposition() :: ok | {ok, {crdt(), iterator()}}.
 
 %% Initialize a CRDT.
 -callback new() -> crdt().
