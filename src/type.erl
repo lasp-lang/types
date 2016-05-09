@@ -46,7 +46,7 @@
 
 %% Perform a delta mutation.
 -callback delta_mutate(operation(), actor(), crdt()) ->
-    {ok, crdt()} | {error, error()}.
+    {ok, {delta, crdt()}} | {error, error()}.
 
 %% Get the value of a CRDT.
 -callback query(crdt()) -> value().
