@@ -31,6 +31,8 @@
 -type actor() :: term().
 -type value() :: term().
 -type error() :: term().
+-type iterator() :: term().
+-type decomposition() :: {ok, crdt()} | {ok, crdt(), iterator()}.
 
 %% Initialize a CRDT.
 -callback new() -> crdt().
@@ -43,7 +45,7 @@
     {ok, crdt()} | {error, error()}.
 
 %% Perform a delta mutation.
--callback delta_mutate(term(), actor(), crdt()) ->
+-callback delta_mutate(operation(), actor(), crdt()) ->
     {ok, crdt()} | {error, error()}.
 
 %% Get the value of a CRDT.
@@ -60,4 +62,5 @@
 -callback is_strict_inflation(crdt(), crdt()) -> boolean().
 
 %% Join decomposition.
--callback join_decomposition(crdt()) -> [crdt()].
+-callback join_decomposition(crdt()) -> decomposition().
+-callback join_decomposition(iterator(), crdt()) -> decomposition().
