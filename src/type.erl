@@ -58,3 +58,6 @@
 %% Inflation testing.
 -callback is_inflation(crdt(), crdt()) -> boolean().
 -callback is_strict_inflation(crdt(), crdt()) -> boolean().
+
+%% Join decomposition.
+-callback join_decomposition(crdt()) -> [crdt()].
