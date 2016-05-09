@@ -90,7 +90,7 @@ init(Function) ->
 -spec handle_call(term(), {pid(), term()}, #state{}) ->
     {reply, term(), #state{}}.
 handle_call(iterator, _From, #state{tid=Tid}=State) ->
-    {[Match], Continuation} = ets:select(Tid, [{{'$1', '$2'},[],['$2']}], 1),
+    {[Match], Continuation} = ets:select(Tid, [{{'$1', '$2'}, [], ['$2']}], 1),
     {reply, {ok, {Match, Continuation}}, State};
 handle_call({next, Continuation}, From, #state{finished=Finished}=State) ->
     read(From, Finished, Continuation),
