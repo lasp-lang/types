@@ -157,7 +157,6 @@ read(From, Finished, Continuation) ->
                     %% We've reached the end of the results and know
                     %% that population is complete, reply immediately
                     %% with ok.
-                    %%
                     gen_server:reply(From, ok);
                 false ->
                     %% We aren't done yet, therefore, schedule response
