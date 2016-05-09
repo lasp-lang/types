@@ -5,4 +5,5 @@ Types
 
 ## Types
 
-Conflict-free Replicated Data Types
+Reference implementation for Conflict-free Replicated Data Types in
+Erlang.
