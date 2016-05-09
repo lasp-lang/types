@@ -32,7 +32,6 @@
 -type value() :: term().
 -type error() :: term().
 -type context() :: riak_dt_vclock:vclock() | undefined.
--type threshold() :: value() | {strict, value()}.
 
 %% Initialize a CRDT.
 -callback new() -> crdt().
@@ -60,9 +59,6 @@
 %% Compare equality.
 -callback equal(crdt(), crdt()) -> boolean().
 
-%% Threshold testing.
--callback threshold_met(crdt(), crdt(), threshold()) -> boolean().
-
 %% Inflation testing.
--callback is_inflation(crdt(), crdt(), threshold()) -> boolean().
--callback is_strict_inflation(crdt(), crdt(), threshold()) -> boolean().
+-callback is_inflation(crdt(), crdt()) -> boolean().
+-callback is_strict_inflation(crdt(), crdt()) -> boolean().
