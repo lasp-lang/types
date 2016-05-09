@@ -92,9 +92,9 @@ init(Function) ->
 handle_call(iterator, _From, #state{tid=Tid}=State) ->
     {[Match], Continuation} = ets:select(Tid, [{{'$1','$2'},[],['$2']}], 1),
     {reply, {ok, {Match, Continuation}}, State};
-handle_call({next, Continuation}, _From, #state{finished=Finished}=State) ->
-    Result = read(Finished, Continuation),
-    {reply, {ok, Result}, State};
+handle_call({next, Continuation}, From, #state{finished=Finished}=State) ->
+    read(From, Finished, Continuation),
+    {noreply, State};
 handle_call(Msg, _From, State) ->
     lager:warning("Unhandled messages: ~p", [Msg]),
     {reply, ok, State}.
@@ -107,6 +107,9 @@ handle_cast(Msg, State) ->
 
 %% @private
 -spec handle_info(term(), #state{}) -> {noreply, #state{}}.
+handle_info({retry, From, Continuation}, #state{finished=Finished}=State) ->
+    read(From, Finished, Continuation),
+    {noreply, State};
 handle_info({'EXIT', _From, normal}, State) ->
     %% Population function quit normally; ignore as it most likely means
     %% that the results are fully populated.
@@ -146,16 +149,22 @@ mk_unique() ->
     crypto:hash(sha, Term).
 
 %% @private
-read(Finished, Continuation) ->
+read(From, Finished, Continuation) ->
     case ets:select(Continuation) of
         '$end_of_table' ->
             case Finished of
                 true ->
-                    ok;
+                    %% We've reached the end of the results and know
+                    %% that population is complete, reply immediately
+                    %% with ok.
+                    %%
+                    gen_server:reply(From, ok);
                 false ->
-                    timer:sleep(?INTERVAL),
-                    read(Finished, Continuation)
+                    %% We aren't done yet, therefore, schedule response
+                    %% for the future.
+                    erlang:send_after(?INTERVAL, self(), {retry, From, Continuation})
             end;
         {[Match], Continuation} ->
-            {ok, {Match, Continuation}}
+            %% Got result; reply immediately.
+            gen_server:reply(From, {ok, {Match, Continuation}})
     end.
