@@ -36,7 +36,13 @@
          terminate/2,
          code_change/3]).
 
--record(state, {tid, function, next_position}).
+-record(state, {tid :: ets:tid(),
+                function :: function(),
+                next_position :: non_neg_integer(),
+                finished :: boolean()}).
+
+%% Sleep interval when waiting for more data.
+-define(INTERVAL, 300).
 
 %%%===================================================================
 %%% API
@@ -75,7 +81,10 @@ init(Function) ->
     %% identifier.
     spawn_link(Function, [self()]),
 
-    {ok, #state{function=Function, tid=Tid}}.
+    {ok, #state{function=Function,
+                tid=Tid,
+                next_position=0,
+                finished=false}}.
 
 %% @private
 -spec handle_call(term(), {pid(), term()}, #state{}) ->
@@ -83,13 +92,8 @@ init(Function) ->
 handle_call(iterator, _From, #state{tid=Tid}=State) ->
     {[Match], Continuation} = ets:select(Tid, [{{'$1','$2'},[],['$2']}], 1),
     {reply, {ok, {Match, Continuation}}, State};
-handle_call({next, Continuation}, _From, State) ->
-    Result = case ets:select(Continuation) of
-        '$end_of_table' ->
-            ok;
-        {[Match], Continuation} ->
-            {ok, {Match, Continuation}}
-    end,
+handle_call({next, Continuation}, _From, #state{finished=Finished}=State) ->
+    Result = read(Finished, Continuation),
     {reply, {ok, Result}, State};
 handle_call(Msg, _From, State) ->
     lager:warning("Unhandled messages: ~p", [Msg]),
@@ -106,7 +110,7 @@ handle_cast(Msg, State) ->
 handle_info({'EXIT', _From, normal}, State) ->
     %% Population function quit normally; ignore as it most likely means
     %% that the results are fully populated.
-    {noreply, State};
+    {noreply, State#state{finished=true}};
 handle_info({'EXIT', _From, Reason}, State) ->
     %% Abnormal exit from population function; quit.
     {stop, {error, {function_terminated, Reason}}, State};
@@ -140,3 +144,18 @@ mk_unique() ->
     TS = integer_to_list(Unique),
     Term = Node ++ TS,
     crypto:hash(sha, Term).
+
+%% @private
+read(Finished, Continuation) ->
+    case ets:select(Continuation) of
+        '$end_of_table' ->
+            case Finished of
+                true ->
+                    ok;
+                false ->
+                    timer:sleep(?INTERVAL),
+                    read(Finished, Continuation)
+            end;
+        {[Match], Continuation} ->
+            {ok, {Match, Continuation}}
+    end.
