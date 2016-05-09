@@ -1,0 +1,15 @@
+{application, types,
+ [
+  {description, "Conflict-free Replicated Data Types"},
+  {vsn, "0.0.1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib,
+                  crypto,
+                  lager
+                 ]},
+  {mod, {types, []}},
+  {modules, []},
+  {env, [{types, "data"}]}
+ ]}.
