@@ -31,7 +31,6 @@
 -type actor() :: term().
 -type value() :: term().
 -type error() :: term().
--type context() :: riak_dt_vclock:vclock() | undefined.
 
 %% Initialize a CRDT.
 -callback new() -> crdt().
@@ -42,8 +41,6 @@
 %% Perform a mutation.
 -callback mutate(operation(), actor(), crdt()) ->
     {ok, crdt()} | {error, error()}.
--callback mutate(operation(), actor(), crdt(), context()) ->
-    {ok, crdt()} | {error, error()}.
 
 %% Perform a delta mutation.
 -callback delta_mutate(term(), actor(), crdt()) ->
@@ -51,7 +48,6 @@
 
 %% Get the value of a CRDT.
 -callback query(crdt()) -> value().
--callback query(term(), crdt()) -> value().
 
 %% Merge two replicas.
 -callback merge(crdt(), crdt()) -> crdt().
