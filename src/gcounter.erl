@@ -146,8 +146,8 @@ is_inflation({?TYPE, GCounter1}, {?TYPE, GCounter2}) ->
 
 %% @doc Check for strict inflation.
 -spec is_strict_inflation(gcounter(), gcounter()) -> boolean().
-is_strict_inflation({?TYPE, _}=GCounter1, {?TYPE, _}=GCounter2) ->
-    type:is_strict_inflation(GCounter1, GCounter2).
+is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
+    type:is_strict_inflation(CRDT1, CRDT2).
 
 %% @doc Join decomposition for `gcounter()'.
 %%      A `gcounter()' is a set of entries.
