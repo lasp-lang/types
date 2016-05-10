@@ -34,6 +34,8 @@
 
 -behaviour(type).
 
+-define(TYPE, ?MODULE).
+
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
@@ -43,15 +45,17 @@
 -export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
--export_type([gcounter/0, gcounter_op/0]).
+-export_type([gcounter/0, delta_gcounter/0, gcounter_op/0]).
 
--opaque gcounter() :: orddict:orddict().
+-opaque gcounter() :: {?TYPE, payload()}.
+-opaque delta_gcounter() :: {?TYPE, {delta, payload()}}.
+-type payload() :: orddict:orddict().
 -type gcounter_op() :: increment.
 
 %% @doc Create a new, empty `gcounter()'
 -spec new() -> gcounter().
 new() ->
-    orddict:new().
+    {?TYPE, orddict:new()}.
 
 %% @doc Create a new, empty `gcounter()'
 -spec new([term()]) -> gcounter().
@@ -61,8 +65,8 @@ new([]) ->
 %% @doc Mutate a `gcounter()'.
 -spec mutate(gcounter_op(), type:actor(), gcounter()) -> 
     {ok, gcounter()}.
-mutate(Op, Actor, GCounter) ->
-    type:mutate(gcounter, Op, Actor, GCounter).
+mutate(Op, Actor, {?TYPE, _GCounter}=CRDT) ->
+    type:mutate(Op, Actor, CRDT).
 
 %% @doc Delta-mutate a `gcounter()'.
 %%      The first argument can only be `increment'.
@@ -71,8 +75,8 @@ mutate(Op, Actor, GCounter) ->
 %%      Returns a `gcounter()' delta where the only entry in the 
 %%      dictionary maps the replica id to the last value plus 1.
 -spec delta_mutate(gcounter_op(), type:actor(), gcounter()) -> 
-    {ok, {delta, gcounter()}}.
-delta_mutate(increment, Actor, GCounter) ->
+    {ok, delta_gcounter()}.
+delta_mutate(increment, Actor, {?TYPE, GCounter}) ->
     Count = case orddict:find(Actor, GCounter) of
         {ok, Value} -> 
             Value;
@@ -80,12 +84,12 @@ delta_mutate(increment, Actor, GCounter) ->
             0
     end,
     Delta = orddict:store(Actor, Count + 1, orddict:new()),
-    {ok, {delta, Delta}}.
+    {ok, {delta, {?TYPE, Delta}}}.
 
 %% @doc Returns the value of the `gcounter()'.
 %%      This value is the sum of all values in the `gcounter()'.
 -spec query(gcounter()) -> non_neg_integer().
-query(GCounter) ->
+query({?TYPE, GCounter}) ->
     lists:sum([ Value || {_Actor, Value} <- GCounter ]).
 
 %% @doc Merge two `gcounter()'.
@@ -97,14 +101,15 @@ query(GCounter) ->
 %%      will be the max of both values.
 %%      Return the join of the two `gcounter()'.
 -spec merge(gcounter(), gcounter()) -> gcounter().
-merge(GCounter1, GCounter2) -> 
-    orddict:merge(
+merge({?TYPE, GCounter1}, {?TYPE, GCounter2}) ->
+    GCounter = orddict:merge(
         fun(_, Value1, Value2) -> 
             max(Value1, Value2)
         end,
         GCounter1,
         GCounter2
-     ).
+    ),
+    {?TYPE, GCounter}.
 
 %% @doc Are two `gcounter()'s structurally equal? 
 %%      This is not `query/1' equality.
@@ -112,7 +117,7 @@ merge(GCounter1, GCounter2) ->
 %%      Equality here is that both counters contain the same replica ids
 %%      and those replicas have the same count.
 -spec equal(gcounter(), gcounter()) -> boolean().
-equal(GCounter1, GCounter2) -> 
+equal({?TYPE, GCounter1}, {?TYPE, GCounter2}) ->
     Fun = fun(Value1, Value2) -> Value1 == Value2 end,
     orddict_ext:equal(GCounter1, GCounter2, Fun).
 
@@ -125,7 +130,7 @@ equal(GCounter1, GCounter2) ->
 %%          should be less or equal than the value for the same 
 %%          replica in the second `gcounter()'
 -spec is_inflation(gcounter(), gcounter()) -> boolean().
-is_inflation(GCounter1, GCounter2) -> 
+is_inflation({?TYPE, GCounter1}, {?TYPE, GCounter2}) ->
     orddict:fold(
         fun(Key, Value1, Acc) ->
             case orddict:find(Key, GCounter2) of
@@ -141,8 +146,8 @@ is_inflation(GCounter1, GCounter2) ->
 
 %% @doc Check for strict inflation.
 -spec is_strict_inflation(gcounter(), gcounter()) -> boolean().
-is_strict_inflation(GCounter1, GCounter2) -> 
-    type:is_strict_inflation(gcounter, GCounter1, GCounter2).
+is_strict_inflation({?TYPE, _}=GCounter1, {?TYPE, _}=GCounter2) ->
+    type:is_strict_inflation(GCounter1, GCounter2).
 
 %% @doc Join decomposition for `gcounter()'.
 %%      A `gcounter()' is a set of entries.
@@ -151,10 +156,10 @@ is_strict_inflation(GCounter1, GCounter2) ->
 %%      This join decomposition is a set partition where each set in
 %%      the partition has exactly the size of one.
 -spec join_decomposition(gcounter()) -> [gcounter()].
-join_decomposition(GCounter) ->
+join_decomposition({?TYPE, GCounter}) ->
     lists:foldl(
         fun(Entry, Acc) ->
-            [[Entry] | Acc]
+            [{?TYPE, [Entry]} | Acc]
         end,
         [],
         GCounter
@@ -167,11 +172,11 @@ join_decomposition(GCounter) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual([], new()).
+    ?assertEqual({?TYPE, []}, new()).
 
 query_test() ->
     Counter0 = new(),
-    Counter1 = [{1, 1}, {2, 13}, {3, 1}],
+    Counter1 = {?TYPE, [{1, 1}, {2, 13}, {3, 1}]},
     ?assertEqual(0, query(Counter0)),
     ?assertEqual(15, query(Counter1)).
 
@@ -183,60 +188,60 @@ increment_test() ->
     Counter2 = merge(Delta2, Counter1),
     {ok, {delta, Delta3}} = delta_mutate(increment, 1, Counter2),
     Counter3 = merge(Delta3, Counter2),
-    ?assertEqual([{1, 1}], Delta1),
-    ?assertEqual([{1, 1}], Counter1),
-    ?assertEqual([{2, 1}], Delta2),
-    ?assertEqual([{1, 1}, {2, 1}], Counter2),
-    ?assertEqual([{1, 2}], Delta3),
-    ?assertEqual([{1, 2}, {2, 1}], Counter3).
+    ?assertEqual({?TYPE, [{1, 1}]}, Delta1),
+    ?assertEqual({?TYPE, [{1, 1}]}, Counter1),
+    ?assertEqual({?TYPE, [{2, 1}]}, Delta2),
+    ?assertEqual({?TYPE, [{1, 1}, {2, 1}]}, Counter2),
+    ?assertEqual({?TYPE, [{1, 2}]}, Delta3),
+    ?assertEqual({?TYPE, [{1, 2}, {2, 1}]}, Counter3).
 
 merge_idempontent_test() ->
-    Counter1 = [{<<"5">>, 5}],
-    Counter2 = [{<<"6">>, 6}, {<<"7">>, 7}],
+    Counter1 = {?TYPE, [{<<"5">>, 5}]},
+    Counter2 = {?TYPE, [{<<"6">>, 6}, {<<"7">>, 7}]},
     Counter3 = merge(Counter1, Counter1),
     Counter4 = merge(Counter2, Counter2),
-    ?assertEqual([{<<"5">>, 5}], Counter3),
-    ?assertEqual([{<<"6">>, 6}, {<<"7">>, 7}], Counter4).
+    ?assertEqual({?TYPE, [{<<"5">>, 5}]}, Counter3),
+    ?assertEqual({?TYPE, [{<<"6">>, 6}, {<<"7">>, 7}]}, Counter4).
 
 merge_commutative_test() ->
-    Counter1 = [{<<"5">>, 5}],
-    Counter2 = [{<<"6">>, 6}, {<<"7">>, 7}],
+    Counter1 = {?TYPE, [{<<"5">>, 5}]},
+    Counter2 = {?TYPE, [{<<"6">>, 6}, {<<"7">>, 7}]},
     Counter3 = merge(Counter1, Counter2),
     Counter4 = merge(Counter2, Counter1),
-    ?assertEqual([{<<"5">>, 5}, {<<"6">>, 6}, {<<"7">>, 7}], Counter3),
-    ?assertEqual([{<<"5">>, 5}, {<<"6">>, 6}, {<<"7">>, 7}], Counter4).
+    ?assertEqual({?TYPE, [{<<"5">>, 5}, {<<"6">>, 6}, {<<"7">>, 7}]}, Counter3),
+    ?assertEqual({?TYPE, [{<<"5">>, 5}, {<<"6">>, 6}, {<<"7">>, 7}]}, Counter4).
 
 merge_same_id_test() ->
-    Counter1 = [{<<"1">>, 2}, {<<"2">>, 5}],
-    Counter2 = [{<<"1">>, 3}, {<<"2">>, 4}],
+    Counter1 = {?TYPE, [{<<"1">>, 2}, {<<"2">>, 5}]},
+    Counter2 = {?TYPE, [{<<"1">>, 3}, {<<"2">>, 4}]},
     Counter3 = merge(Counter1, Counter2),
-    ?assertEqual([{<<"1">>, 3}, {<<"2">>, 5}], Counter3).
+    ?assertEqual({?TYPE, [{<<"1">>, 3}, {<<"2">>, 5}]}, Counter3).
 
 equal_test() ->
-    Counter1 = [{1, 2}, {2, 1}, {4, 1}],
-    Counter2 = [{1, 2}, {2, 1}, {4, 1}, {5, 6}],
-    Counter3 = [{1, 2}, {2, 2}, {4, 1}],
-    Counter4 = [{1, 2}, {2, 1}],
+    Counter1 = {?TYPE, [{1, 2}, {2, 1}, {4, 1}]},
+    Counter2 = {?TYPE, [{1, 2}, {2, 1}, {4, 1}, {5, 6}]},
+    Counter3 = {?TYPE, [{1, 2}, {2, 2}, {4, 1}]},
+    Counter4 = {?TYPE, [{1, 2}, {2, 1}]},
     ?assert(equal(Counter1, Counter1)),
     ?assertNot(equal(Counter1, Counter2)),
     ?assertNot(equal(Counter1, Counter3)),
     ?assertNot(equal(Counter1, Counter4)).
 
 is_inflation_test() ->
-    Counter1 = [{1, 2}, {2, 1}, {4, 1}],
-    Counter2 = [{1, 2}, {2, 1}, {4, 1}, {5, 6}],
-    Counter3 = [{1, 2}, {2, 2}, {4, 1}],
-    Counter4 = [{1, 2}, {2, 1}],
+    Counter1 = {?TYPE, [{1, 2}, {2, 1}, {4, 1}]},
+    Counter2 = {?TYPE, [{1, 2}, {2, 1}, {4, 1}, {5, 6}]},
+    Counter3 = {?TYPE, [{1, 2}, {2, 2}, {4, 1}]},
+    Counter4 = {?TYPE, [{1, 2}, {2, 1}]},
     ?assert(is_inflation(Counter1, Counter1)),
     ?assert(is_inflation(Counter1, Counter2)),
     ?assert(is_inflation(Counter1, Counter3)),
     ?assertNot(is_inflation(Counter1, Counter4)).
 
 is_strict_inflation_test() ->
-    Counter1 = [{1, 2}, {2, 1}, {4, 1}],
-    Counter2 = [{1, 2}, {2, 1}, {4, 1}, {5, 6}],
-    Counter3 = [{1, 2}, {2, 2}, {4, 1}],
-    Counter4 = [{1, 2}, {2, 1}],
+    Counter1 = {?TYPE, [{1, 2}, {2, 1}, {4, 1}]},
+    Counter2 = {?TYPE, [{1, 2}, {2, 1}, {4, 1}, {5, 6}]},
+    Counter3 = {?TYPE, [{1, 2}, {2, 2}, {4, 1}]},
+    Counter4 = {?TYPE, [{1, 2}, {2, 1}]},
     ?assertNot(is_strict_inflation(Counter1, Counter1)),
     ?assert(is_strict_inflation(Counter1, Counter2)),
     ?assert(is_strict_inflation(Counter1, Counter3)),
@@ -244,10 +249,10 @@ is_strict_inflation_test() ->
 
 join_decomposition_test() ->
     Counter0 = new(),
-    Counter1 = [{1, 2}, {2, 1}, {4, 1}],
+    Counter1 = {?TYPE, [{1, 2}, {2, 1}, {4, 1}]},
     Decomp0 = join_decomposition(Counter0),
     Decomp1 = join_decomposition(Counter1),
     ?assertEqual([], Decomp0),
-    ?assertEqual(lists:sort([[{1, 2}], [{2, 1}], [{4, 1}]]), lists:sort(Decomp1)).
+    ?assertEqual(lists:sort([{?TYPE, [{1, 2}]}, {?TYPE, [{2, 1}]}, {?TYPE, [{4, 1}]}]), lists:sort(Decomp1)).
 
 -endif.

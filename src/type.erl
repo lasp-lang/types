@@ -25,12 +25,13 @@
 -module(type).
 -author("Christopher Meiklejohn <christopher.meiklejohn@gmail.com>").
 
--export([mutate/4, is_strict_inflation/3]).
+-export([mutate/3, is_strict_inflation/2]).
 
 %% Define some initial types.
 -type type() :: gcounter | pncounter.
 -type payload() :: term().
--type crdt() :: {type(), payload()} | {type(), {delta, payload()}}.
+-type crdt() :: {type(), payload()}.
+-type delta_crdt() :: {type(), {delta, payload()}}.
 -type operation() :: term().
 -type actor() :: term().
 -type value() :: term().
@@ -47,11 +48,11 @@
 
 %% Perform a mutation.
 -callback mutate(operation(), actor(), crdt()) ->
-    {ok, {crdt()}} | {error, error()}.
+    {ok, crdt()} | {error, error()}.
 
 %% Perform a delta mutation.
 -callback delta_mutate(operation(), actor(), crdt()) ->
-    {ok, {delta, crdt()}} | {error, error()}.
+    {ok, delta_crdt()} | {error, error()}.
 
 %% Merge two replicas.
 -callback merge(crdt(), crdt()) -> crdt().
@@ -73,9 +74,9 @@
 %-callback join_decomposition(iterator(), crdt()) -> decomposition().
 
 %% @doc Generic Join composition.
--spec mutate(type(), operation(), actor(), crdt()) ->
+-spec mutate(operation(), actor(), crdt()) ->
     {ok, crdt()} | {error, error()}.
-mutate(Type, Op, Actor, CRDT) ->
+mutate(Op, Actor, {Type, _}=CRDT) ->
     case Type:delta_mutate(Op, Actor, CRDT) of
         {ok, {delta, Delta}} ->
             {ok, Type:merge(Delta, CRDT)};
@@ -87,9 +88,10 @@ mutate(Type, Op, Actor, CRDT) ->
 %%      We have a strict inflation if:
 %%          - we have an inflation
 %%          - we have different CRDTs
--spec is_strict_inflation(type(), crdt(), crdt()) -> boolean().
-is_strict_inflation(Type, CRDT1, CRDT2) ->
-    Type:is_inflation(CRDT1, CRDT2) andalso
-    not Type:equal(CRDT1, CRDT2).
+-spec is_strict_inflation(crdt(), crdt()) -> boolean().
+is_strict_inflation({Type1, _}=CRDT1, {Type2, _}=CRDT2) ->
+    Type1 == Type2 andalso
+    Type1:is_inflation(CRDT1, CRDT2) andalso
+    not Type1:equal(CRDT1, CRDT2).
 
 
