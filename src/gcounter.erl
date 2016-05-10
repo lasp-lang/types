@@ -74,7 +74,7 @@ mutate(Op, Actor, {?TYPE, _GCounter}=CRDT) ->
 %%      The third argument is the `gcounter()' to be inflated.
 %%      Returns a `gcounter()' delta where the only entry in the
 %%      dictionary maps the replica id to the last value plus 1.
--spec delta_mutate(gcounter_op(), type:actor(), gcounter()) -> 
+-spec delta_mutate(gcounter_op(), type:actor(), gcounter()) ->
     {ok, delta_gcounter()}.
 delta_mutate(increment, Actor, {?TYPE, GCounter}) ->
     Count = case orddict:find(Actor, GCounter) of
@@ -103,7 +103,7 @@ query({?TYPE, GCounter}) ->
 -spec merge(gcounter(), gcounter()) -> gcounter().
 merge({?TYPE, GCounter1}, {?TYPE, GCounter2}) ->
     GCounter = orddict:merge(
-        fun(_, Value1, Value2) -> 
+        fun(_, Value1, Value2) ->
             max(Value1, Value2)
         end,
         GCounter1,
