@@ -25,34 +25,36 @@
 -module(type).
 -author("Christopher Meiklejohn <christopher.meiklejohn@gmail.com>").
 
+-export([mutate/4, is_strict_inflation/3]).
+
 %% Define some initial types.
--type crdt() :: term().
+-type type() :: gcounter | pncounter.
+-type payload() :: term().
+-type crdt() :: {type(), payload()} | {type(), {delta, payload()}}.
 -type operation() :: term().
 -type actor() :: term().
 -type value() :: term().
 -type error() :: term().
--type iterator() :: term().
--type decomposition() :: ok | {ok, {crdt(), iterator()}}.
 
 %% Initialize a CRDT.
 -callback new() -> crdt().
 
 %% Unified interface for allowing parameterized CRDTs.
--callback new([term()]) -> term().
+-callback new([term()]) -> crdt().
 
 %% Perform a mutation.
 -callback mutate(operation(), actor(), crdt()) ->
-    {ok, crdt()} | {error, error()}.
+    {ok, {crdt()}} | {error, error()}.
 
 %% Perform a delta mutation.
 -callback delta_mutate(operation(), actor(), crdt()) ->
     {ok, {delta, crdt()}} | {error, error()}.
 
-%% Get the value of a CRDT.
--callback query(crdt()) -> value().
-
 %% Merge two replicas.
 -callback merge(crdt(), crdt()) -> crdt().
+
+%% Get the value of a CRDT.
+-callback query(crdt()) -> value().
 
 %% Compare equality.
 -callback equal(crdt(), crdt()) -> boolean().
@@ -62,5 +64,30 @@
 -callback is_strict_inflation(crdt(), crdt()) -> boolean().
 
 %% Join decomposition.
--callback join_decomposition(crdt()) -> decomposition().
--callback join_decomposition(iterator(), crdt()) -> decomposition().
+-callback join_decomposition(crdt()) -> [crdt()].
+
+%% @todo These functions are for the incremental interface.
+%% -type iterator() :: term().
+%% -type decomposition() :: ok | {ok, {crdt(), iterator()}}.
+%% -callback join_decomposition(crdt()) -> decomposition().
+%% -callback join_decomposition(iterator(), crdt()) -> decomposition().
+
+%% @doc Generic Join composition.
+-spec mutate(type(), operation(), actor(), crdt()) ->
+    {ok, crdt()} | {error, error()}.
+mutate(Type, Op, Actor, CRDT) ->
+    case Type:delta_mutate(Op, Actor, CRDT) of
+        {ok, {delta, Delta}} ->
+            {ok, Type:merge(Delta, CRDT)};
+        Error ->
+            Error
+    end.
+
+%% @doc Generic check for strict inflation.
+%%      We have a strict inflation if:
+%%          - we have an inflation
+%%          - we have different CRDTs
+-spec is_strict_inflation(type(), crdt(), crdt()) -> boolean().
+is_strict_inflation(Type, CRDT1, CRDT2) ->
+    Type:is_inflation(CRDT1, CRDT2) andalso
+    not Type:equal(CRDT1, CRDT2).

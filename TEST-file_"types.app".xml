@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuite tests="10" failures="0" errors="0" skipped="0" time="0.105" name="file &quot;types.app&quot;">
+  <testcase time="0.000" name="gcounter:0 new_test">
+    <system-out>
+    </system-out>
+  </testcase>
+  <testcase time="0.000" name="gcounter:0 query_test">
+    <system-out>
+    </system-out>
+  </testcase>
+  <testcase time="0.000" name="gcounter:0 increment_test">
+    <system-out>
+    </system-out>
+  </testcase>
+  <testcase time="0.000" name="gcounter:0 merge_idempontent_test">
+    <system-out>
+    </system-out>
+  </testcase>
+  <testcase time="0.000" name="gcounter:0 merge_commutative_test">
+    <system-out>
+    </system-out>
+  </testcase>
+  <testcase time="0.000" name="gcounter:0 merge_same_id_test">
+    <system-out>
+    </system-out>
+  </testcase>
+  <testcase time="0.000" name="gcounter:0 equal_test">
+    <system-out>
+    </system-out>
+  </testcase>
+  <testcase time="0.000" name="gcounter:0 is_inflation_test">
+    <system-out>
+    </system-out>
+  </testcase>
+  <testcase time="0.000" name="gcounter:0 is_strict_inflation_test">
+    <system-out>
+    </system-out>
+  </testcase>
+  <testcase time="0.000" name="gcounter:0 join_decomposition_test">
+    <system-out>
+    </system-out>
+  </testcase>
+</testsuite>
