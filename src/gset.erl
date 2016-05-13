@@ -147,7 +147,7 @@ query_test() ->
     ?assertEqual([], query(Set0)),
     ?assertEqual([<<"a">>], query(Set1)).
 
-add_test() ->
+delta_add_test() ->
     Actor = 1,
     Set0 = new(),
     {ok, {?TYPE, {delta, Delta1}}} = delta_mutate({add, <<"a">>}, Actor, Set0),
@@ -162,6 +162,14 @@ add_test() ->
     ?assertEqual({?TYPE, [<<"a">>]}, Set2),
     ?assertEqual({?TYPE, [<<"b">>]}, {?TYPE, Delta3}),
     ?assertEqual({?TYPE, [<<"a">>, <<"b">>]}, Set3).
+
+add_test() ->
+    Actor = 1,
+    Set0 = new(),
+    {ok, Set1} = mutate({add, <<"a">>}, Actor, Set0),
+    {ok, Set2} = mutate({add, <<"b">>}, Actor, Set1),
+    ?assertEqual({?TYPE, [<<"a">>]}, Set1),
+    ?assertEqual({?TYPE, [<<"a">>, <<"b">>]}, Set2).
 
 merge_idempontent_test() ->
     Set1 = {?TYPE, [<<"a">>]},

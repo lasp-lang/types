@@ -78,8 +78,8 @@
     {ok, crdt()} | {error, error()}.
 mutate(Op, Actor, {Type, _}=CRDT) ->
     case Type:delta_mutate(Op, Actor, CRDT) of
-        {ok, {delta, Delta}} ->
-            {ok, Type:merge(Delta, CRDT)};
+        {ok, {Type, {delta, Delta}}} ->
+            {ok, Type:merge({Type, Delta}, CRDT)};
         Error ->
             Error
     end.

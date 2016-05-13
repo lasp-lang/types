@@ -180,7 +180,7 @@ query_test() ->
     ?assertEqual(0, query(Counter0)),
     ?assertEqual(15, query(Counter1)).
 
-increment_test() ->
+delta_increment_test() ->
     Counter0 = new(),
     {ok, {?TYPE, {delta, Delta1}}} = delta_mutate(increment, 1, Counter0),
     Counter1 = merge({?TYPE, Delta1}, Counter0),
@@ -193,6 +193,15 @@ increment_test() ->
     ?assertEqual({?TYPE, [{2, 1}]}, {?TYPE, Delta2}),
     ?assertEqual({?TYPE, [{1, 1}, {2, 1}]}, Counter2),
     ?assertEqual({?TYPE, [{1, 2}]}, {?TYPE, Delta3}),
+    ?assertEqual({?TYPE, [{1, 2}, {2, 1}]}, Counter3).
+
+increment_test() ->
+    Counter0 = new(),
+    {ok, Counter1} = mutate(increment, 1, Counter0),
+    {ok, Counter2} = mutate(increment, 2, Counter1),
+    {ok, Counter3} = mutate(increment, 1, Counter2),
+    ?assertEqual({?TYPE, [{1, 1}]}, Counter1),
+    ?assertEqual({?TYPE, [{1, 1}, {2, 1}]}, Counter2),
     ?assertEqual({?TYPE, [{1, 2}, {2, 1}]}, Counter3).
 
 merge_idempontent_test() ->
