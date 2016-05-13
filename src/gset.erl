@@ -81,7 +81,7 @@ delta_mutate({add, Elem}, _Actor, {?TYPE, GSet}) ->
         false ->
             ordsets:add_element(Elem, ordsets:new())
     end,
-    {ok, {delta, {?TYPE, Delta}}}.
+    {ok, {?TYPE, {delta, Delta}}}.
 
 %% @doc Returns the value of the `gset()'.
 %%      This value is a list with all the elements in the `gset()'.
@@ -150,17 +150,17 @@ query_test() ->
 add_test() ->
     Actor = 1,
     Set0 = new(),
-    {ok, {delta, Delta1}} = delta_mutate({add, <<"a">>}, Actor, Set0),
-    Set1 = merge(Delta1, Set0),
-    {ok, {delta, Delta2}} = delta_mutate({add, <<"a">>}, Actor, Set1),
-    Set2 = merge(Delta2, Set1),
-    {ok, {delta, Delta3}} = delta_mutate({add, <<"b">>}, Actor, Set2),
-    Set3 = merge(Delta3, Set2),
-    ?assertEqual({?TYPE, ordsets:add_element(<<"a">>, ordsets:new())}, Delta1),
+    {ok, {?TYPE, {delta, Delta1}}} = delta_mutate({add, <<"a">>}, Actor, Set0),
+    Set1 = merge({?TYPE, Delta1}, Set0),
+    {ok, {?TYPE, {delta, Delta2}}} = delta_mutate({add, <<"a">>}, Actor, Set1),
+    Set2 = merge({?TYPE, Delta2}, Set1),
+    {ok, {?TYPE, {delta, Delta3}}} = delta_mutate({add, <<"b">>}, Actor, Set2),
+    Set3 = merge({?TYPE, Delta3}, Set2),
+    ?assertEqual({?TYPE, ordsets:add_element(<<"a">>, ordsets:new())}, {?TYPE, Delta1}),
     ?assertEqual({?TYPE, ordsets:add_element(<<"a">>, ordsets:new())}, Set1),
-    ?assertEqual({?TYPE, ordsets:new()}, Delta2),
+    ?assertEqual({?TYPE, ordsets:new()}, {?TYPE, Delta2}),
     ?assertEqual({?TYPE, ordsets:add_element(<<"a">>, ordsets:new())}, Set2),
-    ?assertEqual({?TYPE, ordsets:add_element(<<"b">>, ordsets:new())}, Delta3),
+    ?assertEqual({?TYPE, ordsets:add_element(<<"b">>, ordsets:new())}, {?TYPE, Delta3}),
     ?assertEqual({?TYPE, ordsets:add_element(<<"a">>, ordsets:add_element(<<"b">>, ordsets:new()))}, Set3).
 
 merge_idempontent_test() ->

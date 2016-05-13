@@ -84,7 +84,7 @@ delta_mutate(increment, Actor, {?TYPE, GCounter}) ->
             0
     end,
     Delta = orddict:store(Actor, Count + 1, orddict:new()),
-    {ok, {delta, {?TYPE, Delta}}}.
+    {ok, {?TYPE, {delta, Delta}}}.
 
 %% @doc Returns the value of the `gcounter()'.
 %%      This value is the sum of all values in the `gcounter()'.
@@ -182,17 +182,17 @@ query_test() ->
 
 increment_test() ->
     Counter0 = new(),
-    {ok, {delta, Delta1}} = delta_mutate(increment, 1, Counter0),
-    Counter1 = merge(Delta1, Counter0),
-    {ok, {delta, Delta2}} = delta_mutate(increment, 2, Counter1),
-    Counter2 = merge(Delta2, Counter1),
-    {ok, {delta, Delta3}} = delta_mutate(increment, 1, Counter2),
-    Counter3 = merge(Delta3, Counter2),
-    ?assertEqual({?TYPE, [{1, 1}]}, Delta1),
+    {ok, {?TYPE, {delta, Delta1}}} = delta_mutate(increment, 1, Counter0),
+    Counter1 = merge({?TYPE, Delta1}, Counter0),
+    {ok, {?TYPE, {delta, Delta2}}} = delta_mutate(increment, 2, Counter1),
+    Counter2 = merge({?TYPE, Delta2}, Counter1),
+     {ok, {?TYPE, {delta, Delta3}}} = delta_mutate(increment, 1, Counter2),
+    Counter3 = merge({?TYPE, Delta3}, Counter2),
+    ?assertEqual({?TYPE, [{1, 1}]}, {?TYPE, Delta1}),
     ?assertEqual({?TYPE, [{1, 1}]}, Counter1),
-    ?assertEqual({?TYPE, [{2, 1}]}, Delta2),
+    ?assertEqual({?TYPE, [{2, 1}]}, {?TYPE, Delta2}),
     ?assertEqual({?TYPE, [{1, 1}, {2, 1}]}, Counter2),
-    ?assertEqual({?TYPE, [{1, 2}]}, Delta3),
+    ?assertEqual({?TYPE, [{1, 2}]}, {?TYPE, Delta3}),
     ?assertEqual({?TYPE, [{1, 2}, {2, 1}]}, Counter3).
 
 merge_idempontent_test() ->
