@@ -132,9 +132,8 @@ is_inflation({?TYPE, {{FstType, _}=Fst1, {SndType, _}=Snd1}},
     SndType:is_inflation(Snd1, Snd2).
 
 %% @doc Check for `pair()' strict inflation.
-%%      In pairs we have strict inflations is component wise
-%%      we have inflations and at least one strict inflation
-%%      in the composition.
+%%      In pairs we have strict inflations if we have component wise
+%%      inflations and at least one strict inflation in the composition.
 %%
 %% @reference Carlos Baquero, Paulo Sérgio Almeida, Alcino Cunha and Carla Ferreira
 %%      Composition of State-based CRDTs (2015)
