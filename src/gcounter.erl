@@ -22,7 +22,7 @@
 %% @doc GCounter CRDT: grow only counter.
 %%      Modeled as a dictionary where keys are replicas ids and
 %%      values are the correspondent count.
-%%      An actor may only update is own entry in the dictionary.
+%%      An actor may only update its own entry in the dictionary.
 %%      The value of the counter is the sum all values in the dictionary.
 %%
 %% @reference Paulo Sérgio Almeida, Ali Shoker, and Carlos Baquero
