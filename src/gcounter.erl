@@ -186,7 +186,7 @@ increment_test() ->
     Counter1 = merge({?TYPE, Delta1}, Counter0),
     {ok, {?TYPE, {delta, Delta2}}} = delta_mutate(increment, 2, Counter1),
     Counter2 = merge({?TYPE, Delta2}, Counter1),
-     {ok, {?TYPE, {delta, Delta3}}} = delta_mutate(increment, 1, Counter2),
+    {ok, {?TYPE, {delta, Delta3}}} = delta_mutate(increment, 1, Counter2),
     Counter3 = merge({?TYPE, Delta3}, Counter2),
     ?assertEqual({?TYPE, [{1, 1}]}, {?TYPE, Delta1}),
     ?assertEqual({?TYPE, [{1, 1}]}, Counter1),
