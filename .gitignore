@@ -1,2 +1,3 @@
 src/*.swp
 _build/
+TEST-*

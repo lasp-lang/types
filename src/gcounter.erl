@@ -22,7 +22,7 @@
 %% @doc GCounter CRDT: grow only counter.
 %%      Modeled as a dictionary where keys are replicas ids and
 %%      values are the correspondent count.
-%%      An actor may only update is own entry in the dictionary.
+%%      An actor may only update its own entry in the dictionary.
 %%      The value of the counter is the sum all values in the dictionary.
 %%
 %% @reference Paulo Sérgio Almeida, Ali Shoker, and Carlos Baquero
@@ -84,7 +84,7 @@ delta_mutate(increment, Actor, {?TYPE, GCounter}) ->
             0
     end,
     Delta = orddict:store(Actor, Count + 1, orddict:new()),
-    {ok, {delta, {?TYPE, Delta}}}.
+    {ok, {?TYPE, {delta, Delta}}}.
 
 %% @doc Returns the value of the `gcounter()'.
 %%      This value is the sum of all values in the `gcounter()'.
@@ -180,19 +180,28 @@ query_test() ->
     ?assertEqual(0, query(Counter0)),
     ?assertEqual(15, query(Counter1)).
 
+delta_increment_test() ->
+    Counter0 = new(),
+    {ok, {?TYPE, {delta, Delta1}}} = delta_mutate(increment, 1, Counter0),
+    Counter1 = merge({?TYPE, Delta1}, Counter0),
+    {ok, {?TYPE, {delta, Delta2}}} = delta_mutate(increment, 2, Counter1),
+    Counter2 = merge({?TYPE, Delta2}, Counter1),
+    {ok, {?TYPE, {delta, Delta3}}} = delta_mutate(increment, 1, Counter2),
+    Counter3 = merge({?TYPE, Delta3}, Counter2),
+    ?assertEqual({?TYPE, [{1, 1}]}, {?TYPE, Delta1}),
+    ?assertEqual({?TYPE, [{1, 1}]}, Counter1),
+    ?assertEqual({?TYPE, [{2, 1}]}, {?TYPE, Delta2}),
+    ?assertEqual({?TYPE, [{1, 1}, {2, 1}]}, Counter2),
+    ?assertEqual({?TYPE, [{1, 2}]}, {?TYPE, Delta3}),
+    ?assertEqual({?TYPE, [{1, 2}, {2, 1}]}, Counter3).
+
 increment_test() ->
     Counter0 = new(),
-    {ok, {delta, Delta1}} = delta_mutate(increment, 1, Counter0),
-    Counter1 = merge(Delta1, Counter0),
-    {ok, {delta, Delta2}} = delta_mutate(increment, 2, Counter1),
-    Counter2 = merge(Delta2, Counter1),
-    {ok, {delta, Delta3}} = delta_mutate(increment, 1, Counter2),
-    Counter3 = merge(Delta3, Counter2),
-    ?assertEqual({?TYPE, [{1, 1}]}, Delta1),
+    {ok, Counter1} = mutate(increment, 1, Counter0),
+    {ok, Counter2} = mutate(increment, 2, Counter1),
+    {ok, Counter3} = mutate(increment, 1, Counter2),
     ?assertEqual({?TYPE, [{1, 1}]}, Counter1),
-    ?assertEqual({?TYPE, [{2, 1}]}, Delta2),
     ?assertEqual({?TYPE, [{1, 1}, {2, 1}]}, Counter2),
-    ?assertEqual({?TYPE, [{1, 2}]}, Delta3),
     ?assertEqual({?TYPE, [{1, 2}, {2, 1}]}, Counter3).
 
 merge_idempontent_test() ->
