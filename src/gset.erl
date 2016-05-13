@@ -143,7 +143,7 @@ new_test() ->
 
 query_test() ->
     Set0 = new(),
-    Set1 = {?TYPE, ordsets:add_element(<<"a">>, ordsets:new())},
+    Set1 = {?TYPE, [<<"a">>]},
     ?assertEqual([], query(Set0)),
     ?assertEqual([<<"a">>], query(Set1)).
 
@@ -156,57 +156,55 @@ add_test() ->
     Set2 = merge({?TYPE, Delta2}, Set1),
     {ok, {?TYPE, {delta, Delta3}}} = delta_mutate({add, <<"b">>}, Actor, Set2),
     Set3 = merge({?TYPE, Delta3}, Set2),
-    ?assertEqual({?TYPE, ordsets:add_element(<<"a">>, ordsets:new())}, {?TYPE, Delta1}),
-    ?assertEqual({?TYPE, ordsets:add_element(<<"a">>, ordsets:new())}, Set1),
-    ?assertEqual({?TYPE, ordsets:new()}, {?TYPE, Delta2}),
-    ?assertEqual({?TYPE, ordsets:add_element(<<"a">>, ordsets:new())}, Set2),
-    ?assertEqual({?TYPE, ordsets:add_element(<<"b">>, ordsets:new())}, {?TYPE, Delta3}),
-    ?assertEqual({?TYPE, ordsets:add_element(<<"a">>, ordsets:add_element(<<"b">>, ordsets:new()))}, Set3).
+    ?assertEqual({?TYPE, [<<"a">>]}, {?TYPE, Delta1}),
+    ?assertEqual({?TYPE, [<<"a">>]}, Set1),
+    ?assertEqual({?TYPE, []}, {?TYPE, Delta2}),
+    ?assertEqual({?TYPE, [<<"a">>]}, Set2),
+    ?assertEqual({?TYPE, [<<"b">>]}, {?TYPE, Delta3}),
+    ?assertEqual({?TYPE, [<<"a">>, <<"b">>]}, Set3).
 
 merge_idempontent_test() ->
-    Set1 = {?TYPE, ordsets:add_element(<<"a">>, ordsets:new())},
-    Set2 = {?TYPE, ordsets:add_element(<<"a">>, ordsets:add_element(<<"b">>, ordsets:new()))},
+    Set1 = {?TYPE, [<<"a">>]},
+    Set2 = {?TYPE, [<<"a">>, <<"b">>]},
     Set3 = merge(Set1, Set1),
     Set4 = merge(Set2, Set2),
-    ?assertEqual({?TYPE, ordsets:add_element(<<"a">>, ordsets:new())}, Set3),
-    ?assertEqual({?TYPE, ordsets:add_element(<<"a">>, ordsets:add_element(<<"b">>, ordsets:new()))}, Set4).
+    ?assertEqual({?TYPE, [<<"a">>]}, Set3),
+    ?assertEqual({?TYPE, [<<"a">>, <<"b">>]}, Set4).
 
 merge_commutative_test() ->
-    Set1 = {?TYPE, ordsets:add_element(<<"a">>, ordsets:new())},
-    Set2 = {?TYPE, ordsets:add_element(<<"a">>, ordsets:add_element(<<"b">>, ordsets:new()))},
+    Set1 = {?TYPE, [<<"a">>]},
+    Set2 = {?TYPE, [<<"a">>, <<"b">>]},
     Set3 = merge(Set1, Set2),
     Set4 = merge(Set2, Set1),
-    ?assertEqual({?TYPE, ordsets:add_element(<<"a">>, ordsets:add_element(<<"b">>, ordsets:new()))}, Set3),
-    ?assertEqual({?TYPE, ordsets:add_element(<<"a">>, ordsets:add_element(<<"b">>, ordsets:new()))}, Set4).
+    ?assertEqual({?TYPE, [<<"a">>, <<"b">>]}, Set3),
+    ?assertEqual({?TYPE, [<<"a">>, <<"b">>]}, Set4).
 
 equal_test() ->
-    Set1 = {?TYPE, ordsets:add_element(<<"a">>, ordsets:new())},
-    Set2 = {?TYPE, ordsets:add_element(<<"a">>, ordsets:add_element(<<"b">>, ordsets:new()))},
-    Set3 = {?TYPE, ordsets:add_element(<<"b">>, ordsets:add_element(<<"a">>, ordsets:new()))},
+    Set1 = {?TYPE, [<<"a">>]},
+    Set2 = {?TYPE, [<<"a">>, <<"b">>]},
     ?assert(equal(Set1, Set1)),
-    ?assertNot(equal(Set1, Set2)),
-    ?assert(equal(Set2, Set3)).
+    ?assertNot(equal(Set1, Set2)).
 
 is_inflation_test() ->
-    Set1 = {?TYPE, ordsets:add_element(<<"a">>, ordsets:new())},
-    Set2 = {?TYPE, ordsets:add_element(<<"a">>, ordsets:add_element(<<"b">>, ordsets:new()))},
+    Set1 = {?TYPE, [<<"a">>]},
+    Set2 = {?TYPE, [<<"a">>, <<"b">>]},
     ?assert(is_inflation(Set1, Set1)),
     ?assert(is_inflation(Set1, Set2)),
     ?assertNot(is_inflation(Set2, Set1)).
 
 is_strict_inflation_test() ->
-    Set1 = {?TYPE, ordsets:add_element(<<"a">>, ordsets:new())},
-    Set2 = {?TYPE, ordsets:add_element(<<"a">>, ordsets:add_element(<<"b">>, ordsets:new()))},
+    Set1 = {?TYPE, [<<"a">>]},
+    Set2 = {?TYPE, [<<"a">>, <<"b">>]},
     ?assertNot(is_strict_inflation(Set1, Set1)),
     ?assert(is_strict_inflation(Set1, Set2)),
     ?assertNot(is_strict_inflation(Set2, Set1)).
 
 join_decomposition_test() ->
-    Set1 = {?TYPE, ordsets:add_element(<<"a">>, ordsets:new())},
-    Set2 = {?TYPE, ordsets:add_element(<<"a">>, ordsets:add_element(<<"b">>, ordsets:new()))},
+    Set1 = {?TYPE, [<<"a">>]},
+    Set2 = {?TYPE, [<<"a">>, <<"b">>]},
     Decomp1 = join_decomposition(Set1),
     Decomp2 = join_decomposition(Set2),
-    ?assertEqual([{?TYPE, ordsets:add_element(<<"a">>, ordsets:new())}], Decomp1),
-    ?assertEqual(lists:sort([{?TYPE, ordsets:add_element(<<"a">>, ordsets:new())}, {?TYPE, ordsets:add_element(<<"b">>, ordsets:new())}]), lists:sort(Decomp2)).
+    ?assertEqual([{?TYPE, [<<"a">>]}], Decomp1),
+    ?assertEqual(lists:sort([{?TYPE, [<<"a">>]}, {?TYPE, [<<"b">>]}]), lists:sort(Decomp2)).
 
 -endif.
