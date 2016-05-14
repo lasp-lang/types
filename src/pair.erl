@@ -62,16 +62,20 @@ new([Fst, Snd]) ->
 
 %% @doc Mutate a `pair()'.
 -spec mutate(pair_op(), type:actor(), pair()) ->
-    {ok, pair()}.
+    {ok, pair()} | {error, term()}.
 mutate({fst, _}=Op, Actor, {?TYPE, {{FstType, _}=Fst, {_SndType, _}=Snd}}=Pair) ->
     case delta_mutate(Op, Actor, Pair) of
         {ok, {?TYPE, {delta, {Delta, _}}}} ->
-            {ok, {?TYPE, {FstType:merge({FstType, Delta}, Fst), Snd}}}
+            {ok, {?TYPE, {FstType:merge({FstType, Delta}, Fst), Snd}}};
+        Error ->
+            Error
     end;
 mutate({snd, _}=Op, Actor, {?TYPE, {{_FstType, _}=Fst, {SndType, _}=Snd}}=Pair) ->
     case delta_mutate(Op, Actor, Pair) of
         {ok, {?TYPE, {delta, {_, Delta}}}} ->
-            {ok, {?TYPE, {Fst, SndType:merge({SndType, Delta}, Snd)}}}
+            {ok, {?TYPE, {Fst, SndType:merge({SndType, Delta}, Snd)}}};
+        Error ->
+            Error
     end.
 
 %% @doc Delta-mutate a `pair()'.
@@ -79,7 +83,7 @@ mutate({snd, _}=Op, Actor, {?TYPE, {{_FstType, _}=Fst, {SndType, _}=Snd}}=Pair) 
 %%      will delta mutate the pair in the first or second component
 %%      respectively.
 -spec delta_mutate(pair_op(), type:actor(), pair()) ->
-    {ok, delta_pair()}.
+    {ok, delta_pair()} | {error, term()}.
 delta_mutate({fst, Op}, Actor, {?TYPE, {{FstType, _}=Fst, {SndType, _}}}) ->
     case FstType:delta_mutate(Op, Actor, Fst) of
         {ok, {FstType, {delta, Delta}}} ->
