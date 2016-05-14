@@ -66,16 +66,12 @@ new([Fst, Snd]) ->
 mutate({fst, _}=Op, Actor, {?TYPE, {{FstType, _}=Fst, {_SndType, _}=Snd}}=Pair) ->
     case delta_mutate(Op, Actor, Pair) of
         {ok, {?TYPE, {delta, {Delta, _}}}} ->
-            {ok, {?TYPE, {FstType:merge({FstType, Delta}, Fst), Snd}}};
-        Error ->
-            Error
+            {ok, {?TYPE, {FstType:merge({FstType, Delta}, Fst), Snd}}}
     end;
 mutate({snd, _}=Op, Actor, {?TYPE, {{_FstType, _}=Fst, {SndType, _}=Snd}}=Pair) ->
     case delta_mutate(Op, Actor, Pair) of
         {ok, {?TYPE, {delta, {_, Delta}}}} ->
-            {ok, {?TYPE, {Fst, SndType:merge({SndType, Delta}, Snd)}}};
-        Error ->
-            Error
+            {ok, {?TYPE, {Fst, SndType:merge({SndType, Delta}, Snd)}}}
     end.
 
 %% @doc Delta-mutate a `pair()'.
