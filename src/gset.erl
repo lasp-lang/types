@@ -65,7 +65,7 @@ mutate(Op, Actor, {?TYPE, _GSet}=CRDT) ->
     type:mutate(Op, Actor, CRDT).
 
 %% @doc Delta-mutate a `gset()'.
-%%      The first argument can only be `{add, term()}'.
+%%      The first argument can only be `{add, element()}'.
 %%      The second argument is the replica id (unused).
 %%      The third argument is the `gset()' to be inflated.
 %%      Returns a `gset()' delta which is a new `gset()'
@@ -126,7 +126,7 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 join_decomposition({?TYPE, GSet}) ->
     ordsets:fold(
         fun(Elem, Acc) ->
-            [{?TYPE, ordsets:add_element(Elem, ordsets:new())} | Acc]
+            [{?TYPE, [Elem]} | Acc]
         end,
         [],
         GSet
