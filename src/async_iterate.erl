@@ -76,7 +76,9 @@ init([Unique, Function]) ->
 
     %% Spawn function to populate ets table and pass in our process
     %% identifier.
-    spawn_link(Function, [self()]),
+    spawn_link(fun() ->
+                       Function(self())
+               end),
 
     {ok, #state{function=Function,
                 tid=Tid,
