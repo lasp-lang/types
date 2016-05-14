@@ -28,7 +28,7 @@
 -export([mutate/3, is_strict_inflation/2]).
 
 %% Define some initial types.
--type type() :: gcounter | pncounter.
+-type type() :: gcounter | pncounter | gset | pair.
 -type payload() :: term().
 -type crdt() :: {type(), payload()}.
 -type delta_crdt() :: {type(), {delta, payload()}}.
@@ -78,8 +78,8 @@
     {ok, crdt()} | {error, error()}.
 mutate(Op, Actor, {Type, _}=CRDT) ->
     case Type:delta_mutate(Op, Actor, CRDT) of
-        {ok, {delta, Delta}} ->
-            {ok, Type:merge(Delta, CRDT)};
+        {ok, {Type, {delta, Delta}}} ->
+            {ok, Type:merge({Type, Delta}, CRDT)};
         Error ->
             Error
     end.
@@ -89,8 +89,7 @@ mutate(Op, Actor, {Type, _}=CRDT) ->
 %%          - we have an inflation
 %%          - we have different CRDTs
 -spec is_strict_inflation(crdt(), crdt()) -> boolean().
-is_strict_inflation({Type1, _}=CRDT1, {Type2, _}=CRDT2) ->
-    Type1 == Type2 andalso
-    Type1:is_inflation(CRDT1, CRDT2) andalso
-    not Type1:equal(CRDT1, CRDT2).
+is_strict_inflation({Type, _}=CRDT1, {Type, _}=CRDT2) ->
+    Type:is_inflation(CRDT1, CRDT2) andalso
+    not Type:equal(CRDT1, CRDT2).
 
