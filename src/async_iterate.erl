@@ -24,7 +24,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/1,
+-export([start_link/2,
          iterator/0,
          next/1]).
 
@@ -49,9 +49,9 @@
 %%%===================================================================
 
 %% @doc Same as start_link([]).
--spec start_link(function()) -> {ok, pid()} | ignore | {error, term()}.
-start_link(Function) ->
-    gen_server:start_link(?MODULE, [Function], []).
+-spec start_link(atom(), function()) -> {ok, pid()} | ignore | {error, term()}.
+start_link(Unique, Function) ->
+    gen_server:start_link(?MODULE, [Unique, Function], []).
 
 %% @doc Return an iterator.
 iterator() ->
@@ -66,20 +66,19 @@ next(Continuation) ->
 %%%===================================================================
 
 %% @private
--spec init([]) -> {ok, #state{}}.
-init(Function) ->
-    %% Generate unique identifier for the request.
-    Id = mk_unique(),
-
+-spec init([term()]) -> {ok, #state{}}.
+init([Unique, Function]) ->
     %% Generate an ets table to store results.
-    Tid = ets:new(Id, []),
+    Tid = ets:new(Unique, []),
 
     %% Trap exits.
     process_flag(trap_exit, true),
 
     %% Spawn function to populate ets table and pass in our process
     %% identifier.
-    spawn_link(Function, [self()]),
+    spawn_link(fun() ->
+                       Function(self())
+               end),
 
     {ok, #state{function=Function,
                 tid=Tid,
@@ -139,14 +138,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-
-%% @private
-mk_unique() ->
-    Node = atom_to_list(node()),
-    Unique = time_compat:unique_integer([monotonic, positive]),
-    TS = integer_to_list(Unique),
-    Term = Node ++ TS,
-    crypto:hash(sha, Term).
 
 %% @private
 read(From, Finished, Continuation) ->
