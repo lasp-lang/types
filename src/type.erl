@@ -28,7 +28,7 @@
 -export([mutate/3, is_strict_inflation/2]).
 
 %% Define some initial types.
--type type() :: gcounter | pncounter | gset | pair.
+-type type() :: gcounter | pncounter | gset | pair | orset.
 -type payload() :: term().
 -type crdt() :: {type(), payload()}.
 -type delta_crdt() :: {type(), {delta, payload()}}.
