@@ -49,8 +49,8 @@
 -type element() :: term().
 -type token() :: term().
 -type orset_op() :: {add, element()} |
-                      {add_by_token, token(), element()} |
-                      {rmv, element()}.
+                    {add_by_token, token(), element()} |
+                    {rmv, element()}.
 
 %% @doc Create a new, empty `orset()'
 -spec new() -> orset().
