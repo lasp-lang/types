@@ -105,9 +105,9 @@ merge({?TYPE, GSet1}, {?TYPE, GSet2}) ->
 equal({?TYPE, GSet1}, {?TYPE, GSet2}) ->
     ordsets:is_subset(GSet1, GSet2) andalso ordsets:is_subset(GSet2, GSet1).
 
-%% @doc Given two `gset()', check if the second is and inflation
+%% @doc Given two `gset()', check if the second is an inflation
 %%      of the first.
-%%      The second `gset()' is and inflation if the first set is
+%%      The second `gset()' is an inflation if the first set is
 %%      a subset of the second.
 -spec is_inflation(gset(), gset()) -> boolean().
 is_inflation({?TYPE, GSet1}, {?TYPE, GSet2}) ->
