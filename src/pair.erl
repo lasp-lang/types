@@ -31,6 +31,7 @@
 -behaviour(type).
 
 -define(TYPE, ?MODULE).
+-define(IVAR_TYPE, ivar).
 -define(GSET_TYPE, gset).
 -define(GCOUNTER_TYPE, gcounter).
 -define(PNCOUNTER_TYPE, pncounter).
@@ -53,10 +54,10 @@
 -type pair_op() :: {fst, term()} | {snd, term()}.
 
 %% @doc Create a new, empty `pair()'
-%%      By default it creates a pair of `?GCOUNTER_TYPE()'.
+%%      By default it creates a pair of `?IVAR_TYPE()'.
 -spec new() -> pair().
 new() ->
-    new([?GCOUNTER_TYPE, ?GCOUNTER_TYPE]).
+    new([?IVAR_TYPE, ?IVAR_TYPE]).
 
 %% @doc Create a new, empty `pair()'
 -spec new([type:type()]) -> pair().
@@ -162,7 +163,7 @@ join_decomposition({?TYPE, _Pair}) -> [].
 new_test() ->
     Pair0 = new(),
     Pair1 = new([?GSET_TYPE, ?GSET_TYPE]),
-    ?assertEqual({?TYPE, {{?GCOUNTER_TYPE, []}, {?GCOUNTER_TYPE, []}}}, Pair0),
+    ?assertEqual({?TYPE, {{?IVAR_TYPE, undefined}, {?IVAR_TYPE, undefined}}}, Pair0),
     ?assertEqual({?TYPE, {{?GSET_TYPE, []}, {?GSET_TYPE, []}}}, Pair1).
 
 query_test() ->
@@ -241,7 +242,7 @@ join_decomposition_test() ->
 
 equivalent_with_pncounter_test() ->
     Actor = 1,
-    Pair0 = new(),
+    Pair0 = new([?GCOUNTER_TYPE, ?GCOUNTER_TYPE]),
     {ok, Pair1} = ?TYPE:mutate({fst, increment}, Actor, Pair0),
     {ok, Pair2} = ?TYPE:mutate({snd, increment}, Actor, Pair1),
     {V1, V2} = ?TYPE:query(Pair2),
