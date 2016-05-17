@@ -25,7 +25,7 @@
 -module(type).
 -author("Christopher Meiklejohn <christopher.meiklejohn@gmail.com>").
 
--export([mutate/3, is_strict_inflation/2]).
+-export([mutate/3, is_inflation/2, is_strict_inflation/2]).
 
 %% Define some initial types.
 -type type() :: ivar | gcounter | pncounter | gset | pair | orset.
@@ -83,6 +83,11 @@ mutate(Op, Actor, {Type, _}=CRDT) ->
         Error ->
             Error
     end.
+
+%% @doc Generic check for inflation.
+-spec is_inflation(crdt(), crdt()) -> boolean().
+is_inflation({Type, _}=CRDT1, {Type, _}=CRDT2) ->
+    Type:equal(Type:merge(CRDT1, CRDT2), CRDT2).
 
 %% @doc Generic check for strict inflation.
 %%      We have a strict inflation if:

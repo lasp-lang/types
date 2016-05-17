@@ -161,7 +161,11 @@ is_inflation_test() ->
     ?assert(is_inflation(Var0, Var1)),
     ?assert(is_inflation(Var1, Var1)),
     ?assertNot(is_inflation(Var1, Var2)),
-    ?assertNot(is_inflation(Var2, Var1)).
+    ?assertNot(is_inflation(Var2, Var1)),
+    %% check inflation with merge
+    ?assert(type:is_inflation(Var0, Var0)),
+    ?assert(type:is_inflation(Var0, Var1)),
+    ?assert(type:is_inflation(Var1, Var1)).
 
 is_strict_inflation_test() ->
     Var0 = new(),

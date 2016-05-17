@@ -23,6 +23,10 @@
 %% @reference Paulo Sérgio Almeida, Ali Shoker, and Carlos Baquero
 %%      Delta State Replicated Data Types (2016)
 %%      [http://arxiv.org/pdf/1603.01529v1.pdf]
+%%
+%% @reference Carlos Baquero
+%%      delta-enabled-crdts C++ library
+%%      [https://github.com/CBaquero/delta-enabled-crdts]
 
 -module(gset).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
@@ -198,7 +202,11 @@ is_inflation_test() ->
     Set2 = {?TYPE, [<<"a">>, <<"b">>]},
     ?assert(is_inflation(Set1, Set1)),
     ?assert(is_inflation(Set1, Set2)),
-    ?assertNot(is_inflation(Set2, Set1)).
+    ?assertNot(is_inflation(Set2, Set1)),
+    %% check inflation with merge
+    ?assert(type:is_inflation(Set1, Set1)),
+    ?assert(type:is_inflation(Set1, Set2)),
+    ?assertNot(type:is_inflation(Set2, Set1)).
 
 is_strict_inflation_test() ->
     Set1 = {?TYPE, [<<"a">>]},
