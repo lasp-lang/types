@@ -68,7 +68,7 @@ query({?TYPE, {_, PureGSet}}) ->
     ordsets:to_list(PureGSet).
 
 %% @doc Equality for `pure_gset()'.
-%%      Two sets s1 and s2 are equal if:
+%%      Two sets s1 and s2 are equal if both conditions below are true:
 %%          - s1 is subset of s2
 %%          - s2 is subset of s1
 -spec equal(pure_gset(), pure_gset()) -> boolean().

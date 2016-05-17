@@ -20,10 +20,6 @@
 %% -------------------------------------------------------------------
 
 %% @doc Pure GCounter CRDT: pure op-based grow-only counter.
-%%      Modeled as a dictionary where keys are replicas ids and
-%%      values are the correspondent count.
-%%      An actor may only update is own entry in the dictionary.
-%%      The value of the pure_gcounter is the sum all values in the dictionary.
 %%
 %% @reference Carlos Baquero, Paulo Sérgio Almeida, and Ali Shoker
 %%      Making Operation-based CRDTs Operation-based (2014)
@@ -58,7 +54,7 @@ new() ->
 new([]) ->
     new().
 
-%% @doc Mutate a `pure_gcounter()'.
+%% @doc Update a `pure_gcounter()'.
 -spec update(pure_gcounter_op(), pure_gcounter()) ->
     {ok, pure_gcounter()}.
 update(increment, {?TYPE, {POLog, PureGCounter}}) ->
@@ -68,17 +64,12 @@ update(decrement, {?TYPE, {POLog, PureGCounter}}) ->
     PureGCounter1 = {?TYPE, {POLog, PureGCounter - 1}},
     {ok, PureGCounter1}.
 
-%% @doc Returns the value of the `pure_gcounter()'.
-%%      This value is the sum of all values in the `pure_gcounter()'.
+%% @doc Return the value of the `pure_gcounter()'.
 -spec query(pure_gcounter()) -> integer().
 query({?TYPE, {_POLog, PureGCounter}}) ->
     PureGCounter.
 
-%% @doc Are two `pure_gcounter()'s structurally equal?
-%%      This is not `query/1' equality.
-%%      Two pure_gcounters might represent the total `42', and not be `equal/2'.
-%%      Equality here is that both pure_gcounters contain the same replica ids
-%%      and those replicas have the same count.
+%% @doc Check if two `pure_gcounter()' instances have the same value.
 -spec equal(pure_gcounter(), pure_gcounter()) -> boolean().
 equal({?TYPE, {_POLog1, PureGCounter1}}, {?TYPE, {_POLog2, PureGCounter2}}) ->
     PureGCounter1 == PureGCounter2.

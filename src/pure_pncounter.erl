@@ -54,7 +54,7 @@ new() ->
 new([]) ->
     new().
 
-%% @doc Mutate a `pure_pncounter()'.
+%% @doc Update a `pure_pncounter()'.
 -spec update(pure_pncounter_op(), pure_pncounter()) ->
     {ok, pure_pncounter()}.
 update(increment, {?TYPE, {POLog, PurePNCounter}}) ->
@@ -64,17 +64,12 @@ update(decrement, {?TYPE, {POLog, PurePNCounter}}) ->
     PurePNCounter1 = {?TYPE, {POLog, PurePNCounter - 1}},
     {ok, PurePNCounter1}.
 
-%% @doc Returns the value of the `pure_pncounter()'.
-%%      This value is the sum of all values in the `pure_pncounter()'.
+%% @doc Return the value of the `pure_pncounter()'.
 -spec query(pure_pncounter()) -> integer().
 query({?TYPE, {_POLog, PurePNCounter}}) ->
     PurePNCounter.
 
-%% @doc Are two `pure_pncounter()'s structurally equal?
-%%      This is not `query/1' equality.
-%%      Two pure_pncounters might represent the total `42', and not be `equal/2'.
-%%      Equality here is that both pure_pncounters contain the same replica ids
-%%      and those replicas have the same count.
+%% @doc Check if two `pure_pncounter()' instances have the same value.
 -spec equal(pure_pncounter(), pure_pncounter()) -> boolean().
 equal({?TYPE, {_POLog1, PurePNCounter1}}, {?TYPE, {_POLog2, PurePNCounter2}}) ->
     PurePNCounter1 == PurePNCounter2.
