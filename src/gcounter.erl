@@ -121,7 +121,7 @@ equal({?TYPE, GCounter1}, {?TYPE, GCounter2}) ->
     Fun = fun(Value1, Value2) -> Value1 == Value2 end,
     orddict_ext:equal(GCounter1, GCounter2, Fun).
 
-%% @doc Given two `gcounter()', check if the second is and inflation
+%% @doc Given two `gcounter()', check if the second is an inflation
 %%      of the first.
 %%      Two conditions should be met:
 %%          - each replica id in the first `gcounter()' is also in
