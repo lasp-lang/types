@@ -1,0 +1,122 @@
+% -------------------------------------------------------------------
+%%
+%% Copyright (c) 2015-2016 Christopher Meiklejohn.  All Rights Reserved.
+%% Copyright (c) 2007-2012 Basho Technologies, Inc.  All Rights Reserved.
+%%
+%% This file is provided to you under the Apache License,
+%% Version 2.0 (the "License"); you may not use this file
+%% except in compliance with the License.  You may obtain
+%% a copy of the License at
+%%
+%%   http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing,
+%% software distributed under the License is distributed on an
+%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+%% KIND, either express or implied.  See the License for the
+%% specific language governing permissions and limitations
+%% under the License.
+%%
+%% -------------------------------------------------------------------
+
+%% @doc Pure GCounter CRDT: pure op-based grow-only counter.
+%%      Modeled as a dictionary where keys are replicas ids and
+%%      values are the correspondent count.
+%%      An actor may only update is own entry in the dictionary.
+%%      The value of the pure_gcounter is the sum all values in the dictionary.
+%%
+%% @reference Carlos Baquero, Paulo Sérgio Almeida, and Ali Shoker
+%%      Making Operation-based CRDTs Operation-based (2014)
+%%      [http://haslab.uminho.pt/ashoker/files/opbaseddais14.pdf]
+
+-module(pure_gcounter).
+-author("Georges Younes <georges.r.younes@gmail.com>").
+
+-define(TYPE, ?MODULE).
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
+-export([new/0, new/1]).
+-export([update/2, query/1, equal/2]).
+
+-export_type([pure_gcounter/0, pure_gcounter_op/0]).
+
+-opaque pure_gcounter() :: {?TYPE, payload()}.
+-type polog() :: orddict:orddict().
+-type payload() :: {polog(), integer()}.
+-type pure_gcounter_op() :: increment | decrement.
+
+%% @doc Create a new, empty `pure_gcounter()'
+-spec new() -> pure_gcounter().
+new() ->
+    {?TYPE, {orddict:new(), 0}}.
+
+%% @doc Create a new, empty `pure_gcounter()'
+-spec new([term()]) -> pure_gcounter().
+new([]) ->
+    new().
+
+%% @doc Mutate a `pure_gcounter()'.
+-spec update(pure_gcounter_op(), pure_gcounter()) ->
+    {ok, pure_gcounter()}.
+update(increment, {?TYPE, {POLog, PureGCounter}}) ->
+    PureGCounter1 = {?TYPE, {POLog, PureGCounter + 1}},
+    {ok, PureGCounter1};
+update(decrement, {?TYPE, {POLog, PureGCounter}}) ->
+    PureGCounter1 = {?TYPE, {POLog, PureGCounter - 1}},
+    {ok, PureGCounter1}.
+
+%% @doc Returns the value of the `pure_gcounter()'.
+%%      This value is the sum of all values in the `pure_gcounter()'.
+-spec query(pure_gcounter()) -> integer().
+query({?TYPE, {_POLog, PureGCounter}}) ->
+    PureGCounter.
+
+%% @doc Are two `pure_gcounter()'s structurally equal?
+%%      This is not `query/1' equality.
+%%      Two pure_gcounters might represent the total `42', and not be `equal/2'.
+%%      Equality here is that both pure_gcounters contain the same replica ids
+%%      and those replicas have the same count.
+-spec equal(pure_gcounter(), pure_gcounter()) -> boolean().
+equal({?TYPE, {_POLog1, PureGCounter1}}, {?TYPE, {_POLog2, PureGCounter2}}) ->
+    PureGCounter1 == PureGCounter2.
+
+%% ===================================================================
+%% EUnit tests
+%% ===================================================================
+-ifdef(TEST).
+
+new_test() ->
+    ?assertEqual({?TYPE, {[], 0}}, new()).
+
+query_test() ->
+    PureGCounter0 = new(),
+    PureGCounter1 = {?TYPE, {[], 15}},
+    ?assertEqual(0, query(PureGCounter0)),
+    ?assertEqual(15, query(PureGCounter1)).
+
+increment_test() ->
+    PureGCounter0 = new(),
+    {ok, PureGCounter1} = update(increment, PureGCounter0),
+    {ok, PureGCounter2} = update(increment, PureGCounter1),
+    ?assertEqual({?TYPE, {[], 1}}, PureGCounter1),
+    ?assertEqual({?TYPE, {[], 2}}, PureGCounter2).
+
+decrement_test() ->
+    PureGCounter0 = {?TYPE, {[], 1}},
+    {ok, PureGCounter1} = update(decrement, PureGCounter0),
+    {ok, PureGCounter2} = update(decrement, PureGCounter1),
+    ?assertEqual({?TYPE, {[], 0}}, PureGCounter1),
+    ?assertEqual({?TYPE, {[], -1}}, PureGCounter2).
+
+equal_test() ->
+    PureGCounter1 = {?TYPE, {[], 1}},
+    PureGCounter2 = {?TYPE, {[], 2}},
+    PureGCounter3 = {?TYPE, {[], 3}},
+    ?assert(equal(PureGCounter1, PureGCounter1)),
+    ?assertNot(equal(PureGCounter2, PureGCounter1)),
+    ?assertNot(equal(PureGCounter2, PureGCounter3)).
+
+-endif.
