@@ -28,6 +28,8 @@
 -module(pure_gcounter).
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
+-behaviour(pure_type).
+
 -define(TYPE, ?MODULE).
 
 -ifdef(TEST).
@@ -35,14 +37,13 @@
 -endif.
 
 -export([new/0, new/1]).
--export([update/2, query/1, equal/2]).
+-export([update/3, query/1, equal/2]).
 
 -export_type([pure_gcounter/0, pure_gcounter_op/0]).
 
--opaque pure_gcounter() :: {?TYPE, payload()}.
--type polog() :: orddict:orddict().
--type payload() :: {polog(), integer()}.
--type pure_gcounter_op() :: increment | decrement.
+-opaque pure_gcounter() :: {?TYPE, pure_payload()}.
+-type pure_payload() :: {pure_type:polog(), integer()}.
+-type pure_gcounter_op() :: increment.
 
 %% @doc Create a new, empty `pure_gcounter()'
 -spec new() -> pure_gcounter().
@@ -55,17 +56,14 @@ new([]) ->
     new().
 
 %% @doc Update a `pure_gcounter()'.
--spec update(pure_gcounter_op(), pure_gcounter()) ->
+-spec update(pure_gcounter_op(), pure_type:version_vector(), pure_gcounter()) ->
     {ok, pure_gcounter()}.
-update(increment, {?TYPE, {POLog, PureGCounter}}) ->
-    PureGCounter1 = {?TYPE, {POLog, PureGCounter + 1}},
-    {ok, PureGCounter1};
-update(decrement, {?TYPE, {POLog, PureGCounter}}) ->
-    PureGCounter1 = {?TYPE, {POLog, PureGCounter - 1}},
+update(increment, _VV, {?TYPE, {_POLog, PureGCounter}}) ->
+    PureGCounter1 = {?TYPE, {_POLog, PureGCounter + 1}},
     {ok, PureGCounter1}.
 
 %% @doc Return the value of the `pure_gcounter()'.
--spec query(pure_gcounter()) -> integer().
+-spec query(pure_gcounter()) -> non_neg_integer().
 query({?TYPE, {_POLog, PureGCounter}}) ->
     PureGCounter.
 
@@ -90,17 +88,10 @@ query_test() ->
 
 increment_test() ->
     PureGCounter0 = new(),
-    {ok, PureGCounter1} = update(increment, PureGCounter0),
-    {ok, PureGCounter2} = update(increment, PureGCounter1),
+    {ok, PureGCounter1} = update(increment, [], PureGCounter0),
+    {ok, PureGCounter2} = update(increment, [], PureGCounter1),
     ?assertEqual({?TYPE, {[], 1}}, PureGCounter1),
     ?assertEqual({?TYPE, {[], 2}}, PureGCounter2).
-
-decrement_test() ->
-    PureGCounter0 = {?TYPE, {[], 1}},
-    {ok, PureGCounter1} = update(decrement, PureGCounter0),
-    {ok, PureGCounter2} = update(decrement, PureGCounter1),
-    ?assertEqual({?TYPE, {[], 0}}, PureGCounter1),
-    ?assertEqual({?TYPE, {[], -1}}, PureGCounter2).
 
 equal_test() ->
     PureGCounter1 = {?TYPE, {[], 1}},

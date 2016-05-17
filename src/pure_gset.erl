@@ -27,6 +27,8 @@
 -module(pure_gset).
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
+-behaviour(pure_type).
+
 -define(TYPE, ?MODULE).
 
 -ifdef(TEST).
@@ -34,15 +36,13 @@
 -endif.
 
 -export([new/0, new/1]).
--export([update/2, query/1, equal/2]).
+-export([update/3, query/1, equal/2]).
 
 -export_type([pure_gset/0, pure_gset_op/0]).
 
--opaque pure_gset() :: {?TYPE, payload()}.
--type polog() :: orddict:orddict().
--type payload() :: {polog(), ordsets:set()}.
--type element() :: term().
--type pure_gset_op() :: {add, element()}.
+-opaque pure_gset() :: {?TYPE, pure_payload()}.
+-type pure_payload() :: {pure_type:polog(), ordsets:set()}.
+-type pure_gset_op() :: {add, pure_type:element()}.
 
 %% @doc Create a new, empty `pure_gset()'
 -spec new() -> pure_gset().
@@ -55,15 +55,15 @@ new([]) ->
     new().
 
 %% @doc Update a `pure_gset()'.
--spec update(pure_gset_op(), pure_gset()) ->
+-spec update(pure_gset_op(), pure_type:version_vector(), pure_gset()) ->
     {ok, pure_gset()}.
-update({add, Elem}, {?TYPE, {POLog, PureGSet}}) ->
-    PureGSet1 = {?TYPE, {POLog, ordsets:add_element(Elem, PureGSet)}},
+update({add, Elem}, _VV, {?TYPE, {_POLog, PureGSet}}) ->
+    PureGSet1 = {?TYPE, {_POLog, ordsets:add_element(Elem, PureGSet)}},
     {ok, PureGSet1}.
 
 %% @doc Returns the value of the `pure_gset()'.
 %%      This value is a list with all the elements in the `pure_gset()'.
--spec query(pure_gset()) -> [element()].
+-spec query(pure_gset()) -> [pure_type:element()].
 query({?TYPE, {_, PureGSet}}) ->
     ordsets:to_list(PureGSet).
 
@@ -91,8 +91,8 @@ query_test() ->
 
 add_test() ->
     Set0 = new(),
-    {ok, Set1} = update({add, <<"a">>}, Set0),
-    {ok, Set2} = update({add, <<"b">>}, Set1),
+    {ok, Set1} = update({add, <<"a">>}, [], Set0),
+    {ok, Set2} = update({add, <<"b">>}, [], Set1),
     ?assertEqual({?TYPE, {[], [<<"a">>]}}, Set1),
     ?assertEqual({?TYPE, {[], [<<"a">>, <<"b">>]}}, Set2).
 
