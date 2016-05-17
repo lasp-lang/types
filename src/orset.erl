@@ -51,7 +51,8 @@
 -type orset_op() :: {add, element()} |
                     {add_by_token, token(), element()} |
                     {add_all, [element()]} |
-                    {rmv, element()}.
+                    {rmv, element()} |
+                    {rmv_all, [element()]}.
 
 %% @doc Create a new, empty `orset()'
 -spec new() -> orset().
@@ -65,7 +66,7 @@ new([]) ->
 
 %% @doc Mutate a `orset()'.
 -spec mutate(orset_op(), type:actor(), orset()) ->
-    {ok, orset()} | {error, {precondition, {not_present, element()}}}.
+    {ok, orset()} | {error, {precondition, {not_present, [element()]}}}.
 mutate(Op, Actor, {?TYPE, _ORSet}=CRDT) ->
     type:mutate(Op, Actor, CRDT).
 
@@ -115,7 +116,28 @@ delta_mutate({rmv, Elem}, _Actor, {?TYPE, ORSet}) ->
             Delta = orddict:store(Elem, InactiveTokens, orddict:new()),
             {ok, {?TYPE, {delta, Delta}}};
         error ->
-            {error, {precondition, {not_present, Elem}}}
+            {error, {precondition, {not_present, [Elem]}}}
+    end;
+
+%% @doc Removes a list of elemenets passed as input.
+delta_mutate({rmv_all, Elems}, Actor, {?TYPE, _}=ORSet) ->
+    {{?TYPE, DeltaGroup}, NotRemoved} = lists:foldl(
+        fun(Elem, {DeltaGroupAcc, NotRemovedAcc}) ->
+            case delta_mutate({rmv, Elem}, Actor, ORSet) of
+                {ok, {?TYPE, {delta, Delta}}} ->
+                    {merge({?TYPE, Delta}, DeltaGroupAcc), NotRemovedAcc};
+                {error, {precondition, {not_present, [ElemNotRemoved]}}} ->
+                    {DeltaGroupAcc, [ElemNotRemoved | NotRemovedAcc]}
+            end
+        end,
+        {new(), []},
+        Elems
+    ),
+    case NotRemoved of
+        [] ->
+            {ok, {?TYPE, {delta, DeltaGroup}}};
+        _ ->
+            {error, {precondition, {not_present, NotRemoved}}}
     end.
 
 %% @doc Returns the value of the `orset()'.
@@ -278,6 +300,14 @@ add_test() ->
     ?assertEqual({?TYPE, [{<<"a">>, [{<<"token1">>, true}, {<<"token2">>, true}]}]}, Set2),
     ?assertEqual({?TYPE, [{<<"a">>, [{<<"token1">>, true}, {<<"token2">>, true}]}, {<<"b">>, [{<<"token3">>, true}]}]}, Set3).
 
+rmv_test() ->
+    Actor = 1,
+    Set0 = new(),
+    {ok, Set1} = mutate({add, <<"a">>}, Actor, Set0),
+    {error, _} = mutate({rmv, <<"b">>}, Actor, Set1),
+    {ok, Set2} = mutate({rmv, <<"a">>}, Actor, Set1),
+    ?assertEqual([], query(Set2)).
+
 add_all_test() ->
     Actor = 1,
     Set0 = new(),
@@ -287,6 +317,16 @@ add_all_test() ->
     ?assertEqual([], query(Set1)),
     ?assertEqual(lists:sort([<<"a">>, <<"b">>]), lists:sort(query(Set2))),
     ?assertEqual(lists:sort([<<"a">>, <<"b">>, <<"c">>]), lists:sort(query(Set3))).
+
+remove_all_test() ->
+    Actor = 1,
+    Set0 = new(),
+    {ok, Set1} = mutate({add_all, [<<"a">>, <<"b">>, <<"c">>]}, Actor, Set0),
+    {ok, Set2} = mutate({rmv_all, [<<"a">>, <<"c">>]}, Actor, Set1),
+    {error, _} = mutate({rmv_all, [<<"b">>, <<"d">>]}, Actor, Set2),
+    {ok, Set3} = mutate({rmv_all, [<<"b">>, <<"a">>]}, Actor, Set2),
+    ?assertEqual([<<"b">>], query(Set2)),
+    ?assertEqual([], query(Set3)).
 
 merge_idempontent_test() ->
     Set1 = {?TYPE, [{<<"a">>, [{<<"token1">>, false}]}]},
