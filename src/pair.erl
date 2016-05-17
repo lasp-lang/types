@@ -31,6 +31,9 @@
 -behaviour(type).
 
 -define(TYPE, ?MODULE).
+-define(GSET_TYPE, gset).
+-define(GCOUNTER_TYPE, gcounter).
+-define(PNCOUNTER_TYPE, pncounter).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -50,10 +53,10 @@
 -type pair_op() :: {fst, term()} | {snd, term()}.
 
 %% @doc Create a new, empty `pair()'
-%%      By default it creates a pair of `gcounter()'.
+%%      By default it creates a pair of `?GCOUNTER_TYPE()'.
 -spec new() -> pair().
 new() ->
-    new([gcounter, gcounter]).
+    new([?GCOUNTER_TYPE, ?GCOUNTER_TYPE]).
 
 %% @doc Create a new, empty `pair()'
 -spec new([type:type()]) -> pair().
@@ -158,45 +161,45 @@ join_decomposition({?TYPE, _Pair}) -> [].
 
 new_test() ->
     Pair0 = new(),
-    Pair1 = new([gset, gset]),
-    ?assertEqual({?TYPE, {{gcounter, []}, {gcounter, []}}}, Pair0),
-    ?assertEqual({?TYPE, {{gset, []}, {gset, []}}}, Pair1).
+    Pair1 = new([?GSET_TYPE, ?GSET_TYPE]),
+    ?assertEqual({?TYPE, {{?GCOUNTER_TYPE, []}, {?GCOUNTER_TYPE, []}}}, Pair0),
+    ?assertEqual({?TYPE, {{?GSET_TYPE, []}, {?GSET_TYPE, []}}}, Pair1).
 
 query_test() ->
-    GCounter = {gcounter, [{1, 5}, {2, 10}]},
-    GSet = {gset, [<<"a">>]},
+    GCounter = {?GCOUNTER_TYPE, [{1, 5}, {2, 10}]},
+    GSet = {?GSET_TYPE, [<<"a">>]},
     Pair = {?TYPE, {GCounter, GSet}},
     ?assertEqual({15, [<<"a">>]}, query(Pair)).
 
 mutate_test() ->
     Actor = 1,
-    GCounter = {gcounter, [{1, 5}, {2, 10}]},
-    GSet = {gset, [<<"a">>]},
+    GCounter = {?GCOUNTER_TYPE, [{1, 5}, {2, 10}]},
+    GSet = {?GSET_TYPE, [<<"a">>]},
     Pair0 = {?TYPE, {GCounter, GSet}},
     {ok, Pair1} = mutate({fst, increment}, Actor, Pair0),
     {ok, Pair2} = mutate({snd, {add, <<"b">>}}, Actor, Pair1),
-    ?assertEqual({?TYPE, {{gcounter, [{1, 6}, {2, 10}]}, {gset, [<<"a">>]}}}, Pair1),
-    ?assertEqual({?TYPE, {{gcounter, [{1, 6}, {2, 10}]}, {gset, [<<"a">>, <<"b">>]}}}, Pair2).
+    ?assertEqual({?TYPE, {{?GCOUNTER_TYPE, [{1, 6}, {2, 10}]}, {?GSET_TYPE, [<<"a">>]}}}, Pair1),
+    ?assertEqual({?TYPE, {{?GCOUNTER_TYPE, [{1, 6}, {2, 10}]}, {?GSET_TYPE, [<<"a">>, <<"b">>]}}}, Pair2).
 
 merge_test() ->
-    GCounter1 = {gcounter, [{1, 5}, {2, 10}]},
-    GCounter2 = {gcounter, [{1, 7}, {3, 8}]},
-    GSet1 = {gset, [<<"a">>]},
-    GSet2 = {gset, [<<"b">>]},
+    GCounter1 = {?GCOUNTER_TYPE, [{1, 5}, {2, 10}]},
+    GCounter2 = {?GCOUNTER_TYPE, [{1, 7}, {3, 8}]},
+    GSet1 = {?GSET_TYPE, [<<"a">>]},
+    GSet2 = {?GSET_TYPE, [<<"b">>]},
     Pair1 = {?TYPE, {GCounter1, GSet1}},
     Pair2 = {?TYPE, {GCounter2, GSet2}},
     Pair3 = merge(Pair1, Pair1),
     Pair4 = merge(Pair1, Pair2),
     Pair5 = merge(Pair2, Pair1),
-    ?assertEqual({?TYPE, {{gcounter, [{1, 5}, {2, 10}]}, {gset, [<<"a">>]}}}, Pair3),
-    ?assertEqual({?TYPE, {{gcounter, [{1, 7}, {2, 10}, {3, 8}]}, {gset, [<<"a">>, <<"b">>]}}}, Pair4),
-    ?assertEqual({?TYPE, {{gcounter, [{1, 7}, {2, 10}, {3, 8}]}, {gset, [<<"a">>, <<"b">>]}}}, Pair5).
+    ?assertEqual({?TYPE, {{?GCOUNTER_TYPE, [{1, 5}, {2, 10}]}, {?GSET_TYPE, [<<"a">>]}}}, Pair3),
+    ?assertEqual({?TYPE, {{?GCOUNTER_TYPE, [{1, 7}, {2, 10}, {3, 8}]}, {?GSET_TYPE, [<<"a">>, <<"b">>]}}}, Pair4),
+    ?assertEqual({?TYPE, {{?GCOUNTER_TYPE, [{1, 7}, {2, 10}, {3, 8}]}, {?GSET_TYPE, [<<"a">>, <<"b">>]}}}, Pair5).
 
 equal_test() ->
-    GCounter1 = {gcounter, [{1, 5}, {2, 10}]},
-    GCounter2 = {gcounter, [{1, 7}, {3, 8}]},
-    GSet1 = {gset, [<<"a">>]},
-    GSet2 = {gset, [<<"b">>]},
+    GCounter1 = {?GCOUNTER_TYPE, [{1, 5}, {2, 10}]},
+    GCounter2 = {?GCOUNTER_TYPE, [{1, 7}, {3, 8}]},
+    GSet1 = {?GSET_TYPE, [<<"a">>]},
+    GSet2 = {?GSET_TYPE, [<<"b">>]},
     Pair1 = {?TYPE, {GCounter1, GSet1}},
     Pair2 = {?TYPE, {GCounter1, GSet2}},
     Pair3 = {?TYPE, {GCounter1, GSet1}},
@@ -206,10 +209,10 @@ equal_test() ->
     ?assertNot(equal(Pair3, Pair4)).
 
 is_inflation_test() ->
-    GCounter1 = {gcounter, [{1, 5}, {2, 10}]},
-    GCounter2 = {gcounter, [{1, 7}, {2, 10}]},
-    GSet1 = {gset, [<<"a">>]},
-    GSet2 = {gset, [<<"b">>]},
+    GCounter1 = {?GCOUNTER_TYPE, [{1, 5}, {2, 10}]},
+    GCounter2 = {?GCOUNTER_TYPE, [{1, 7}, {2, 10}]},
+    GSet1 = {?GSET_TYPE, [<<"a">>]},
+    GSet2 = {?GSET_TYPE, [<<"b">>]},
     Pair1 = {?TYPE, {GCounter1, GSet1}},
     Pair2 = {?TYPE, {GCounter1, GSet2}},
     Pair3 = {?TYPE, {GCounter1, GSet1}},
@@ -219,10 +222,10 @@ is_inflation_test() ->
     ?assert(is_inflation(Pair3, Pair4)).
 
 is_strict_inflation_test() ->
-    GCounter1 = {gcounter, [{1, 5}, {2, 10}]},
-    GCounter2 = {gcounter, [{1, 7}, {2, 10}]},
-    GSet1 = {gset, [<<"a">>]},
-    GSet2 = {gset, [<<"b">>]},
+    GCounter1 = {?GCOUNTER_TYPE, [{1, 5}, {2, 10}]},
+    GCounter2 = {?GCOUNTER_TYPE, [{1, 7}, {2, 10}]},
+    GSet1 = {?GSET_TYPE, [<<"a">>]},
+    GSet2 = {?GSET_TYPE, [<<"b">>]},
     Pair1 = {?TYPE, {GCounter1, GSet1}},
     Pair2 = {?TYPE, {GCounter1, GSet2}},
     Pair3 = {?TYPE, {GCounter1, GSet1}},
@@ -242,9 +245,9 @@ equivalent_with_pncounter_test() ->
     {ok, Pair1} = ?TYPE:mutate({fst, increment}, Actor, Pair0),
     {ok, Pair2} = ?TYPE:mutate({snd, increment}, Actor, Pair1),
     {V1, V2} = ?TYPE:query(Pair2),
-    PNCounter0 = pncounter:new(),
-    {ok, PNCounter1} = pncounter:mutate(increment, Actor, PNCounter0),
-    {ok, PNCounter2} = pncounter:mutate(decrement, Actor, PNCounter1),
-    ?assertEqual(V1 - V2, pncounter:query(PNCounter2)).
+    PNCounter0 = ?PNCOUNTER_TYPE:new(),
+    {ok, PNCounter1} = ?PNCOUNTER_TYPE:mutate(increment, Actor, PNCounter0),
+    {ok, PNCounter2} = ?PNCOUNTER_TYPE:mutate(decrement, Actor, PNCounter1),
+    ?assertEqual(V1 - V2, ?PNCOUNTER_TYPE:query(PNCounter2)).
 
 -endif.
