@@ -204,9 +204,9 @@ is_inflation_test() ->
     ?assert(is_inflation(Set1, Set2)),
     ?assertNot(is_inflation(Set2, Set1)),
     %% check inflation with merge
-    ?assert(equal(merge(Set1, Set1), Set1)),
-    ?assert(equal(merge(Set1, Set2), Set2)),
-    ?assertNot(equal(merge(Set2, Set1), Set1)).
+    ?assert(type:is_inflation(Set1, Set1)),
+    ?assert(type:is_inflation(Set1, Set2)),
+    ?assertNot(type:is_inflation(Set2, Set1)).
 
 is_strict_inflation_test() ->
     Set1 = {?TYPE, [<<"a">>]},

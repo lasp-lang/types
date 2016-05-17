@@ -271,10 +271,10 @@ is_inflation_test() ->
     ?assert(is_inflation(Counter1, Counter3)),
     ?assertNot(is_inflation(Counter1, Counter4)),
     %% check inflation with merge
-    ?assert(equal(merge(Counter1, Counter1), Counter1)),
-    ?assert(equal(merge(Counter1, Counter2), Counter2)),
-    ?assert(equal(merge(Counter1, Counter3), Counter3)),
-    ?assertNot(equal(merge(Counter1, Counter4), Counter4)).
+    ?assert(type:is_inflation(Counter1, Counter1)),
+    ?assert(type:is_inflation(Counter1, Counter2)),
+    ?assert(type:is_inflation(Counter1, Counter3)),
+    ?assertNot(type:is_inflation(Counter1, Counter4)).
 
 is_strict_inflation_test() ->
     Counter1 = {?TYPE, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}]},

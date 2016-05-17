@@ -226,9 +226,9 @@ is_inflation_test() ->
     ?assertNot(is_inflation(Pair1, Pair2)),
     ?assert(is_inflation(Pair3, Pair4)),
     %% check inflation with merge
-    ?assert(equal(merge(Pair1, Pair1), Pair1)),
-    ?assertNot(equal(merge(Pair1, Pair2), Pair2)),
-    ?assert(equal(merge(Pair3, Pair4), Pair4)).
+    ?assert(type:is_inflation(Pair1, Pair1)),
+    ?assertNot(type:is_inflation(Pair1, Pair2)),
+    ?assert(type:is_inflation(Pair3, Pair4)).
 
 is_strict_inflation_test() ->
     GCounter1 = {?GCOUNTER_TYPE, [{1, 5}, {2, 10}]},

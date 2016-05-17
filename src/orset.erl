@@ -316,7 +316,14 @@ is_inflation_test() ->
     ?assertNot(is_inflation(Set2, Set1)),
     ?assert(is_inflation(Set1, Set3)),
     ?assertNot(is_inflation(Set2, Set3)),
-    ?assertNot(is_inflation(Set3, Set2)).
+    ?assertNot(is_inflation(Set3, Set2)),
+    %% check inflation with merge
+    ?assert(type:is_inflation(Set1, Set1)),
+    ?assert(type:is_inflation(Set1, Set2)),
+    ?assertNot(type:is_inflation(Set2, Set1)),
+    ?assert(type:is_inflation(Set1, Set3)),
+    ?assertNot(type:is_inflation(Set2, Set3)),
+    ?assertNot(type:is_inflation(Set3, Set2)).
 
 is_strict_inflation_test() ->
     Set1 = {?TYPE, [{<<"a">>, [{<<"token1">>, true}]}]},
