@@ -35,7 +35,5 @@ start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init([]) ->
-    Children = lists:flatten([]),
-
     RestartStrategy = {one_for_one, 10, 10},
-    {ok, {RestartStrategy, Children}}.
+    {ok, {RestartStrategy, []}}.
