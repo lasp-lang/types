@@ -58,7 +58,7 @@ new() ->
 %% @doc Create a new, empty `pair()'
 -spec new([type:type()]) -> pair().
 new([Fst, Snd]) ->
-    {?TYPE, {{Fst, Fst:new()}, {Snd, Snd:new()}}}.
+    {?TYPE, {Fst:new(), Snd:new()}}.
 
 %% @doc Mutate a `pair()'.
 -spec mutate(pair_op(), type:actor(), pair()) ->
@@ -159,8 +159,8 @@ join_decomposition({?TYPE, _Pair}) -> [].
 new_test() ->
     Pair0 = new(),
     Pair1 = new([gset, gset]),
-    ?assertEqual({?TYPE, {{gcounter, gcounter:new()}, {gcounter, gcounter:new()}}}, Pair0),
-    ?assertEqual({?TYPE, {{gset, gset:new()}, {gset, gset:new()}}}, Pair1).
+    ?assertEqual({?TYPE, {{gcounter, []}, {gcounter, []}}}, Pair0),
+    ?assertEqual({?TYPE, {{gset, []}, {gset, []}}}, Pair1).
 
 query_test() ->
     GCounter = {gcounter, [{1, 5}, {2, 10}]},
@@ -235,5 +235,16 @@ is_strict_inflation_test() ->
 join_decomposition_test() ->
     %% @todo
     ok.
+
+equivalent_with_pncounter_test() ->
+    Actor = 1,
+    Pair0 = new(),
+    {ok, Pair1} = ?TYPE:mutate({fst, increment}, Actor, Pair0),
+    {ok, Pair2} = ?TYPE:mutate({snd, increment}, Actor, Pair1),
+    {V1, V2} = ?TYPE:query(Pair2),
+    PNCounter0 = pncounter:new(),
+    {ok, PNCounter1} = pncounter:mutate(increment, Actor, PNCounter0),
+    {ok, PNCounter2} = pncounter:mutate(decrement, Actor, PNCounter1),
+    ?assertEqual(V1 - V2, pncounter:query(PNCounter2)).
 
 -endif.
