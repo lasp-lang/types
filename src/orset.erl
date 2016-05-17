@@ -108,7 +108,7 @@ delta_mutate({rmv, Elem}, _Actor, {?TYPE, ORSet}) ->
 %%      that have at least one token still marked as active (true).
 -spec query(orset()) -> [element()].
 query({?TYPE, ORSet}) ->
-    orddict:fold(
+    lists:reverse(orddict:fold(
         fun(Elem, Tokens, Acc) ->
             ActiveTokens = [Token || {Token, true} <- orddict:to_list(Tokens)],
             case length(ActiveTokens) > 0 of
@@ -120,7 +120,7 @@ query({?TYPE, ORSet}) ->
         end,
         [],
         ORSet
-     ).
+     )).
 
 %% @doc Merge two `orset()'.
 %%      The keys (elements) of the resulting `orset()' are the union
