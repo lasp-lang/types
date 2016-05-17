@@ -9,7 +9,7 @@
                   crypto,
                   lager
                  ]},
-  {mod, {types, []}},
+  {mod, {types_app, []}},
   {modules, []},
   {env, [{types, "data"}]}
  ]}.
