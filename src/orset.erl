@@ -50,6 +50,7 @@
 -type token() :: term().
 -type orset_op() :: {add, element()} |
                     {add_by_token, token(), element()} |
+                    {add_all, [element()]} |
                     {rmv, element()}.
 
 %% @doc Create a new, empty `orset()'
@@ -87,6 +88,20 @@ delta_mutate({add, Elem}, Actor, {?TYPE, _}=ORSet) ->
 delta_mutate({add_by_token, Token, Elem}, _Actor, {?TYPE, _ORSet}) ->
     Tokens = orddict:store(Token, true, orddict:new()),
     Delta = orddict:store(Elem, Tokens, orddict:new()),
+    {ok, {?TYPE, {delta, Delta}}};
+
+%% @doc Returns a new `orset()' with the elements passed as argument
+%%      as keys in the dictionary.
+delta_mutate({add_all, Elems}, Actor, {?TYPE, _ORSet}) ->
+    Delta = lists:foldl(
+        fun(Elem, Acc) ->
+            Token = unique(Actor),
+            Tokens = orddict:store(Token, true, orddict:new()),
+            orddict:store(Elem, Tokens, Acc)
+        end,
+        orddict:new(),
+        Elems
+    ),
     {ok, {?TYPE, {delta, Delta}}};
 
 %% @doc Returns a new `orset()' with only one element in
@@ -262,6 +277,16 @@ add_test() ->
     ?assertEqual({?TYPE, [{<<"a">>, [{<<"token1">>, true}]}]}, Set1),
     ?assertEqual({?TYPE, [{<<"a">>, [{<<"token1">>, true}, {<<"token2">>, true}]}]}, Set2),
     ?assertEqual({?TYPE, [{<<"a">>, [{<<"token1">>, true}, {<<"token2">>, true}]}, {<<"b">>, [{<<"token3">>, true}]}]}, Set3).
+
+add_all_test() ->
+    Actor = 1,
+    Set0 = new(),
+    {ok, Set1} = mutate({add_all, []}, Actor, Set0),
+    {ok, Set2} = mutate({add_all, [<<"a">>, <<"b">>]}, Actor, Set0),
+    {ok, Set3} = mutate({add_all, [<<"b">>, <<"c">>]}, Actor, Set2),
+    ?assertEqual([], query(Set1)),
+    ?assertEqual(lists:sort([<<"a">>, <<"b">>]), lists:sort(query(Set2))),
+    ?assertEqual(lists:sort([<<"a">>, <<"b">>, <<"c">>]), lists:sort(query(Set3))).
 
 merge_idempontent_test() ->
     Set1 = {?TYPE, [{<<"a">>, [{<<"token1">>, false}]}]},
