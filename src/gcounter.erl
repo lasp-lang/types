@@ -146,12 +146,24 @@ is_inflation({?TYPE, GCounter1}, {?TYPE, GCounter2}) ->
         end,
         true,
         GCounter1
-     ).
+     );
+
+%% @todo get back here later
+%% Just trying to fix https://travis-ci.org/lasp-lang/lasp/builds/131343590
+is_inflation({value, Value1}, {?TYPE, _}=GCounter) ->
+    Value2 = query(GCounter),
+    Value2 >= Value1.
 
 %% @doc Check for strict inflation.
 -spec is_strict_inflation(gcounter(), gcounter()) -> boolean().
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    type:is_strict_inflation(CRDT1, CRDT2).
+    type:is_strict_inflation(CRDT1, CRDT2);
+
+%% @todo get back here later
+%% Just trying to fix https://travis-ci.org/lasp-lang/lasp/builds/131343590
+is_strict_inflation({value, Value1}, {?TYPE, _}=GCounter) ->
+    Value2 = query(GCounter),
+    Value2 > Value1.
 
 %% @doc Join decomposition for `gcounter()'.
 %%      A `gcounter()' is a set of entries.
