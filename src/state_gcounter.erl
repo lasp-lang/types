@@ -50,7 +50,7 @@
 -export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
--export_type([state_gcounter/0, delta_state_gcounter/0]).
+-export_type([state_gcounter/0, delta_state_gcounter/0, gcounter_op/0]).
 
 -opaque state_gcounter() :: {?TYPE, payload()}.
 -opaque delta_state_gcounter() :: {?TYPE, {delta, payload()}}.
