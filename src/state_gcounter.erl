@@ -50,13 +50,13 @@
 -export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
--export_type([state_gcounter/0, delta_state_gcounter/0, gcounter_op/0]).
+-export_type([state_gcounter/0, delta_state_gcounter/0, state_gcounter_op/0]).
 
 -opaque state_gcounter() :: {?TYPE, payload()}.
 -opaque delta_state_gcounter() :: {?TYPE, {delta, payload()}}.
 -type delta_or_state() :: state_gcounter() | delta_state_gcounter().
 -type payload() :: orddict:orddict().
--type gcounter_op() :: increment.
+-type state_gcounter_op() :: increment.
 
 %% @doc Create a new, empty `state_gcounter()'
 -spec new() -> state_gcounter().
@@ -69,7 +69,7 @@ new([]) ->
     new().
 
 %% @doc Mutate a `state_gcounter()'.
--spec mutate(gcounter_op(), type:id(), state_gcounter()) ->
+-spec mutate(state_gcounter_op(), type:id(), state_gcounter()) ->
     {ok, state_gcounter()}.
 mutate(Op, Actor, {?TYPE, _GCounter}=CRDT) ->
     state_type:mutate(Op, Actor, CRDT).
@@ -80,7 +80,7 @@ mutate(Op, Actor, {?TYPE, _GCounter}=CRDT) ->
 %%      The third argument is the `state_gcounter()' to be inflated.
 %%      Returns a `state_gcounter()' delta where the only entry in the
 %%      dictionary maps the replica id to the last value plus 1.
--spec delta_mutate(gcounter_op(), type:id(), state_gcounter()) ->
+-spec delta_mutate(state_gcounter_op(), type:id(), state_gcounter()) ->
     {ok, delta_state_gcounter()}.
 delta_mutate(increment, Actor, {?TYPE, GCounter}) ->
     Count = case orddict:find(Actor, GCounter) of
