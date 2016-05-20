@@ -98,7 +98,7 @@ equal({?TYPE, Value1}, {?TYPE, Value2}) ->
 
 %% @doc Given two `max_int()', check if the second is an inflation
 %%      of the first.
-%%      The second is and inflation if its value is greater or equal
+%%      The second is an inflation if its value is greater or equal
 %%      to the value of the first.
 -spec is_inflation(max_int(), max_int()) -> boolean().
 is_inflation({?TYPE, Value1}, {?TYPE, Value2}) ->
