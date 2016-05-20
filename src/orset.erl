@@ -46,7 +46,7 @@
 -opaque orset() :: {?TYPE, payload()}.
 -opaque delta_orset() :: {?TYPE, {delta, payload()}}.
 -type delta_or_state() :: orset() | delta_orset().
--type payload() :: orddict:set().
+-type payload() :: orddict:orddict().
 -type element() :: term().
 -type token() :: term().
 -type orset_op() :: {add, element()} |
