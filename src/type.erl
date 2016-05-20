@@ -32,6 +32,7 @@
 -type payload() :: term().
 -type crdt() :: {type(), payload()}.
 -type delta_crdt() :: {type(), {delta, payload()}}.
+-type delta_or_state() :: crdt() | delta_crdt().
 -type operation() :: term().
 -type actor() :: term().
 -type value() :: term().
@@ -52,7 +53,10 @@
     {ok, delta_crdt()} | {error, error()}.
 
 %% Merge two replicas.
--callback merge(crdt(), crdt()) -> crdt().
+%% If we merge two CRDTs, the result is a CRDT.
+%% If we merge a delta and a CRDT, the result is a CRDT.
+%% If we merge two deltas, the result is a delta (delta group).
+-callback merge(delta_or_state(), delta_or_state()) -> delta_or_state().
 
 %% Get the value of a CRDT.
 -callback query(crdt()) -> value().

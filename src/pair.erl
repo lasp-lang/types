@@ -53,6 +53,7 @@
 
 -opaque pair() :: {?TYPE, payload()}.
 -opaque delta_pair() :: {?TYPE, {delta, payload()}}.
+-type delta_or_state() :: pair() | delta_pair().
 -type component() :: {type:type(), type:crdt()}.
 -type payload() :: {component(), component()}.
 -type pair_op() :: {fst, term()} | {snd, term()}.
@@ -117,7 +118,14 @@ query({?TYPE, {{FstType, _}=Fst, {SndType, _}=Snd}}) ->
 
 %% @doc Merge two `pair()'.
 %%      The resulting `pair()' is the component-wise join of components.
--spec merge(pair(), pair()) -> pair().
+-spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
+merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
+    {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
+    {?TYPE, {delta, DeltaGroup}};
+merge({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
+    merge({?TYPE, Delta}, {?TYPE, CRDT});
+merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
+    merge({?TYPE, Delta}, {?TYPE, CRDT});
 merge({?TYPE, {{FstType, _}=Fst1, {SndType, _}=Snd1}},
       {?TYPE, {{FstType, _}=Fst2, {SndType, _}=Snd2}}) ->
     Fst = FstType:merge(Fst1, Fst2),
@@ -199,6 +207,21 @@ merge_test() ->
     ?assertEqual({?TYPE, {{?GCOUNTER_TYPE, [{1, 5}, {2, 10}]}, {?GSET_TYPE, [<<"a">>]}}}, Pair3),
     ?assertEqual({?TYPE, {{?GCOUNTER_TYPE, [{1, 7}, {2, 10}, {3, 8}]}, {?GSET_TYPE, [<<"a">>, <<"b">>]}}}, Pair4),
     ?assertEqual({?TYPE, {{?GCOUNTER_TYPE, [{1, 7}, {2, 10}, {3, 8}]}, {?GSET_TYPE, [<<"a">>, <<"b">>]}}}, Pair5).
+
+merge_deltas_test() ->
+    GCounter1 = {?GCOUNTER_TYPE, [{1, 5}, {2, 10}]},
+    GSet1 = {?GSET_TYPE, [<<"a">>]},
+    Pair1 = {?TYPE, {GCounter1, GSet1}},
+    GCounterDelta = {?GCOUNTER_TYPE, [{1, 7}]},
+    GSetDelta = {?GSET_TYPE, [<<"b">>]},
+    Delta1 = {?TYPE, {delta, {GCounterDelta, ?GSET_TYPE:new()}}},
+    Delta2 = {?TYPE, {delta, {?GCOUNTER_TYPE:new(), GSetDelta}}},
+    Pair2 = merge(Delta1, Pair1),
+    Pair3 = merge(Pair1, Delta1),
+    DeltaGroup = merge(Delta1, Delta2),
+    ?assertEqual({?TYPE, {{?GCOUNTER_TYPE, [{1, 7}, {2, 10}]}, {?GSET_TYPE, [<<"a">>]}}}, Pair2),
+    ?assertEqual({?TYPE, {{?GCOUNTER_TYPE, [{1, 7}, {2, 10}]}, {?GSET_TYPE, [<<"a">>]}}}, Pair3),
+    ?assertEqual({?TYPE, {delta, {{?GCOUNTER_TYPE, [{1, 7}]}, {?GSET_TYPE, [<<"b">>]}}}}, DeltaGroup).
 
 equal_test() ->
     GCounter1 = {?GCOUNTER_TYPE, [{1, 5}, {2, 10}]},

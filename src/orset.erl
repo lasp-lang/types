@@ -45,6 +45,7 @@
 
 -opaque orset() :: {?TYPE, payload()}.
 -opaque delta_orset() :: {?TYPE, {delta, payload()}}.
+-type delta_or_state() :: orset() | delta_orset().
 -type payload() :: orddict:set().
 -type element() :: term().
 -type token() :: term().
@@ -169,7 +170,14 @@ query({?TYPE, ORSet}) ->
 %%          - if a token is present in both `orset()' its value will be:
 %%              * active (true) if both were active before
 %%              * inactive (false) otherwise
--spec merge(orset(), orset()) -> orset().
+-spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
+merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
+    {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
+    {?TYPE, {delta, DeltaGroup}};
+merge({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
+    merge({?TYPE, Delta}, {?TYPE, CRDT});
+merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
+    merge({?TYPE, Delta}, {?TYPE, CRDT});
 merge({?TYPE, ORSet1}, {?TYPE, ORSet2}) ->
     ORSet = orddict:merge(
         fun(_Elem, Tokens1, Tokens2) ->
@@ -360,6 +368,17 @@ merge_commutative_test() ->
     ?assertEqual(Set2_3, Set8),
     ?assertEqual(Set2_3, Set9),
     ?assertEqual(Set1_3, Set10).
+
+merge_delta_test() ->
+    Set1 = {?TYPE, [{<<"a">>, [{<<"token1">>, true}]}]},
+    Delta1 = {?TYPE, {delta, [{<<"a">>, [{<<"token1">>, false}]}]}},
+    Delta2 = {?TYPE, {delta, [{<<"b">>, [{<<"token2">>, true}]}]}},
+    Set2 = merge(Delta1, Set1),
+    Set3 = merge(Set1, Delta1),
+    DeltaGroup = merge(Delta1, Delta2),
+    ?assertEqual({?TYPE, [{<<"a">>, [{<<"token1">>, false}]}]}, Set2),
+    ?assertEqual({?TYPE, [{<<"a">>, [{<<"token1">>, false}]}]}, Set3),
+    ?assertEqual({?TYPE, {delta, [{<<"a">>, [{<<"token1">>, false}]}, {<<"b">>, [{<<"token2">>, true}]}]}}, DeltaGroup).
 
 equal_test() ->
     Set1 = {?TYPE, [{<<"a">>, [{<<"token1">>, true}]}]},

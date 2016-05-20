@@ -53,6 +53,7 @@
 
 -opaque gcounter() :: {?TYPE, payload()}.
 -opaque delta_gcounter() :: {?TYPE, {delta, payload()}}.
+-type delta_or_state() :: gcounter() | delta_gcounter().
 -type payload() :: orddict:orddict().
 -type gcounter_op() :: increment.
 
@@ -104,7 +105,14 @@ query({?TYPE, GCounter}) ->
 %%      If a key is present in both `gcounter()', the new value
 %%      will be the max of both values.
 %%      Return the join of the two `gcounter()'.
--spec merge(gcounter(), gcounter()) -> gcounter().
+-spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
+merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
+    {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
+    {?TYPE, {delta, DeltaGroup}};
+merge({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
+    merge({?TYPE, Delta}, {?TYPE, CRDT});
+merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
+    merge({?TYPE, Delta}, {?TYPE, CRDT});
 merge({?TYPE, GCounter1}, {?TYPE, GCounter2}) ->
     GCounter = orddict:merge(
         fun(_, Value1, Value2) ->
@@ -241,6 +249,17 @@ merge_same_id_test() ->
     Counter2 = {?TYPE, [{<<"1">>, 3}, {<<"2">>, 4}]},
     Counter3 = merge(Counter1, Counter2),
     ?assertEqual({?TYPE, [{<<"1">>, 3}, {<<"2">>, 5}]}, Counter3).
+
+merge_deltas_test() ->
+    Counter1 = {?TYPE, [{<<"1">>, 2}, {<<"2">>, 5}]},
+    Delta1 = {?TYPE, {delta, [{<<"1">>, 3}, {<<"2">>, 4}]}},
+    Delta2 = {?TYPE, {delta, [{<<"1">>, 5}, {<<"2">>, 2}]}},
+    Counter2 = merge(Delta1, Counter1),
+    Counter3 = merge(Counter1, Delta1),
+    DeltaGroup = merge(Delta1, Delta2),
+    ?assertEqual({?TYPE, [{<<"1">>, 3}, {<<"2">>, 5}]}, Counter2),
+    ?assertEqual({?TYPE, [{<<"1">>, 3}, {<<"2">>, 5}]}, Counter3),
+    ?assertEqual({?TYPE, {delta, [{<<"1">>, 5}, {<<"2">>, 4}]}}, DeltaGroup).
 
 equal_test() ->
     Counter1 = {?TYPE, [{1, 2}, {2, 1}, {4, 1}]},
