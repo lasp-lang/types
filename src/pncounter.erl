@@ -55,6 +55,7 @@
 
 -opaque pncounter() :: {?TYPE, payload()}.
 -opaque delta_pncounter() :: {?TYPE, {delta, payload()}}.
+-type delta_or_state() :: pncounter() | delta_pncounter().
 -type payload() :: orddict:orddict().
 -type pncounter_op() :: increment | decrement.
 
@@ -122,7 +123,14 @@ query({?TYPE, PNCounter}) ->
 %%      If a key is present in both `pncounter()', the new value
 %%      will be the componenet wise max of both values.
 %%      Return the join of the two `pncounter()'.
--spec merge(pncounter(), pncounter()) -> pncounter().
+-spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
+merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
+    {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
+    {?TYPE, {delta, DeltaGroup}};
+merge({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
+    merge({?TYPE, Delta}, {?TYPE, CRDT});
+merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
+    merge({?TYPE, Delta}, {?TYPE, CRDT});
 merge({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
     PNCounter = orddict:merge(
         fun(_, {Inc1, Dec1}, {Inc2, Dec2}) ->
@@ -250,6 +258,17 @@ merge_same_id_test() ->
     Counter2 = {?TYPE, [{<<"1">>, {3, 2}}, {<<"2">>, {4, 9}}]},
     Counter3 = merge(Counter1, Counter2),
     ?assertEqual({?TYPE, [{<<"1">>, {3, 3}}, {<<"2">>, {5, 9}}]}, Counter3).
+
+merge_delta_test() ->
+    Counter1 = {?TYPE, [{<<"1">>, {2, 3}}, {<<"2">>, {5, 2}}]},
+    Delta1 = {?TYPE, {delta, [{<<"1">>, {3, 2}}]}},
+    Delta2 = {?TYPE, {delta, [{<<"3">>, {1, 2}}]}},
+    Counter2 = merge(Delta1, Counter1),
+    Counter3 = merge(Counter1, Delta1),
+    DeltaGroup = merge(Delta1, Delta2),
+    ?assertEqual({?TYPE, [{<<"1">>, {3, 3}}, {<<"2">>, {5, 2}}]}, Counter2),
+    ?assertEqual({?TYPE, [{<<"1">>, {3, 3}}, {<<"2">>, {5, 2}}]}, Counter3),
+    ?assertEqual({?TYPE, {delta, [{<<"1">>, {3, 2}}, {<<"3">>, {1, 2}}]}}, DeltaGroup).
 
 equal_test() ->
     Counter1 = {?TYPE, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}]},
