@@ -25,18 +25,14 @@
 -module(type).
 -author("Christopher Meiklejohn <christopher.meiklejohn@gmail.com>").
 
--export([mutate/3, is_inflation/2, is_strict_inflation/2]).
+-export_type([id/0]).
 
 %% Define some initial types.
--type type() :: ivar | max_int | gcounter | pncounter | gset | pair | orset.
+-type type() :: state_type:state_type() | pure_type:pure_type().
 -type payload() :: term().
 -type crdt() :: {type(), payload()}.
--type delta_crdt() :: {type(), {delta, payload()}}.
--type delta_or_state() :: crdt() | delta_crdt().
--type operation() :: term().
--type actor() :: term().
 -type value() :: term().
--type error() :: term().
+-type id() :: term().
 
 %% Initialize a CRDT.
 -callback new() -> crdt().
@@ -44,61 +40,8 @@
 %% Unified interface for allowing parameterized CRDTs.
 -callback new([term()]) -> crdt().
 
-%% Perform a mutation.
--callback mutate(operation(), actor(), crdt()) ->
-    {ok, crdt()} | {error, error()}.
-
-%% Perform a delta mutation.
--callback delta_mutate(operation(), actor(), crdt()) ->
-    {ok, delta_crdt()} | {error, error()}.
-
-%% Merge two replicas.
-%% If we merge two CRDTs, the result is a CRDT.
-%% If we merge a delta and a CRDT, the result is a CRDT.
-%% If we merge two deltas, the result is a delta (delta group).
--callback merge(delta_or_state(), delta_or_state()) -> delta_or_state().
-
 %% Get the value of a CRDT.
 -callback query(crdt()) -> value().
 
 %% Compare equality.
 -callback equal(crdt(), crdt()) -> boolean().
-
-%% Inflation testing.
--callback is_inflation(crdt(), crdt()) -> boolean().
--callback is_strict_inflation(crdt(), crdt()) -> boolean().
-
-%% Join decomposition.
--callback join_decomposition(crdt()) -> [crdt()].
-
-%% @todo These functions are for the incremental interface.
-%% -type iterator() :: term().
-%% -type decomposition() :: ok | {ok, {crdt(), iterator()}}.
-%% -callback join_decomposition(crdt()) -> decomposition().
-%% -callback join_decomposition(iterator(), crdt()) -> decomposition().
-
-%% @doc Generic Join composition.
--spec mutate(operation(), actor(), crdt()) ->
-    {ok, crdt()} | {error, error()}.
-mutate(Op, Actor, {Type, _}=CRDT) ->
-    case Type:delta_mutate(Op, Actor, CRDT) of
-        {ok, {Type, {delta, Delta}}} ->
-            {ok, Type:merge({Type, Delta}, CRDT)};
-        Error ->
-            Error
-    end.
-
-%% @doc Generic check for inflation.
--spec is_inflation(crdt(), crdt()) -> boolean().
-is_inflation({Type, _}=CRDT1, {Type, _}=CRDT2) ->
-    Type:equal(Type:merge(CRDT1, CRDT2), CRDT2).
-
-%% @doc Generic check for strict inflation.
-%%      We have a strict inflation if:
-%%          - we have an inflation
-%%          - we have different CRDTs
--spec is_strict_inflation(crdt(), crdt()) -> boolean().
-is_strict_inflation({Type, _}=CRDT1, {Type, _}=CRDT2) ->
-    Type:is_inflation(CRDT1, CRDT2) andalso
-    not Type:equal(CRDT1, CRDT2).
-

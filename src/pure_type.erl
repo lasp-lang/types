@@ -1,4 +1,4 @@
-% -------------------------------------------------------------------
+%% -------------------------------------------------------------------
 %%
 %% Copyright (c) 2015-2016 Christopher Meiklejohn.  All Rights Reserved.
 %% Copyright (c) 2007-2012 Basho Technologies, Inc.  All Rights Reserved.
@@ -19,19 +19,11 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc GCounter Behaviour.
-
--module(gcounter).
+-module(pure_type).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
--define(STATE_GCOUNTER, state_gcounter).
--define(PURE_GCOUNTER, pure_gcounter).
+-export_type([pure_type/0]).
 
--type gcounter_op() :: increment.
--type gcounter() :: state_gcounter() | pure_gcounter().
--type state_gcounter() :: {?STATE_GCOUNTER, type:payload()}.
--type pure_gcounter() :: {?PURE_GCOUNTER, type:payload()}.
-
-%% @doc Mutate a `state_gcounter()'.
--callback mutate(gcounter_op(), type:id(), gcounter()) ->
-    {ok, gcounter()}.
+%% Define some initial types.
+-type pure_type() ::  pure_gcounter |
+                      pure_gset.
