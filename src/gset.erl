@@ -49,7 +49,7 @@
 -opaque gset() :: {?TYPE, payload()}.
 -opaque delta_gset() :: {?TYPE, {delta, payload()}}.
 -type delta_or_state() :: gset() | delta_gset().
--type payload() :: ordsets:set().
+-type payload() :: ordsets:ordset().
 -type element() :: term().
 -type gset_op() :: {add, element()}.
 
