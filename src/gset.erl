@@ -48,6 +48,7 @@
 
 -opaque gset() :: {?TYPE, payload()}.
 -opaque delta_gset() :: {?TYPE, {delta, payload()}}.
+-type delta_or_state() :: gset() | delta_gset().
 -type payload() :: ordsets:set().
 -type element() :: term().
 -type gset_op() :: {add, element()}.
@@ -96,7 +97,14 @@ query({?TYPE, GSet}) ->
 %% @doc Merge two `gset()'.
 %%      The result is the set union of both sets in the
 %%      `gset()' passed as argument.
--spec merge(gset(), gset()) -> gset().
+-spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
+merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
+    {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
+    {?TYPE, {delta, DeltaGroup}};
+merge({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
+    merge({?TYPE, Delta}, {?TYPE, CRDT});
+merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
+    merge({?TYPE, Delta}, {?TYPE, CRDT});
 merge({?TYPE, GSet1}, {?TYPE, GSet2}) ->
     GSet = ordsets:union(GSet1, GSet2),
     {?TYPE, GSet}.
@@ -190,6 +198,17 @@ merge_commutative_test() ->
     Set4 = merge(Set2, Set1),
     ?assertEqual({?TYPE, [<<"a">>, <<"b">>]}, Set3),
     ?assertEqual({?TYPE, [<<"a">>, <<"b">>]}, Set4).
+
+merge_deltas_test() ->
+    Set1 = {?TYPE, [<<"a">>]},
+    Delta1 = {?TYPE, {delta, [<<"a">>, <<"b">>]}},
+    Delta2 = {?TYPE, {delta, [<<"c">>]}},
+    Set2 = merge(Delta1, Set1),
+    Set3 = merge(Set1, Delta1),
+    DeltaGroup = merge(Delta1, Delta2),
+    ?assertEqual({?TYPE, [<<"a">>, <<"b">>]}, Set2),
+    ?assertEqual({?TYPE, [<<"a">>, <<"b">>]}, Set3),
+    ?assertEqual({?TYPE, {delta, [<<"a">>, <<"b">>, <<"c">>]}}, DeltaGroup).
 
 equal_test() ->
     Set1 = {?TYPE, [<<"a">>]},
