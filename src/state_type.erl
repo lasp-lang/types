@@ -26,6 +26,7 @@
 
 %% Define some initial types.
 -type state_type() :: state_gcounter |
+                      state_gmap |
                       state_gset |
                       state_ivar |
                       state_max_int |
