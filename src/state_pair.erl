@@ -149,7 +149,7 @@ is_inflation({?TYPE, {{FstType, _}=Fst1, {SndType, _}=Snd1}},
     SndType:is_inflation(Snd1, Snd2).
 
 %% @doc Check for `state_pair()' strict inflation.
-%%      In state_pairs we have strict inflations if we have component wise
+%%      In pairs we have strict inflations if we have component wise
 %%      inflations and at least one strict inflation in the composition.
 %%
 %% @reference Carlos Baquero, Paulo Sérgio Almeida, Alcino Cunha and Carla Ferreira
