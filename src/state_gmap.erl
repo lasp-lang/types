@@ -265,4 +265,18 @@ join_decomposition_test() ->
     %% @todo.
     ok.
 
+equivalent_with_gcounter_test() ->
+    Actor1 = 1,
+    Actor2 = 2,
+    Map0 = new([?MAX_INT_TYPE]),
+    {ok, Map1} = mutate({Actor1, increment}, undefined, Map0),
+    {ok, Map2} = mutate({Actor1, increment}, undefined, Map1),
+    {ok, Map3} = mutate({Actor2, increment}, undefined, Map2),
+    [{Actor1, Value1}, {Actor2, Value2}] = query(Map3),
+    GCounter0 = ?GCOUNTER_TYPE:new(),
+    {ok, GCounter1} = ?GCOUNTER_TYPE:mutate(increment, Actor1, GCounter0),
+    {ok, GCounter2} = ?GCOUNTER_TYPE:mutate(increment, Actor1, GCounter1),
+    {ok, GCounter3} = ?GCOUNTER_TYPE:mutate(increment, Actor2, GCounter2),
+    ?assertEqual(Value1 + Value2, ?GCOUNTER_TYPE:query(GCounter3)).
+
 -endif.
