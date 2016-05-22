@@ -32,15 +32,12 @@
 -module(state_pair).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
+-include("state_type.hrl").
+
 -behaviour(type).
 -behaviour(state_type).
 
 -define(TYPE, ?MODULE).
--define(IVAR_TYPE, state_ivar).
--define(GCOUNTER_TYPE, state_gcounter).
--define(GSET_TYPE, state_gset).
--define(PNCOUNTER_TYPE, state_pncounter).
--define(TWOPSET_TYPE, state_twopset).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").

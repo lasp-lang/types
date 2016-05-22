@@ -51,6 +51,7 @@
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
+-export([extract_delta/1]).
 
 -export_type([state_pncounter/0, delta_state_pncounter/0, state_pncounter_op/0]).
 
@@ -107,7 +108,6 @@ delta_mutate(decrement, Actor, {?TYPE, PNCounter}) ->
     end,
     Delta = orddict:store(Actor, {0, Value + 1}, orddict:new()),
     {ok, {?TYPE, {delta, Delta}}}.
-
 
 %% @doc Returns the value of the `state_pncounter()'.
 %%      This value is the sum of all increments minus the sum of all
@@ -199,6 +199,10 @@ join_decomposition({?TYPE, PNCounter}) ->
         PNCounter
     ).
 
+%% @doc Given the result of `delta_mutate/3', extract the delta.
+-spec extract_delta(delta_state_pncounter()) -> payload().
+extract_delta({?TYPE, {delta, Delta}}) ->
+    Delta.
 
 %% ===================================================================
 %% EUnit tests

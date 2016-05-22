@@ -23,7 +23,7 @@
 %%      PNCounter and the second component is a GMap.
 %%
 %% @reference Valter Balegas et al.
-%%      Extending Eventually Consistent Cloud Databases for 
+%%      Extending Eventually Consistent Cloud Databases for
 %%      Enforcing Numeric Invariants (2015)
 %%      [http://arxiv.org/abs/1503.09052]
 %%
@@ -34,13 +34,12 @@
 -module(state_bcounter).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
+-include("state_type.hrl").
+
 -behaviour(type).
 -behaviour(state_type).
 
 -define(TYPE, ?MODULE).
--define(GMAP_TYPE, state_gmap).
--define(MAX_INT_TYPE, state_max_int).
--define(PNCOUNTER_TYPE, state_pncounter).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -57,7 +56,7 @@
 -opaque delta_state_bcounter() :: {?TYPE, {delta, payload()}}.
 -type delta_or_state() :: state_bcounter() | delta_state_bcounter().
 -type payload() :: {?PNCOUNTER_TYPE:state_pncounter(), ?GMAP_TYPE:state_gmap()}.
--type state_bcounter_op() :: {move, pos_integer(), term()} | 
+-type state_bcounter_op() :: {move, pos_integer(), term()} |
                              increment |
                              decrement.
 
@@ -79,7 +78,7 @@ mutate(Op, Actor, {?TYPE, _BCounter}=CRDT) ->
 
 %% @doc Delta-mutate a `state_bcounter()'.
 %%      The first argument can be:
-%%          - `{move, term()}', that moves permissions to 
+%%          - `{move, term()}', that moves permissions to
 %%          decrement to another replica (if it has enough permissions)
 %%          - `increment' which can always happen
 %%          - `decrement' which can happen when the replica has enough
@@ -105,16 +104,16 @@ delta_mutate({move, Count, To}, Actor, {?TYPE, {_PNCounter, GMap}}=BCounter) ->
     end;
 
 delta_mutate(increment, Actor, {?TYPE, {PNCounter, _GMap}}) ->
-    DM = ?PNCOUNTER_TYPE:delta_mutate(increment, Actor, PNCounter),
-    {ok, {?PNCOUNTER_TYPE, {delta, IncDelta}}} = DM,
+    {ok, DM} = ?PNCOUNTER_TYPE:delta_mutate(increment, Actor, PNCounter),
+    IncDelta = ?PNCOUNTER_TYPE:extract_delta(DM),
     Delta = {{?PNCOUNTER_TYPE, IncDelta}, ?GMAP_TYPE:new()},
     {ok, {?TYPE, {delta, Delta}}};
 
 delta_mutate(decrement, Actor, {?TYPE, {PNCounter, _GMap}}=BCounter) ->
     case 0 < permissions(BCounter, Actor) of
         true ->
-            DM = ?PNCOUNTER_TYPE:delta_mutate(decrement, Actor, PNCounter),
-            {ok, {?PNCOUNTER_TYPE, {delta, DecDelta}}} = DM,
+            {ok, DM} = ?PNCOUNTER_TYPE:delta_mutate(decrement, Actor, PNCounter),
+            DecDelta = ?PNCOUNTER_TYPE:extract_delta(DM),
             Delta = {{?PNCOUNTER_TYPE, DecDelta}, ?GMAP_TYPE:new()},
             {ok, {?TYPE, {delta, Delta}}};
         false ->
@@ -126,7 +125,7 @@ delta_mutate(decrement, Actor, {?TYPE, {PNCounter, _GMap}}=BCounter) ->
 %%          - the number of increments minus the number of decrements
 %%          - plus permissions received
 %%          - minus permissions given
-permissions({?TYPE, {{?PNCOUNTER_TYPE, PNCounter}, 
+permissions({?TYPE, {{?PNCOUNTER_TYPE, PNCounter},
                      {?GMAP_TYPE, {?MAX_INT_TYPE, GMap}}}}, Actor) ->
     Local = case orddict:find(Actor, PNCounter) of
         {ok, {Inc, Dec}} ->
@@ -180,14 +179,14 @@ merge({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) ->
     {?TYPE, {PNCounter, GMap}}.
 
 %% @doc Equality for `state_bcounter()'.
-%%      Two `state_bcounter()' are equal if each 
+%%      Two `state_bcounter()' are equal if each
 %%      component is `equal/2'.
 -spec equal(state_bcounter(), state_bcounter()) -> boolean().
 equal({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) ->
     ?PNCOUNTER_TYPE:equal(PNCounter1, PNCounter2) andalso
     ?GMAP_TYPE:equal(GMap1, GMap2).
 
-%% @doc Given two `state_bcounter()', check if the second is an 
+%% @doc Given two `state_bcounter()', check if the second is an
 %%      inflation of the first.
 %%      We have and inflation if we have an inflation component wise.
 -spec is_inflation(state_bcounter(), state_bcounter()) -> boolean().
@@ -198,14 +197,14 @@ is_inflation({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) ->
 %% @doc Check for strict inflation.
 %%      In pairs we have strict inflations if we have component wise
 %%      inflations and at least one strict inflation in the composition.
-%% 
+%%
 %% @reference Carlos Baquero, Paulo Sérgio Almeida, Alcino Cunha and Carla Ferreira
 %%      Composition of State-based CRDTs (2015)
 %%      [http://haslab.uminho.pt/cbm/files/crdtcompositionreport.pdf]
 %%
 -spec is_strict_inflation(state_bcounter(), state_bcounter()) -> boolean().
 is_strict_inflation({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) ->
-    (?PNCOUNTER_TYPE:is_strict_inflation(PNCounter1, PNCounter2) 
+    (?PNCOUNTER_TYPE:is_strict_inflation(PNCounter1, PNCounter2)
         andalso
     ?GMAP_TYPE:is_inflation(GMap1, GMap2))
     orelse
@@ -286,9 +285,9 @@ delta_move_test() ->
     BCounter5 = merge({?TYPE, Delta3}, BCounter4),
     {ok, {?TYPE, {delta, Delta4}}} = delta_mutate(decrement, From, BCounter5),
     BCounter6 = merge({?TYPE, Delta4}, BCounter5),
-    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{From, {2, 0}}]}, 
+    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{From, {2, 0}}]},
                           {?GMAP_TYPE, {?MAX_INT_TYPE, [{{From, To}, 2}]}}}}, BCounter3),
-    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{From, {2, 1}}, {To, {0, 1}}]}, 
+    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{From, {2, 1}}, {To, {0, 1}}]},
                           {?GMAP_TYPE, {?MAX_INT_TYPE, [{{From, To}, 2}, {{To, From}, 1}]}}}}, BCounter6).
 
 merge_deltas_test() ->
