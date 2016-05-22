@@ -21,10 +21,11 @@
 %% @doc Single-assignment variable.
 %%      Write once register.
 
--module(ivar).
+-module(state_ivar).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
 -behaviour(type).
+-behaviour(state_type).
 
 -define(TYPE, ?MODULE).
 
@@ -37,43 +38,43 @@
 -export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
--export_type([ivar/0, delta_ivar/0, ivar_op/0]).
+-export_type([state_ivar/0, delta_state_ivar/0, state_ivar_op/0]).
 
--opaque ivar() :: {?TYPE, payload()}.
--opaque delta_ivar() :: {?TYPE, {delta, payload()}}.
+-opaque state_ivar() :: {?TYPE, payload()}.
+-opaque delta_state_ivar() :: {?TYPE, {delta, payload()}}.
 -type payload() :: term().
--type ivar_op() :: {set, term()}.
+-type state_ivar_op() :: {set, term()}.
 
-%% @doc Create a new `ivar()'
--spec new() -> ivar().
+%% @doc Create a new `state_ivar()'
+-spec new() -> state_ivar().
 new() ->
     {?TYPE, undefined}.
 
-%% @doc Create a new, empty `ivar()'
--spec new([term()]) -> ivar().
+%% @doc Create a new, empty `state_ivar()'
+-spec new([term()]) -> state_ivar().
 new([]) ->
     new().
 
-%% @doc Mutate a `ivar()'.
--spec mutate(ivar_op(), type:actor(), ivar()) ->
-    {ok, ivar()}.
+%% @doc Mutate a `state_ivar()'.
+-spec mutate(state_ivar_op(), type:id(), state_ivar()) ->
+    {ok, state_ivar()}.
 mutate({set, Value}, _Actor, {?TYPE, undefined}) ->
     {ok, {?TYPE, Value}}.
 
-%% @doc Delta-mutate a `ivar()'.
--spec delta_mutate(ivar_op(), type:actor(), ivar()) ->
-    {ok, delta_ivar()}.
+%% @doc Delta-mutate a `state_ivar()'.
+-spec delta_mutate(state_ivar_op(), type:id(), state_ivar()) ->
+    {ok, delta_state_ivar()}.
 delta_mutate(Op, Actor, {?TYPE, _}=Var) ->
     {ok, {?TYPE, Value}} = mutate(Op, Actor, Var),
     {ok, {?TYPE, {delta, Value}}}.
 
-%% @doc Returns the value of the `ivar()'.
--spec query(ivar()) -> term().
+%% @doc Returns the value of the `state_ivar()'.
+-spec query(state_ivar()) -> term().
 query({?TYPE, Value}) ->
     Value.
 
-%% @doc Merge two `ivar()'.
--spec merge(ivar(), ivar()) -> ivar().
+%% @doc Merge two `state_ivar()'.
+-spec merge(state_ivar(), state_ivar()) -> state_ivar().
 merge({?TYPE, undefined}, {?TYPE, undefined}) ->
     {?TYPE, undefined};
 merge({?TYPE, Value}, {?TYPE, undefined}) ->
@@ -83,16 +84,16 @@ merge({?TYPE, undefined}, {?TYPE, Value}) ->
 merge({?TYPE, Value}, {?TYPE, Value}) ->
     {?TYPE, Value}.
 
-%% @doc Equality for `ivar()'.
--spec equal(ivar(), ivar()) -> boolean().
+%% @doc Equality for `state_ivar()'.
+-spec equal(state_ivar(), state_ivar()) -> boolean().
 equal({?TYPE, Value1}, {?TYPE, Value2}) ->
     Value1 == Value2.
 
-%% @doc Given two `ivar()', check if the second is and inflation
+%% @doc Given two `state_ivar()', check if the second is and inflation
 %%      of the first.
-%%      The second `ivar()' is and inflation if the first set is
+%%      The second `state_ivar()' is and inflation if the first set is
 %%      a subset of the second.
--spec is_inflation(ivar(), ivar()) -> boolean().
+-spec is_inflation(state_ivar(), state_ivar()) -> boolean().
 is_inflation({?TYPE, undefined}, {?TYPE, undefined}) ->
     true;
 is_inflation({?TYPE, undefined}, {?TYPE, _Value}) ->
@@ -103,12 +104,12 @@ is_inflation({?TYPE, _}=Var1, {?TYPE, _}=Var2) ->
     equal(Var1, Var2).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(ivar(), ivar()) -> boolean().
+-spec is_strict_inflation(state_ivar(), state_ivar()) -> boolean().
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    type:is_strict_inflation(CRDT1, CRDT2).
+    state_type:is_strict_inflation(CRDT1, CRDT2).
 
-%% @doc Join decomposition for `ivar()'.
--spec join_decomposition(ivar()) -> [ivar()].
+%% @doc Join decomposition for `state_ivar()'.
+-spec join_decomposition(state_ivar()) -> [state_ivar()].
 join_decomposition({?TYPE, _}=Var) ->
     [Var].
 
@@ -163,9 +164,9 @@ is_inflation_test() ->
     ?assertNot(is_inflation(Var1, Var2)),
     ?assertNot(is_inflation(Var2, Var1)),
     %% check inflation with merge
-    ?assert(type:is_inflation(Var0, Var0)),
-    ?assert(type:is_inflation(Var0, Var1)),
-    ?assert(type:is_inflation(Var1, Var1)).
+    ?assert(state_type:is_inflation(Var0, Var0)),
+    ?assert(state_type:is_inflation(Var0, Var1)),
+    ?assert(state_type:is_inflation(Var1, Var1)).
 
 is_strict_inflation_test() ->
     Var0 = new(),

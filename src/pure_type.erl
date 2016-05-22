@@ -19,33 +19,11 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Inspired by both the Lasp data type behaviour and the Riak data
-%%      type behaviour.
+-module(pure_type).
+-author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
--module(type).
--author("Christopher Meiklejohn <christopher.meiklejohn@gmail.com>").
+-export_type([pure_type/0]).
 
 %% Define some initial types.
--type type() :: state_type:state_type() | pure_type:pure_type().
--type payload() :: term().
--type crdt() :: {type(), payload()}.
--type operation() :: term().
--type id() :: term().
--type value() :: term().
--type error() :: term().
-
-%% Initialize a CRDT.
--callback new() -> crdt().
-
-%% Unified interface for allowing parameterized CRDTs.
--callback new([term()]) -> crdt().
-
-%% Perform a mutation.
--callback mutate(operation(), id(), crdt()) ->
-    {ok, crdt()} | {error, error()}.
-
-%% Get the value of a CRDT.
--callback query(crdt()) -> value().
-
-%% Compare equality.
--callback equal(crdt(), crdt()) -> boolean().
+-type pure_type() ::  pure_gcounter |
+                      pure_gset.

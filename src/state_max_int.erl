@@ -24,10 +24,11 @@
 %%      Composition of State-based CRDTs (2015)
 %%      [http://haslab.uminho.pt/cbm/files/crdtcompositionreport.pdf]
 
--module(max_int).
+-module(state_max_int).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
 -behaviour(type).
+-behaviour(state_type).
 
 -define(TYPE, ?MODULE).
 
@@ -40,45 +41,45 @@
 -export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
--export_type([max_int/0, delta_max_int/0, max_int_op/0]).
+-export_type([state_max_int/0, delta_state_max_int/0, state_max_int_op/0]).
 
--opaque max_int() :: {?TYPE, payload()}.
--opaque delta_max_int() :: {?TYPE, {delta, payload()}}.
--type delta_or_state() :: max_int() | delta_max_int().
+-opaque state_max_int() :: {?TYPE, payload()}.
+-opaque delta_state_max_int() :: {?TYPE, {delta, payload()}}.
+-type delta_or_state() :: state_max_int() | delta_state_max_int().
 -type payload() :: non_neg_integer().
--type max_int_op() :: increment.
+-type state_max_int_op() :: increment.
 
-%% @doc Create a new, empty `max_int()'
--spec new() -> max_int().
+%% @doc Create a new, empty `state_max_int()'
+-spec new() -> state_max_int().
 new() ->
     {?TYPE, 0}.
 
-%% @doc Create a new, empty `max_int()'
--spec new([term()]) -> max_int().
+%% @doc Create a new, empty `state_max_int()'
+-spec new([term()]) -> state_max_int().
 new([]) ->
     new().
 
-%% @doc Mutate a `max_int()'.
--spec mutate(max_int_op(), type:actor(), max_int()) ->
-    {ok, max_int()}.
+%% @doc Mutate a `state_max_int()'.
+-spec mutate(state_max_int_op(), type:id(), state_max_int()) ->
+    {ok, state_max_int()}.
 mutate(Op, Actor, {?TYPE, _}=CRDT) ->
-    type:mutate(Op, Actor, CRDT).
+    state_type:mutate(Op, Actor, CRDT).
 
-%% @doc Delta-mutate a `max_int()'.
+%% @doc Delta-mutate a `state_max_int()'.
 %%      The first argument can only be `increment'.
-%%      Returns a `max_int()' delta which is a new `max_int()'
+%%      Returns a `state_max_int()' delta which is a new `state_max_int()'
 %%      with the value incremented by one.
--spec delta_mutate(max_int_op(), type:actor(), max_int()) ->
-    {ok, delta_max_int()}.
+-spec delta_mutate(state_max_int_op(), type:id(), state_max_int()) ->
+    {ok, delta_state_max_int()}.
 delta_mutate(increment, _Actor, {?TYPE, Value}) ->
     {ok, {?TYPE, {delta, Value + 1}}}.
 
-%% @doc Returns the value of the `max_int()'.
--spec query(max_int()) -> non_neg_integer().
+%% @doc Returns the value of the `state_max_int()'.
+-spec query(state_max_int()) -> non_neg_integer().
 query({?TYPE, Value}) ->
     Value.
 
-%% @doc Merge two `max_int()'.
+%% @doc Merge two `state_max_int()'.
 %%      Uses max function.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
 merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
@@ -91,26 +92,26 @@ merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
 merge({?TYPE, Value1}, {?TYPE, Value2}) ->
     {?TYPE, max(Value1, Value2)}.
 
-%% @doc Equality for `max_int()'.
--spec equal(max_int(), max_int()) -> boolean().
+%% @doc Equality for `state_max_int()'.
+-spec equal(state_max_int(), state_max_int()) -> boolean().
 equal({?TYPE, Value1}, {?TYPE, Value2}) ->
     Value1 == Value2.
 
-%% @doc Given two `max_int()', check if the second is an inflation
+%% @doc Given two `state_max_int()', check if the second is an inflation
 %%      of the first.
 %%      The second is an inflation if its value is greater or equal
 %%      to the value of the first.
--spec is_inflation(max_int(), max_int()) -> boolean().
+-spec is_inflation(state_max_int(), state_max_int()) -> boolean().
 is_inflation({?TYPE, Value1}, {?TYPE, Value2}) ->
     Value1 =< Value2.
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(max_int(), max_int()) -> boolean().
+-spec is_strict_inflation(state_max_int(), state_max_int()) -> boolean().
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    type:is_strict_inflation(CRDT1, CRDT2).
+    state_type:is_strict_inflation(CRDT1, CRDT2).
 
-%% @doc Join decomposition for `max_int()'.
--spec join_decomposition(max_int()) -> [max_int()].
+%% @doc Join decomposition for `state_max_int()'.
+-spec join_decomposition(state_max_int()) -> [state_max_int()].
 join_decomposition({?TYPE, _}=MaxInt) ->
     [MaxInt].
 
@@ -188,9 +189,9 @@ is_inflation_test() ->
     ?assert(is_inflation(MaxInt1, MaxInt2)),
     ?assertNot(is_inflation(MaxInt2, MaxInt1)),
     %% check inflation with merge
-    ?assert(type:is_inflation(MaxInt1, MaxInt1)),
-    ?assert(type:is_inflation(MaxInt1, MaxInt2)),
-    ?assertNot(type:is_inflation(MaxInt2, MaxInt1)).
+    ?assert(state_type:is_inflation(MaxInt1, MaxInt1)),
+    ?assert(state_type:is_inflation(MaxInt1, MaxInt2)),
+    ?assertNot(state_type:is_inflation(MaxInt2, MaxInt1)).
 
 is_strict_inflation_test() ->
     MaxInt1 = {?TYPE, 23},

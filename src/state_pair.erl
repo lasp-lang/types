@@ -29,16 +29,17 @@
 %%      delta-enabled-crdts C++ library
 %%      [https://github.com/CBaquero/delta-enabled-crdts]
 
--module(pair).
+-module(state_pair).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
 -behaviour(type).
+-behaviour(state_type).
 
 -define(TYPE, ?MODULE).
--define(IVAR_TYPE, ivar).
--define(GSET_TYPE, gset).
--define(GCOUNTER_TYPE, gcounter).
--define(PNCOUNTER_TYPE, pncounter).
+-define(IVAR_TYPE, state_ivar).
+-define(GSET_TYPE, state_gset).
+-define(GCOUNTER_TYPE, state_gcounter).
+-define(PNCOUNTER_TYPE, state_pncounter).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -49,29 +50,29 @@
 -export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
--export_type([pair/0, delta_pair/0, pair_op/0]).
+-export_type([state_pair/0, delta_state_pair/0, state_pair_op/0]).
 
--opaque pair() :: {?TYPE, payload()}.
--opaque delta_pair() :: {?TYPE, {delta, payload()}}.
--type delta_or_state() :: pair() | delta_pair().
--type component() :: {type:type(), type:crdt()}.
+-opaque state_pair() :: {?TYPE, payload()}.
+-opaque delta_state_pair() :: {?TYPE, {delta, payload()}}.
+-type delta_or_state() :: state_pair() | delta_state_pair().
+-type component() :: {type:state_type(), type:crdt()}. %% @todo
 -type payload() :: {component(), component()}.
--type pair_op() :: {fst, term()} | {snd, term()}.
+-type state_pair_op() :: {fst, term()} | {snd, term()}.
 
-%% @doc Create a new, empty `pair()'
-%%      By default it creates a pair of `?IVAR_TYPE()'.
--spec new() -> pair().
+%% @doc Create a new, empty `state_pair()'
+%%      By default it creates a state_pair of `?IVAR_TYPE()'.
+-spec new() -> state_pair().
 new() ->
     new([?IVAR_TYPE, ?IVAR_TYPE]).
 
-%% @doc Create a new, empty `pair()'
--spec new([type:type()]) -> pair().
+%% @doc Create a new, empty `state_pair()'
+-spec new([type:state_type()]) -> state_pair().
 new([Fst, Snd]) ->
     {?TYPE, {Fst:new(), Snd:new()}}.
 
-%% @doc Mutate a `pair()'.
--spec mutate(pair_op(), type:actor(), pair()) ->
-    {ok, pair()} | {error, term()}.
+%% @doc Mutate a `state_pair()'.
+-spec mutate(state_pair_op(), type:id(), state_pair()) ->
+    {ok, state_pair()} | {error, term()}.
 mutate({fst, _}=Op, Actor, {?TYPE, {{FstType, _}=Fst, {_SndType, _}=Snd}}=Pair) ->
     case delta_mutate(Op, Actor, Pair) of
         {ok, {?TYPE, {delta, {Delta, _}}}} ->
@@ -87,12 +88,12 @@ mutate({snd, _}=Op, Actor, {?TYPE, {{_FstType, _}=Fst, {SndType, _}=Snd}}=Pair) 
             Error
     end.
 
-%% @doc Delta-mutate a `pair()'.
+%% @doc Delta-mutate a `state_pair()'.
 %%      Depending on the atom passed, `fst' or `snd', this function
-%%      will delta mutate the pair in the first or second component
+%%      will delta mutate the state_pair in the first or second component
 %%      respectively.
--spec delta_mutate(pair_op(), type:actor(), pair()) ->
-    {ok, delta_pair()} | {error, term()}.
+-spec delta_mutate(state_pair_op(), type:id(), state_pair()) ->
+    {ok, delta_state_pair()} | {error, term()}.
 delta_mutate({fst, Op}, Actor, {?TYPE, {{FstType, _}=Fst, {SndType, _}}}) ->
     case FstType:delta_mutate(Op, Actor, Fst) of
         {ok, {FstType, {delta, Delta}}} ->
@@ -110,14 +111,14 @@ delta_mutate({snd, Op}, Actor, {?TYPE, {{FstType, _}, {SndType, _}=Snd}}) ->
             Error
     end.
 
-%% @doc Returns a `pair()' where each component has the value resultant
+%% @doc Returns a `state_pair()' where each component has the value resultant
 %%      from `query/1' of the correspondent data type.
--spec query(pair()) -> {term(), term()}.
+-spec query(state_pair()) -> {term(), term()}.
 query({?TYPE, {{FstType, _}=Fst, {SndType, _}=Snd}}) ->
     {FstType:query(Fst), SndType:query(Snd)}.
 
-%% @doc Merge two `pair()'.
-%%      The resulting `pair()' is the component-wise join of components.
+%% @doc Merge two `state_pair()'.
+%%      The resulting `state_pair()' is the component-wise join of components.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
 merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
     {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
@@ -132,39 +133,39 @@ merge({?TYPE, {{FstType, _}=Fst1, {SndType, _}=Snd1}},
     Snd = SndType:merge(Snd1, Snd2),
     {?TYPE, {Fst, Snd}}.
 
-%% @doc Equality for `pair()'.
--spec equal(pair(), pair()) -> boolean().
+%% @doc Equality for `state_pair()'.
+-spec equal(state_pair(), state_pair()) -> boolean().
 equal({?TYPE, {{FstType, _}=Fst1, {SndType, _}=Snd1}},
       {?TYPE, {{FstType, _}=Fst2, {SndType, _}=Snd2}}) ->
     FstType:equal(Fst1, Fst2) andalso
     SndType:equal(Snd1, Snd2).
 
-%% @doc Check for `pair()' inflation.
+%% @doc Check for `state_pair()' inflation.
 %%      We have an inflation when both of the components are inflations.
--spec is_inflation(pair(), pair()) -> boolean().
+-spec is_inflation(state_pair(), state_pair()) -> boolean().
 is_inflation({?TYPE, {{FstType, _}=Fst1, {SndType, _}=Snd1}},
              {?TYPE, {{FstType, _}=Fst2, {SndType, _}=Snd2}}) ->
     FstType:is_inflation(Fst1, Fst2) andalso
     SndType:is_inflation(Snd1, Snd2).
 
-%% @doc Check for `pair()' strict inflation.
-%%      In pairs we have strict inflations if we have component wise
+%% @doc Check for `state_pair()' strict inflation.
+%%      In state_pairs we have strict inflations if we have component wise
 %%      inflations and at least one strict inflation in the composition.
 %%
 %% @reference Carlos Baquero, Paulo Sérgio Almeida, Alcino Cunha and Carla Ferreira
 %%      Composition of State-based CRDTs (2015)
 %%      [http://haslab.uminho.pt/cbm/files/crdtcompositionreport.pdf]
 %%
--spec is_strict_inflation(pair(), pair()) -> boolean().
+-spec is_strict_inflation(state_pair(), state_pair()) -> boolean().
 is_strict_inflation({?TYPE, {{FstType, _}=Fst1, {SndType, _}=Snd1}},
                     {?TYPE, {{FstType, _}=Fst2, {SndType, _}=Snd2}}) ->
     (FstType:is_strict_inflation(Fst1, Fst2) andalso SndType:is_inflation(Snd1, Snd2))
     orelse
     (FstType:is_inflation(Fst1, Fst2) andalso SndType:is_strict_inflation(Snd1, Snd2)).
 
-%% @doc Join decomposition for `pair()'.
+%% @doc Join decomposition for `state_pair()'.
 %% @todo Check how to do this.
--spec join_decomposition(pair()) -> [pair()].
+-spec join_decomposition(state_pair()) -> [state_pair()].
 join_decomposition({?TYPE, _Pair}) -> [].
 
 %% ===================================================================
@@ -249,9 +250,9 @@ is_inflation_test() ->
     ?assertNot(is_inflation(Pair1, Pair2)),
     ?assert(is_inflation(Pair3, Pair4)),
     %% check inflation with merge
-    ?assert(type:is_inflation(Pair1, Pair1)),
-    ?assertNot(type:is_inflation(Pair1, Pair2)),
-    ?assert(type:is_inflation(Pair3, Pair4)).
+    ?assert(state_type:is_inflation(Pair1, Pair1)),
+    ?assertNot(state_type:is_inflation(Pair1, Pair2)),
+    ?assert(state_type:is_inflation(Pair3, Pair4)).
 
 is_strict_inflation_test() ->
     GCounter1 = {?GCOUNTER_TYPE, [{1, 5}, {2, 10}]},

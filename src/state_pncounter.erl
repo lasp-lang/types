@@ -35,10 +35,11 @@
 %%      delta-enabled-crdts C++ library
 %%      [https://github.com/CBaquero/delta-enabled-crdts]
 
--module(pncounter).
+-module(state_pncounter).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
 -behaviour(type).
+-behaviour(state_type).
 
 -define(TYPE, ?MODULE).
 
@@ -51,42 +52,42 @@
 -export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
--export_type([pncounter/0, delta_pncounter/0, pncounter_op/0]).
+-export_type([state_pncounter/0, delta_state_pncounter/0, state_pncounter_op/0]).
 
--opaque pncounter() :: {?TYPE, payload()}.
--opaque delta_pncounter() :: {?TYPE, {delta, payload()}}.
--type delta_or_state() :: pncounter() | delta_pncounter().
+-opaque state_pncounter() :: {?TYPE, payload()}.
+-opaque delta_state_pncounter() :: {?TYPE, {delta, payload()}}.
+-type delta_or_state() :: state_pncounter() | delta_state_pncounter().
 -type payload() :: orddict:orddict().
--type pncounter_op() :: increment | decrement.
+-type state_pncounter_op() :: increment | decrement.
 
-%% @doc Create a new, empty `pncounter()'
--spec new() -> pncounter().
+%% @doc Create a new, empty `state_pncounter()'
+-spec new() -> state_pncounter().
 new() ->
     {?TYPE, orddict:new()}.
 
-%% @doc Create a new, empty `pncounter()'
--spec new([term()]) -> pncounter().
+%% @doc Create a new, empty `state_pncounter()'
+-spec new([term()]) -> state_pncounter().
 new([]) ->
     new().
 
-%% @doc Mutate a `pncounter()'.
--spec mutate(pncounter_op(), type:actor(), pncounter()) ->
-    {ok, pncounter()}.
+%% @doc Mutate a `state_pncounter()'.
+-spec mutate(state_pncounter_op(), type:id(), state_pncounter()) ->
+    {ok, state_pncounter()}.
 mutate(Op, Actor, {?TYPE, _PNCounter}=CRDT) ->
-    type:mutate(Op, Actor, CRDT).
+    state_type:mutate(Op, Actor, CRDT).
 
-%% @doc Delta-mutate a `pncounter()'.
+%% @doc Delta-mutate a `state_pncounter()'.
 %%      The first argument can be `increment' or `decrement'.
 %%      The second argument is the replica id.
-%%      The third argument is the `pncounter()' to be inflated.
-%%      Returns a `pncounter()' delta where the only entry in the
+%%      The third argument is the `state_pncounter()' to be inflated.
+%%      Returns a `state_pncounter()' delta where the only entry in the
 %%      dictionary maps the replica id to the last value plus 1:
 %%          - if it is a `increment' the replica id will map to a pair
 %%          where the first component will be the last value for
 %%          increments plus 1 and the second component will be zero
 %%          - vice versa for `decrement'
--spec delta_mutate(pncounter_op(), type:actor(), pncounter()) ->
-    {ok, delta_pncounter()}.
+-spec delta_mutate(state_pncounter_op(), type:id(), state_pncounter()) ->
+    {ok, delta_state_pncounter()}.
 delta_mutate(increment, Actor, {?TYPE, PNCounter}) ->
     Value = case orddict:find(Actor, PNCounter) of
         {ok, {Inc, _Dec}} ->
@@ -108,21 +109,21 @@ delta_mutate(decrement, Actor, {?TYPE, PNCounter}) ->
     {ok, {?TYPE, {delta, Delta}}}.
 
 
-%% @doc Returns the value of the `pncounter()'.
+%% @doc Returns the value of the `state_pncounter()'.
 %%      This value is the sum of all increments minus the sum of all
 %%      decrements.
--spec query(pncounter()) -> non_neg_integer().
+-spec query(state_pncounter()) -> non_neg_integer().
 query({?TYPE, PNCounter}) ->
     lists:sum([ Inc - Dec || {_Actor, {Inc, Dec}} <- PNCounter ]).
 
-%% @doc Merge two `pncounter()'.
-%%      The keys of the resulting `pncounter()' are the union of the
-%%      keys of both `pncounter()' passed as input.
-%%      If a key is only present on one of the `pncounter()',
+%% @doc Merge two `state_pncounter()'.
+%%      The keys of the resulting `state_pncounter()' are the union of the
+%%      keys of both `state_pncounter()' passed as input.
+%%      If a key is only present on one of the `state_pncounter()',
 %%      its correspondent value is preserved.
-%%      If a key is present in both `pncounter()', the new value
+%%      If a key is present in both `state_pncounter()', the new value
 %%      will be the componenet wise max of both values.
-%%      Return the join of the two `pncounter()'.
+%%      Return the join of the two `state_pncounter()'.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
 merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
     {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
@@ -141,26 +142,26 @@ merge({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
     ),
     {?TYPE, PNCounter}.
 
-%% @doc Are two `pncounter()'s structurally equal?
+%% @doc Are two `state_pncounter()'s structurally equal?
 %%      This is not `query/1' equality.
 %%      Two counters might represent the total `42', and not be `equal/2'.
 %%      Equality here is that both counters contain the same replica ids
 %%      and those replicas have the same pair representing the number of
 %%      increments and decrements.
--spec equal(pncounter(), pncounter()) -> boolean().
+-spec equal(state_pncounter(), state_pncounter()) -> boolean().
 equal({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
     Fun = fun({Inc1, Dec1}, {Inc2, Dec2}) -> Inc1 == Inc2 andalso Dec1 == Dec2 end,
     orddict_ext:equal(PNCounter1, PNCounter2, Fun).
 
-%% @doc Given two `pncounter()', check if the second is and inflation
+%% @doc Given two `state_pncounter()', check if the second is and inflation
 %%      of the first.
 %%      Two conditions should be met:
-%%          - each replica id in the first `pncounter()' is also in
-%%          the second `pncounter()'
+%%          - each replica id in the first `state_pncounter()' is also in
+%%          the second `state_pncounter()'
 %%          - component wise the value for each replica in the first
-%%          `pncounter()' should be less or equal than the value
-%%          for the same replica in the second `pncounter()'
--spec is_inflation(pncounter(), pncounter()) -> boolean().
+%%          `state_pncounter()' should be less or equal than the value
+%%          for the same replica in the second `state_pncounter()'
+-spec is_inflation(state_pncounter(), state_pncounter()) -> boolean().
 is_inflation({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
     orddict:fold(
         fun(Key, {Inc1, Dec1}, Acc) ->
@@ -176,19 +177,19 @@ is_inflation({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
      ).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(pncounter(), pncounter()) -> boolean().
+-spec is_strict_inflation(state_pncounter(), state_pncounter()) -> boolean().
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    type:is_strict_inflation(CRDT1, CRDT2).
+    state_type:is_strict_inflation(CRDT1, CRDT2).
 
-%% @doc Join decomposition for `pncounter()'.
-%%      A `pncounter()' is a set of entries.
-%%      The result of the join decomposition is a list of `pncounter()'
-%%      where each of the `pncounter()' only has one entry.
+%% @doc Join decomposition for `state_pncounter()'.
+%%      A `state_pncounter()' is a set of entries.
+%%      The result of the join decomposition is a list of `state_pncounter()'
+%%      where each of the `state_pncounter()' only has one entry.
 %%      Also, increments and decrements should be separated.
-%%      This means that for each replica id in the `pncounter()'
-%%      passed as a input we'll have 2 `pncounter()' in the
+%%      This means that for each replica id in the `state_pncounter()'
+%%      passed as a input we'll have 2 `state_pncounter()' in the
 %%      resulting join decomposition.
--spec join_decomposition(pncounter()) -> [pncounter()].
+-spec join_decomposition(state_pncounter()) -> [state_pncounter()].
 join_decomposition({?TYPE, PNCounter}) ->
     lists:foldl(
         fun({Actor, {Inc, Dec}}, Acc) ->
@@ -290,10 +291,10 @@ is_inflation_test() ->
     ?assert(is_inflation(Counter1, Counter3)),
     ?assertNot(is_inflation(Counter1, Counter4)),
     %% check inflation with merge
-    ?assert(type:is_inflation(Counter1, Counter1)),
-    ?assert(type:is_inflation(Counter1, Counter2)),
-    ?assert(type:is_inflation(Counter1, Counter3)),
-    ?assertNot(type:is_inflation(Counter1, Counter4)).
+    ?assert(state_type:is_inflation(Counter1, Counter1)),
+    ?assert(state_type:is_inflation(Counter1, Counter2)),
+    ?assert(state_type:is_inflation(Counter1, Counter3)),
+    ?assertNot(state_type:is_inflation(Counter1, Counter4)).
 
 is_strict_inflation_test() ->
     Counter1 = {?TYPE, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}]},

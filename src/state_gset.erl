@@ -28,10 +28,11 @@
 %%      delta-enabled-crdts C++ library
 %%      [https://github.com/CBaquero/delta-enabled-crdts]
 
--module(gset).
+-module(state_gset).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
 -behaviour(type).
+-behaviour(state_type).
 
 -define(TYPE, ?MODULE).
 
@@ -44,41 +45,41 @@
 -export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
--export_type([gset/0, delta_gset/0, gset_op/0]).
+-export_type([state_gset/0, delta_state_gset/0, state_gset_op/0]).
 
--opaque gset() :: {?TYPE, payload()}.
--opaque delta_gset() :: {?TYPE, {delta, payload()}}.
--type delta_or_state() :: gset() | delta_gset().
+-opaque state_gset() :: {?TYPE, payload()}.
+-opaque delta_state_gset() :: {?TYPE, {delta, payload()}}.
+-type delta_or_state() :: state_gset() | delta_state_gset().
 -type payload() :: ordsets:ordset().
 -type element() :: term().
--type gset_op() :: {add, element()}.
+-type state_gset_op() :: {add, element()}.
 
-%% @doc Create a new, empty `gset()'
--spec new() -> gset().
+%% @doc Create a new, empty `state_gset()'
+-spec new() -> state_gset().
 new() ->
     {?TYPE, ordsets:new()}.
 
-%% @doc Create a new, empty `gset()'
--spec new([term()]) -> gset().
+%% @doc Create a new, empty `state_gset()'
+-spec new([term()]) -> state_gset().
 new([]) ->
     new().
 
-%% @doc Mutate a `gset()'.
--spec mutate(gset_op(), type:actor(), gset()) ->
-    {ok, gset()}.
+%% @doc Mutate a `state_gset()'.
+-spec mutate(state_gset_op(), type:id(), state_gset()) ->
+    {ok, state_gset()}.
 mutate(Op, Actor, {?TYPE, _GSet}=CRDT) ->
-    type:mutate(Op, Actor, CRDT).
+    state_type:mutate(Op, Actor, CRDT).
 
-%% @doc Delta-mutate a `gset()'.
+%% @doc Delta-mutate a `state_gset()'.
 %%      The first argument can only be `{add, element()}'.
 %%      The second argument is the replica id (unused).
-%%      The third argument is the `gset()' to be inflated.
-%%      Returns a `gset()' delta which is a new `gset()'
+%%      The third argument is the `state_gset()' to be inflated.
+%%      Returns a `state_gset()' delta which is a new `state_gset()'
 %%      with only one element - the element to be added to
 %%      the set. If the element is already in the set
-%%      the resulting delta will be an empty `gset()'.
--spec delta_mutate(gset_op(), type:actor(), gset()) ->
-    {ok, delta_gset()}.
+%%      the resulting delta will be an empty `state_gset()'.
+-spec delta_mutate(state_gset_op(), type:id(), state_gset()) ->
+    {ok, delta_state_gset()}.
 delta_mutate({add, Elem}, _Actor, {?TYPE, GSet}) ->
     Delta = case ordsets:is_element(Elem, GSet) of
         true ->
@@ -88,15 +89,15 @@ delta_mutate({add, Elem}, _Actor, {?TYPE, GSet}) ->
     end,
     {ok, {?TYPE, {delta, Delta}}}.
 
-%% @doc Returns the value of the `gset()'.
-%%      This value is a list with all the elements in the `gset()'.
--spec query(gset()) -> [element()].
+%% @doc Returns the value of the `state_gset()'.
+%%      This value is a list with all the elements in the `state_gset()'.
+-spec query(state_gset()) -> [element()].
 query({?TYPE, GSet}) ->
     ordsets:to_list(GSet).
 
-%% @doc Merge two `gset()'.
+%% @doc Merge two `state_gset()'.
 %%      The result is the set union of both sets in the
-%%      `gset()' passed as argument.
+%%      `state_gset()' passed as argument.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
 merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
     {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
@@ -109,32 +110,32 @@ merge({?TYPE, GSet1}, {?TYPE, GSet2}) ->
     GSet = ordsets:union(GSet1, GSet2),
     {?TYPE, GSet}.
 
-%% @doc Equality for `gset()'.
+%% @doc Equality for `state_gset()'.
 %%      Two sets s1 and s2 are equal if:
 %%          - s1 is subset of s2
 %%          - s2 is subset of s1
--spec equal(gset(), gset()) -> boolean().
+-spec equal(state_gset(), state_gset()) -> boolean().
 equal({?TYPE, GSet1}, {?TYPE, GSet2}) ->
     ordsets:is_subset(GSet1, GSet2) andalso ordsets:is_subset(GSet2, GSet1).
 
-%% @doc Given two `gset()', check if the second is an inflation
+%% @doc Given two `state_gset()', check if the second is an inflation
 %%      of the first.
-%%      The second `gset()' is an inflation if the first set is
+%%      The second `state_gset()' is an inflation if the first set is
 %%      a subset of the second.
--spec is_inflation(gset(), gset()) -> boolean().
+-spec is_inflation(state_gset(), state_gset()) -> boolean().
 is_inflation({?TYPE, GSet1}, {?TYPE, GSet2}) ->
     ordsets:is_subset(GSet1, GSet2).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(gset(), gset()) -> boolean().
+-spec is_strict_inflation(state_gset(), state_gset()) -> boolean().
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    type:is_strict_inflation(CRDT1, CRDT2).
+    state_type:is_strict_inflation(CRDT1, CRDT2).
 
-%% @doc Join decomposition for `gset()'.
-%%      The join decompostion for a `gset()' is the unique set
+%% @doc Join decomposition for `state_gset()'.
+%%      The join decompostion for a `state_gset()' is the unique set
 %%      partition where each set of the partition has exactly one
 %%      element.
--spec join_decomposition(gset()) -> [gset()].
+-spec join_decomposition(state_gset()) -> [state_gset()].
 join_decomposition({?TYPE, GSet}) ->
     ordsets:fold(
         fun(Elem, Acc) ->
@@ -223,9 +224,9 @@ is_inflation_test() ->
     ?assert(is_inflation(Set1, Set2)),
     ?assertNot(is_inflation(Set2, Set1)),
     %% check inflation with merge
-    ?assert(type:is_inflation(Set1, Set1)),
-    ?assert(type:is_inflation(Set1, Set2)),
-    ?assertNot(type:is_inflation(Set2, Set1)).
+    ?assert(state_type:is_inflation(Set1, Set1)),
+    ?assert(state_type:is_inflation(Set1, Set2)),
+    ?assertNot(state_type:is_inflation(Set2, Set1)).
 
 is_strict_inflation_test() ->
     Set1 = {?TYPE, [<<"a">>]},
