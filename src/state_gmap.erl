@@ -30,12 +30,12 @@
 -module(state_gmap).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
+-include("state_type.hrl").
+
 -behaviour(type).
 -behaviour(state_type).
 
 -define(TYPE, ?MODULE).
--define(GCOUNTER_TYPE, state_gcounter).
--define(MAX_INT_TYPE, state_max_int).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
