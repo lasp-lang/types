@@ -105,16 +105,16 @@ delta_mutate({move, Count, To}, Actor, {?TYPE, {_PNCounter, GMap}}=BCounter) ->
     end;
 
 delta_mutate(increment, Actor, {?TYPE, {PNCounter, _GMap}}) ->
-    DM = ?PNCOUNTER_TYPE:delta_mutate(increment, Actor, PNCounter),
-    {ok, {?PNCOUNTER_TYPE, {delta, IncDelta}}} = DM,
+    {ok, DM} = ?PNCOUNTER_TYPE:delta_mutate(increment, Actor, PNCounter),
+    IncDelta = ?PNCOUNTER_TYPE:extract_delta(DM),
     Delta = {{?PNCOUNTER_TYPE, IncDelta}, ?GMAP_TYPE:new()},
     {ok, {?TYPE, {delta, Delta}}};
 
 delta_mutate(decrement, Actor, {?TYPE, {PNCounter, _GMap}}=BCounter) ->
     case 0 < permissions(BCounter, Actor) of
         true ->
-            DM = ?PNCOUNTER_TYPE:delta_mutate(decrement, Actor, PNCounter),
-            {ok, {?PNCOUNTER_TYPE, {delta, DecDelta}}} = DM,
+            {ok, DM} = ?PNCOUNTER_TYPE:delta_mutate(decrement, Actor, PNCounter),
+            DecDelta = ?PNCOUNTER_TYPE:extract_delta(DM),
             Delta = {{?PNCOUNTER_TYPE, DecDelta}, ?GMAP_TYPE:new()},
             {ok, {?TYPE, {delta, Delta}}};
         false ->
