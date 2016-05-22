@@ -37,9 +37,10 @@
 
 -define(TYPE, ?MODULE).
 -define(IVAR_TYPE, state_ivar).
--define(GSET_TYPE, state_gset).
 -define(GCOUNTER_TYPE, state_gcounter).
+-define(GSET_TYPE, state_gset).
 -define(PNCOUNTER_TYPE, state_pncounter).
+-define(TWOPSET_TYPE, state_twopset).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -282,5 +283,24 @@ equivalent_with_pncounter_test() ->
     {ok, PNCounter1} = ?PNCOUNTER_TYPE:mutate(increment, Actor, PNCounter0),
     {ok, PNCounter2} = ?PNCOUNTER_TYPE:mutate(decrement, Actor, PNCounter1),
     ?assertEqual(V1 - V2, ?PNCOUNTER_TYPE:query(PNCounter2)).
+
+equivalent_with_twopset_test() ->
+    Actor = 1,
+    Pair0 = new([?GSET_TYPE, ?GSET_TYPE]),
+    {ok, Pair1} = ?TYPE:mutate({fst, {add, <<"a">>}}, Actor, Pair0),
+    {ok, Pair2} = ?TYPE:mutate({fst, {add, <<"b">>}}, Actor, Pair1),
+    {ok, Pair3} = ?TYPE:mutate({snd, {add, <<"b">>}}, Actor, Pair2),
+    {Added, Removed} = ?TYPE:query(Pair3),
+    TwoPSet0 = ?TWOPSET_TYPE:new(),
+    {ok, TwoPSet1} = ?TWOPSET_TYPE:mutate({add, <<"a">>}, Actor, TwoPSet0),
+    {ok, TwoPSet2} = ?TWOPSET_TYPE:mutate({add, <<"b">>}, Actor, TwoPSet1),
+    {ok, TwoPSet3} = ?TWOPSET_TYPE:mutate({rmv, <<"b">>}, Actor, TwoPSet2),
+    List = lists:filter(
+        fun(Elem) ->
+            not lists:member(Elem, Removed)
+        end,
+        Added
+    ),
+    ?assertEqual(List, ?TWOPSET_TYPE:query(TwoPSet3)).
 
 -endif.
