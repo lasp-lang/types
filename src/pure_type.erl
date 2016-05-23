@@ -30,7 +30,7 @@
 
 
 %% Define some initial types.
--type pure_type() :: pure_gcounter | pure_pncounter | pure_gset | pure_twopset.
+-type pure_type() :: pure_gcounter | pure_pncounter | pure_gset | pure_twopset | pure_aworset.
 -type polog() :: orddict:orddict().
 -type pure_payload() :: {polog(), term()}.
 -type version_vector() :: orddict:orddict().
