@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Pure AWORSet CRDT: pure op-based add-winns observed-remove set with tombstones
+%% @doc Pure AWORSet CRDT: pure op-based add-wins observed-remove set
 %%
 %% @reference Carlos Baquero, Paulo Sérgio Almeida, and Ali Shoker
 %%      Making Operation-based CRDTs Operation-based (2014)
@@ -27,7 +27,8 @@
 -module(pure_aworset).
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
--behaviour(pure_type).
+-behaviour(type).
+%-behaviour(pure_type).
 
 -define(TYPE, ?MODULE).
 
@@ -36,12 +37,12 @@
 -endif.
 
 -export([new/0, new/1]).
--export([update/3, query/1, equal/2]).
+-export([mutate/3, query/1, equal/2]).
 
 -export_type([pure_aworset/0, pure_aworset_op/0]).
 
--opaque pure_aworset() :: {?TYPE, pure_payload()}.
--type pure_payload() :: {pure_type:polog(), ordsets:set()}.
+-opaque pure_aworset() :: {?TYPE, payload()}.
+-type payload() :: {pure_type:polog(), ordsets:set()}.
 -type pure_aworset_op() :: {add, pure_type:element()} | {rmv, pure_type:element()}.
 
 %% @doc Create a new, empty `pure_aworset()'
@@ -55,7 +56,7 @@ new([]) ->
     new().
 
 %% @doc Check causal order of 2 version vector.
--spec happened_before(pure_type:version_vector(), pure_type:version_vector()) -> boolean().
+-spec happened_before(pure_type:id(), pure_type:id()) -> boolean().
 happened_before(VV1, VV2) ->
     orddict:fold(
         fun(Key, Value1, Acc) ->
@@ -89,7 +90,7 @@ equal_polog(POLog1, POLog2) ->
 
 %% @doc Check redundancy `pure_aworset()'
 %% Called in remove_redundant().
--spec redundant({pure_type:version_vector(), pure_aworset_op()}, {pure_type:version_vector(), pure_aworset_op()}) ->
+-spec redundant({pure_type:id(), pure_aworset_op()}, {pure_type:id(), pure_aworset_op()}) ->
     integer().
 redundant({VV1, {add, Elem1}}, {VV2, {_X, Elem2}}) ->
     case Elem1 == Elem2 andalso happened_before(VV1, VV2) of
@@ -101,7 +102,7 @@ redundant({VV1, {add, Elem1}}, {VV2, {_X, Elem2}}) ->
 
 %% @doc Removes redundant operations from POLog of `pure_aworset()'
 %% Called upon updating (add, rmv) the `pure_aworset()'
--spec remove_redundant_POLog({pure_type:version_vector(), pure_aworset_op()}, pure_aworset()) -> {boolean(), pure_aworset()}.
+-spec remove_redundant_POLog({pure_type:id(), pure_aworset_op()}, pure_aworset()) -> {boolean(), pure_aworset()}.
 remove_redundant_POLog({VV1, Op}, {?TYPE, {POLog0, ORSet}}) ->
     {POLog1, Same1} = orddict:fold(
         fun(Key, Value, {Acc, Same}) ->
@@ -119,7 +120,7 @@ remove_redundant_POLog({VV1, Op}, {?TYPE, {POLog0, ORSet}}) ->
 
 %% @doc Removes redundant operations from POLog of `pure_aworset()'
 %% Called upon updating (add, rmv) the `pure_aworset()'
--spec remove_redundant_Crystal({pure_type:version_vector(), pure_aworset_op()}, pure_aworset()) -> {boolean(), pure_aworset()}.
+-spec remove_redundant_Crystal({pure_type:id(), pure_aworset_op()}, pure_aworset()) -> {boolean(), pure_aworset()}.
 remove_redundant_Crystal({_VV1, {_X, Elem}}, {?TYPE, {POLog0, AWORSet}}) ->
     case ordsets:is_element(Elem, AWORSet) of
         true ->
@@ -131,7 +132,7 @@ remove_redundant_Crystal({_VV1, {_X, Elem}}, {?TYPE, {POLog0, AWORSet}}) ->
 
 %% @doc Removes redundant operations from POLog of `pure_aworset()'
 %% Called upon updating (add, rmv) the `pure_aworset()'
--spec remove_redundant({pure_type:version_vector(), pure_aworset_op()}, pure_aworset()) -> pure_aworset().
+-spec remove_redundant({pure_type:id(), pure_aworset_op()}, pure_aworset()) -> pure_aworset().
 remove_redundant({VV1, Op}, {?TYPE, {POLog, ORSet}}) ->
     {Crystal_Changed, {?TYPE, {POLog0, PureAWORSet0}}} = remove_redundant_Crystal({VV1, Op}, {?TYPE, {POLog, ORSet}}),
     case Crystal_Changed of
@@ -143,12 +144,12 @@ remove_redundant({VV1, Op}, {?TYPE, {POLog, ORSet}}) ->
     end.
 
 %% @doc Update a `pure_aworset()'.
--spec update(pure_aworset_op(), pure_type:version_vector(), pure_aworset()) ->
+-spec mutate(pure_aworset_op(), pure_type:id(), pure_aworset()) ->
     {ok, pure_aworset()}.
-update({add, Elem}, VV, {?TYPE, {POLog, PureAWORSet}}) ->
+mutate({add, Elem}, VV, {?TYPE, {POLog, PureAWORSet}}) ->
     {?TYPE, {POLog0, PureAWORSet0}} = remove_redundant({VV, {add, Elem}}, {?TYPE, {POLog, PureAWORSet}}),
     {ok, {?TYPE, {orddict:store(VV, {add, Elem}, POLog0), PureAWORSet0}}};
-update({rmv, Elem}, VV, {?TYPE, {POLog, PureAWORSet}}) ->
+mutate({rmv, Elem}, VV, {?TYPE, {POLog, PureAWORSet}}) ->
     {?TYPE, {POLog0, PureAWORSet0}} = remove_redundant({VV, {rmv, Elem}}, {?TYPE, {POLog, PureAWORSet}}),
     {ok, {?TYPE, {POLog0, PureAWORSet0}}}.
 
@@ -223,12 +224,12 @@ query_test() ->
 
 add_test() ->
     Set0 = new(),
-    {ok, Set1} = update({add, <<"a">>}, [{0, 1}], Set0),
-    {ok, Set2} = update({add, <<"b">>}, [{0, 2}], Set1),
-    {ok, Set3} = update({add, <<"b">>}, [{0, 2}], Set2),
-    {ok, Set4} = update({add, <<"b">>}, [{0, 3}], Set3),
+    {ok, Set1} = mutate({add, <<"a">>}, [{0, 1}], Set0),
+    {ok, Set2} = mutate({add, <<"b">>}, [{0, 2}], Set1),
+    {ok, Set3} = mutate({add, <<"b">>}, [{0, 2}], Set2),
+    {ok, Set4} = mutate({add, <<"b">>}, [{0, 3}], Set3),
     Set5 = {?TYPE, {[], [<<"a">>, <<"b">>, <<"c">>]}},
-    {ok, Set6} = update({add, <<"b">>}, [{0, 4}], Set5),
+    {ok, Set6} = mutate({add, <<"b">>}, [{0, 4}], Set5),
     ?assertEqual({?TYPE, {[{[{0, 1}], {add, <<"a">>}}], []}}, Set1),
     ?assertEqual({?TYPE, {[{[{0, 1}], {add, <<"a">>}}, {[{0, 2}], {add, <<"b">>}}], []}}, Set2),
     ?assertEqual({?TYPE, {[{[{0, 1}], {add, <<"a">>}}, {[{0, 2}], {add, <<"b">>}}], []}}, Set3),
@@ -237,10 +238,10 @@ add_test() ->
 
 rmv_test() ->
     Set1 = {?TYPE, {[{[{0, 1}], {add, <<"a">>}}, {[{0, 2}], {add, <<"b">>}}], []}},
-    {ok, Set2} = update({rmv, <<"b">>}, [{0, 3}], Set1),
-    {ok, Set3} = update({rmv, <<"a">>}, [{0, 4}], Set2),
-    {ok, Set4} = update({rmv, <<"a">>}, [{0, 0}], Set2),
-    {ok, Set5} = update({rmv, <<"c">>}, [{0, 5}], Set2),
+    {ok, Set2} = mutate({rmv, <<"b">>}, [{0, 3}], Set1),
+    {ok, Set3} = mutate({rmv, <<"a">>}, [{0, 4}], Set2),
+    {ok, Set4} = mutate({rmv, <<"a">>}, [{0, 0}], Set2),
+    {ok, Set5} = mutate({rmv, <<"c">>}, [{0, 5}], Set2),
     ?assertEqual({?TYPE, {[{[{0, 1}], {add, <<"a">>}}], []}}, Set2),
     ?assertEqual({?TYPE, {[{[{0, 1}], {add, <<"a">>}}], []}}, Set4),
     ?assertEqual({?TYPE, {[{[{0, 1}], {add, <<"a">>}}], []}}, Set5),

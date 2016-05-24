@@ -28,7 +28,8 @@
 -module(pure_pncounter).
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
--behaviour(pure_type).
+-behaviour(type).
+%-behaviour(pure_type).
 
 -define(TYPE, ?MODULE).
 
@@ -37,12 +38,12 @@
 -endif.
 
 -export([new/0, new/1]).
--export([update/3, query/1, equal/2]).
+-export([mutate/3, query/1, equal/2]).
 
 -export_type([pure_pncounter/0, pure_pncounter_op/0]).
 
--opaque pure_pncounter() :: {?TYPE, pure_payload()}.
--type pure_payload() :: {pure_type:polog(), integer()}.
+-opaque pure_pncounter() :: {?TYPE, payload()}.
+-type payload() :: {pure_type:polog(), integer()}.
 -type pure_pncounter_op() :: increment | decrement.
 
 %% @doc Create a new, empty `pure_pncounter()'
@@ -56,12 +57,12 @@ new([]) ->
     new().
 
 %% @doc Update a `pure_pncounter()'.
--spec update(pure_pncounter_op(), pure_type:version_vector(), pure_pncounter()) ->
+-spec mutate(pure_pncounter_op(), pure_type:id(), pure_pncounter()) ->
     {ok, pure_pncounter()}.
-update(increment, _VV, {?TYPE, {_POLog, PurePNCounter}}) ->
+mutate(increment, _VV, {?TYPE, {_POLog, PurePNCounter}}) ->
     PurePNCounter1 = {?TYPE, {_POLog, PurePNCounter + 1}},
     {ok, PurePNCounter1};
-update(decrement, _VV, {?TYPE, {_POLog, PurePNCounter}}) ->
+mutate(decrement, _VV, {?TYPE, {_POLog, PurePNCounter}}) ->
     PurePNCounter1 = {?TYPE, {_POLog, PurePNCounter - 1}},
     {ok, PurePNCounter1}.
 
@@ -91,15 +92,15 @@ query_test() ->
 
 increment_test() ->
     PurePNCounter0 = new(),
-    {ok, PurePNCounter1} = update(increment, [], PurePNCounter0),
-    {ok, PurePNCounter2} = update(increment, [], PurePNCounter1),
+    {ok, PurePNCounter1} = mutate(increment, [], PurePNCounter0),
+    {ok, PurePNCounter2} = mutate(increment, [], PurePNCounter1),
     ?assertEqual({?TYPE, {[], 1}}, PurePNCounter1),
     ?assertEqual({?TYPE, {[], 2}}, PurePNCounter2).
 
 decrement_test() ->
     PurePNCounter0 = {?TYPE, {[], 1}},
-    {ok, PurePNCounter1} = update(decrement, [], PurePNCounter0),
-    {ok, PurePNCounter2} = update(decrement, [], PurePNCounter1),
+    {ok, PurePNCounter1} = mutate(decrement, [], PurePNCounter0),
+    {ok, PurePNCounter2} = mutate(decrement, [], PurePNCounter1),
     ?assertEqual({?TYPE, {[], 0}}, PurePNCounter1),
     ?assertEqual({?TYPE, {[], -1}}, PurePNCounter2).
 
