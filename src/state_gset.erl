@@ -111,12 +111,9 @@ merge({?TYPE, GSet1}, {?TYPE, GSet2}) ->
     {?TYPE, GSet}.
 
 %% @doc Equality for `state_gset()'.
-%%      Two sets s1 and s2 are equal if:
-%%          - s1 is subset of s2
-%%          - s2 is subset of s1
 -spec equal(state_gset(), state_gset()) -> boolean().
 equal({?TYPE, GSet1}, {?TYPE, GSet2}) ->
-    ordsets:is_subset(GSet1, GSet2) andalso ordsets:is_subset(GSet2, GSet1).
+    ordsets_ext:equal(GSet1, GSet2).
 
 %% @doc Given two `state_gset()', check if the second is an inflation
 %%      of the first.
@@ -143,8 +140,7 @@ join_decomposition({?TYPE, GSet}) ->
         end,
         [],
         GSet
-     ).
-
+    ).
 
 %% ===================================================================
 %% EUnit tests

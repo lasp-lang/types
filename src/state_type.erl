@@ -25,13 +25,16 @@
 -export([mutate/3, is_inflation/2, is_strict_inflation/2]).
 
 %% Define some initial types.
--type state_type() :: state_gcounter |
+-type state_type() :: state_bcounter |
+                      state_gcounter |
+                      state_gmap |
                       state_gset |
                       state_ivar |
                       state_max_int |
                       state_orset |
                       state_pair |
-                      state_pncounter.
+                      state_pncounter |
+                      state_twopset.
 -type crdt() :: {state_type(), type:payload()}.
 -type delta_crdt() :: {state_type(), {delta, type:payload()}}.
 -type delta_or_state() :: crdt() | delta_crdt().
