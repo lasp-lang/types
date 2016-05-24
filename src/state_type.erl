@@ -33,7 +33,8 @@
                       state_max_int |
                       state_orset |
                       state_pair |
-                      state_pncounter.
+                      state_pncounter |
+                      state_twopset.
 -type crdt() :: {state_type(), type:payload()}.
 -type delta_crdt() :: {state_type(), {delta, type:payload()}}.
 -type delta_or_state() :: crdt() | delta_crdt().
