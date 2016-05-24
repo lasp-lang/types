@@ -27,7 +27,8 @@
 -module(pure_twopset).
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
--behaviour(pure_type).
+-behaviour(type).
+%-behaviour(pure_type).
 
 -define(TYPE, ?MODULE).
 
@@ -36,12 +37,12 @@
 -endif.
 
 -export([new/0, new/1]).
--export([update/3, query/1, equal/2]).
+-export([mutate/3, query/1, equal/2]).
 
 -export_type([pure_twopset/0, pure_twopset_op/0]).
 
--opaque pure_twopset() :: {?TYPE, pure_payload()}.
--type pure_payload() :: {pure_type:polog(), {ordsets:set(), ordsets:set()}}.
+-opaque pure_twopset() :: {?TYPE, payload()}.
+-type payload() :: {pure_type:polog(), {ordsets:set(), ordsets:set()}}.
 -type pure_twopset_op() :: {add, pure_type:element()} | {rmv, pure_type:element()}.
 
 %% @doc Create a new, empty `pure_twopset()'
@@ -55,9 +56,9 @@ new([]) ->
     new().
 
 %% @doc Update a `pure_twopset()'.
--spec update(pure_twopset_op(), pure_type:version_vector(), pure_twopset()) ->
+-spec mutate(pure_twopset_op(), pure_type:id(), pure_twopset()) ->
     {ok, pure_twopset()}.
-update({add, Elem}, _VV, {?TYPE, {_POLog, {Pure2PAddSet, Pure2PRmvSet}}}) ->
+mutate({add, Elem}, _VV, {?TYPE, {_POLog, {Pure2PAddSet, Pure2PRmvSet}}}) ->
     Already_removed = ordsets:is_element(Elem, Pure2PRmvSet),
     case Already_removed of
         true ->
@@ -66,7 +67,7 @@ update({add, Elem}, _VV, {?TYPE, {_POLog, {Pure2PAddSet, Pure2PRmvSet}}}) ->
             PureTwoPSet = {?TYPE, {_POLog, {ordsets:add_element(Elem, Pure2PAddSet), Pure2PRmvSet}}},
             {ok, PureTwoPSet}
     end;
-update({rmv, Elem}, _VV, {?TYPE, {_POLog, {Pure2PAddSet, Pure2PRmvSet}}}) ->
+mutate({rmv, Elem}, _VV, {?TYPE, {_POLog, {Pure2PAddSet, Pure2PRmvSet}}}) ->
     PureTwoPSet = {?TYPE, {_POLog, {ordsets:del_element(Elem, Pure2PAddSet), ordsets:add_element(Elem, Pure2PRmvSet)}}},
     {ok, PureTwoPSet}.
 
@@ -102,16 +103,16 @@ query_test() ->
 
 add_test() ->
     Set0 = new(),
-    {ok, Set1} = update({add, <<"a">>}, [], Set0),
-    {ok, Set2} = update({add, <<"b">>}, [], Set1),
+    {ok, Set1} = mutate({add, <<"a">>}, [], Set0),
+    {ok, Set2} = mutate({add, <<"b">>}, [], Set1),
     ?assertEqual({?TYPE, {[], {[<<"a">>], []}}}, Set1),
     ?assertEqual({?TYPE, {[], {[<<"a">>, <<"b">>], []}}}, Set2).
 
 rmv_test() ->
     Set0 = {?TYPE, {[], {[<<"a">>, <<"b">>, <<"c">>], []}}},
     Set1 = {?TYPE, {[], {[<<"b">>, <<"c">>], [<<"a">>, <<"c">>]}}},
-    {ok, Set2} = update({rmv, <<"a">>}, [], Set0),
-    {ok, Set3} = update({rmv, <<"c">>}, [], Set1),
+    {ok, Set2} = mutate({rmv, <<"a">>}, [], Set0),
+    {ok, Set3} = mutate({rmv, <<"c">>}, [], Set1),
     ?assertEqual({?TYPE, {[], {[<<"b">>, <<"c">>], [<<"a">>]}}}, Set2),
     ?assertEqual({?TYPE, {[], {[<<"b">>], [<<"a">>, <<"c">>]}}}, Set3).
 

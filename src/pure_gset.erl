@@ -27,7 +27,8 @@
 -module(pure_gset).
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
--behaviour(pure_type).
+-behaviour(type).
+%-behaviour(pure_type).
 
 -define(TYPE, ?MODULE).
 
@@ -36,12 +37,12 @@
 -endif.
 
 -export([new/0, new/1]).
--export([update/3, query/1, equal/2]).
+-export([mutate/3, query/1, equal/2]).
 
 -export_type([pure_gset/0, pure_gset_op/0]).
 
--opaque pure_gset() :: {?TYPE, pure_payload()}.
--type pure_payload() :: {pure_type:polog(), ordsets:set()}.
+-opaque pure_gset() :: {?TYPE, payload()}.
+-type payload() :: {pure_type:polog(), ordsets:set()}.
 -type pure_gset_op() :: {add, pure_type:element()}.
 
 %% @doc Create a new, empty `pure_gset()'
@@ -55,9 +56,9 @@ new([]) ->
     new().
 
 %% @doc Update a `pure_gset()'.
--spec update(pure_gset_op(), pure_type:version_vector(), pure_gset()) ->
+-spec mutate(pure_gset_op(), pure_type:id(), pure_gset()) ->
     {ok, pure_gset()}.
-update({add, Elem}, _VV, {?TYPE, {_POLog, PureGSet}}) ->
+mutate({add, Elem}, _VV, {?TYPE, {_POLog, PureGSet}}) ->
     PureGSet1 = {?TYPE, {_POLog, ordsets:add_element(Elem, PureGSet)}},
     {ok, PureGSet1}.
 
@@ -91,8 +92,8 @@ query_test() ->
 
 add_test() ->
     Set0 = new(),
-    {ok, Set1} = update({add, <<"a">>}, [], Set0),
-    {ok, Set2} = update({add, <<"b">>}, [], Set1),
+    {ok, Set1} = mutate({add, <<"a">>}, [], Set0),
+    {ok, Set2} = mutate({add, <<"b">>}, [], Set1),
     ?assertEqual({?TYPE, {[], [<<"a">>]}}, Set1),
     ?assertEqual({?TYPE, {[], [<<"a">>, <<"b">>]}}, Set2).
 

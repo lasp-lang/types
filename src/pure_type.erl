@@ -25,34 +25,25 @@
 -module(pure_type).
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
-%-export([update/3]).
--export_type([polog/0, version_vector/0, element/0]).
+-export([mutate/3]).
+-export_type([polog/0, id/0, element/0]).
 
 
 %% Define some initial types.
--type pure_type() :: pure_gcounter | pure_pncounter | pure_gset | pure_twopset | pure_aworset.
+-type pure_type() :: pure_gcounter | pure_pncounter | pure_gset | pure_twopset | pure_aworset | pure_rworset.
 -type polog() :: orddict:orddict().
--type pure_payload() :: {polog(), term()}.
--type version_vector() :: orddict:orddict().
--type pure_crdt() :: {pure_type(), pure_payload()}.
--type pure_operation() :: term().
+-type id() :: orddict:orddict().
+-type crdt() :: {pure_type(), type:payload()}.
 -type element() :: term().
--type value() :: term().
--type error() :: term().
 
-%% Initialize a Pure op-based CRDT.
--callback new() -> pure_crdt().
-
-%% Unified interface for allowing parameterized Pure op-based CRDTs.
--callback new([term()]) -> pure_crdt().
-
-%% Perform an update.
--callback update(pure_operation(), version_vector(), pure_crdt()) ->
-    {ok, pure_crdt()} | {error, error()}.
-
-%% Get the value of a Pure op-based CRDT.
--callback query(pure_crdt()) -> value().
-
-%% Compare equality.
--callback equal(pure_crdt(), pure_crdt()) -> boolean().
+%% @doc Generic update operation.
+-spec mutate(type:operation(), type:id(), crdt()) ->
+    {ok, crdt()} | {error, type:error()}.
+mutate(Op, VV, {Type, _}=CRDT) ->
+    case Type:mutate(Op, VV, CRDT) of
+        {ok, {Type, New_CRDT}} ->
+            {ok, {Type, New_CRDT}};
+        Error ->
+            Error
+    end.
 

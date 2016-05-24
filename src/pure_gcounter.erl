@@ -28,7 +28,8 @@
 -module(pure_gcounter).
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
--behaviour(pure_type).
+-behaviour(type).
+%-behaviour(pure_type).
 
 -define(TYPE, ?MODULE).
 
@@ -37,12 +38,12 @@
 -endif.
 
 -export([new/0, new/1]).
--export([update/3, query/1, equal/2]).
+-export([mutate/3, query/1, equal/2]).
 
 -export_type([pure_gcounter/0, pure_gcounter_op/0]).
 
--opaque pure_gcounter() :: {?TYPE, pure_payload()}.
--type pure_payload() :: {pure_type:polog(), integer()}.
+-opaque pure_gcounter() :: {?TYPE, payload()}.
+-type payload() :: {pure_type:polog(), integer()}.
 -type pure_gcounter_op() :: increment.
 
 %% @doc Create a new, empty `pure_gcounter()'
@@ -56,9 +57,9 @@ new([]) ->
     new().
 
 %% @doc Update a `pure_gcounter()'.
--spec update(pure_gcounter_op(), pure_type:version_vector(), pure_gcounter()) ->
+-spec mutate(pure_gcounter_op(), pure_type:id(), pure_gcounter()) ->
     {ok, pure_gcounter()}.
-update(increment, _VV, {?TYPE, {_POLog, PureGCounter}}) ->
+mutate(increment, _VV, {?TYPE, {_POLog, PureGCounter}}) ->
     PureGCounter1 = {?TYPE, {_POLog, PureGCounter + 1}},
     {ok, PureGCounter1}.
 
@@ -88,8 +89,8 @@ query_test() ->
 
 increment_test() ->
     PureGCounter0 = new(),
-    {ok, PureGCounter1} = update(increment, [], PureGCounter0),
-    {ok, PureGCounter2} = update(increment, [], PureGCounter1),
+    {ok, PureGCounter1} = mutate(increment, [], PureGCounter0),
+    {ok, PureGCounter2} = mutate(increment, [], PureGCounter1),
     ?assertEqual({?TYPE, {[], 1}}, PureGCounter1),
     ?assertEqual({?TYPE, {[], 2}}, PureGCounter2).
 
