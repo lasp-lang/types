@@ -58,17 +58,17 @@ new([]) ->
 %% @doc Update a `pure_twopset()'.
 -spec mutate(pure_twopset_op(), pure_type:id(), pure_twopset()) ->
     {ok, pure_twopset()}.
-mutate({add, Elem}, _VV, {?TYPE, {_POLog, {Pure2PAddSet, Pure2PRmvSet}}}) ->
-    Already_removed = ordsets:is_element(Elem, Pure2PRmvSet),
-    case Already_removed of
+mutate({add, Elem}, _VV, {?TYPE, {POLog, {Pure2PAddSet, Pure2PRmvSet}}}) ->
+    AlreadyRemoved = ordsets:is_element(Elem, Pure2PRmvSet),
+    case AlreadyRemoved of
         true ->
-            {ok, {?TYPE, {_POLog, Pure2PAddSet, Pure2PRmvSet}}};
+            {ok, {?TYPE, {POLog, Pure2PAddSet, Pure2PRmvSet}}};
         false ->
-            PureTwoPSet = {?TYPE, {_POLog, {ordsets:add_element(Elem, Pure2PAddSet), Pure2PRmvSet}}},
+            PureTwoPSet = {?TYPE, {POLog, {ordsets:add_element(Elem, Pure2PAddSet), Pure2PRmvSet}}},
             {ok, PureTwoPSet}
     end;
-mutate({rmv, Elem}, _VV, {?TYPE, {_POLog, {Pure2PAddSet, Pure2PRmvSet}}}) ->
-    PureTwoPSet = {?TYPE, {_POLog, {ordsets:del_element(Elem, Pure2PAddSet), ordsets:add_element(Elem, Pure2PRmvSet)}}},
+mutate({rmv, Elem}, _VV, {?TYPE, {POLog, {Pure2PAddSet, Pure2PRmvSet}}}) ->
+    PureTwoPSet = {?TYPE, {POLog, {ordsets:del_element(Elem, Pure2PAddSet), ordsets:add_element(Elem, Pure2PRmvSet)}}},
     {ok, PureTwoPSet}.
 
 %% @doc Returns the value of the `pure_twopset()'.
@@ -78,9 +78,7 @@ query({?TYPE, {_POLog, {Pure2PAddSet, Pure2PRmvSet}}}) ->
     ordsets:subtract(Pure2PAddSet, Pure2PRmvSet).
 
 %% @doc Equality for `pure_twopset()'.
-%%      Two sets s1 and s2 are equal if both conditions below are true:
-%%          - s1 is subset of s2
-%%          - s2 is subset of s1
+%% @todo use ordsets_ext:equal instead
 -spec equal(pure_twopset(), pure_twopset()) -> boolean().
 equal({?TYPE, {_POLog1, {Pure2PAddSet1, Pure2PRmvSet1}}}, {?TYPE, {_POLog2, {Pure2PAddSet2, Pure2PRmvSet2}}}) ->
     ordsets:is_subset(Pure2PAddSet1, Pure2PAddSet2) andalso ordsets:is_subset(Pure2PAddSet2, Pure2PAddSet1) andalso ordsets:is_subset(Pure2PRmvSet1, Pure2PRmvSet2) andalso ordsets:is_subset(Pure2PRmvSet2, Pure2PRmvSet1).

@@ -164,7 +164,7 @@ query({?TYPE, {POLog0, PureAWORSet0}}) ->
 
 
 %% @doc Equality for `pure_aworset()'.
-%%      Since everything is ordered, == should work.
+%% @todo use ordsets_ext:equal instead
 -spec equal(pure_aworset(), pure_aworset()) -> boolean().
 equal({?TYPE, {POLog1, PureAWORSet1}}, {?TYPE, {POLog2, PureAWORSet2}}) ->
     ordsets:is_subset(PureAWORSet1, PureAWORSet2) andalso ordsets:is_subset(PureAWORSet2, PureAWORSet1) andalso equal_polog(POLog1, POLog2).
