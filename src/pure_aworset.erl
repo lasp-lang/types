@@ -28,7 +28,6 @@
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
 -behaviour(type).
-%-behaviour(pure_type).
 
 -define(TYPE, ?MODULE).
 
@@ -102,21 +101,21 @@ redundant({VV1, {add, Elem1}}, {VV2, {_X, Elem2}}) ->
 
 %% @doc Removes redundant operations from POLog of `pure_aworset()'
 %% Called upon updating (add, rmv) the `pure_aworset()'
--spec remove_redundant_POLog({pure_type:id(), pure_aworset_op()}, pure_aworset()) -> {boolean(), pure_aworset()}.
+-spec remove_redundant_POLog({pure_type:id(), pure_aworset_op()}, pure_aworset()) -> pure_aworset().
 remove_redundant_POLog({VV1, Op}, {?TYPE, {POLog0, ORSet}}) ->
-    {POLog1, Same1} = orddict:fold(
-        fun(Key, Value, {Acc, Same}) ->
+    POLog1 = orddict:fold(
+        fun(Key, Value, Acc) ->
             case redundant({Key, Value}, {VV1, Op}) of
                 0 ->
-                    {orddict:store(Key, Value, Acc), Same};
+                    orddict:store(Key, Value, Acc);
                 1 ->
-                    {Acc, Same andalso false}
+                    Acc
             end
         end,
-        {orddict:new(), true},
+        orddict:new(),
         POLog0
     ),
-    {Same1, {?TYPE, {POLog1, ORSet}}}.
+    {?TYPE, {POLog1, ORSet}}.
 
 %% @doc Removes redundant operations from POLog of `pure_aworset()'
 %% Called upon updating (add, rmv) the `pure_aworset()'
@@ -139,7 +138,7 @@ remove_redundant({VV1, Op}, {?TYPE, {POLog, ORSet}}) ->
         true ->
             {?TYPE, {POLog0, PureAWORSet0}};
         false ->
-            {_, {?TYPE, {POLog1, PureAWORSet1}}} = remove_redundant_POLog({VV1, Op}, {?TYPE, {POLog, ORSet}}),
+            {?TYPE, {POLog1, PureAWORSet1}} = remove_redundant_POLog({VV1, Op}, {?TYPE, {POLog, ORSet}}),
             {?TYPE, {POLog1, PureAWORSet1}}
     end.
 
@@ -207,8 +206,6 @@ remove_redundant_Crystal_test() ->
     {Redundant2, {?TYPE, {_POLog2, AWORSet2}}} = remove_redundant_Crystal({[{0, 1}], {rmv, <<"d">>}}, {?TYPE, {[{0, 1}], [<<"a">>]}}),
     ?assertEqual(false, Redundant2),
     ?assertEqual([<<"a">>], AWORSet2).
-
-%remove_redundant_POLog_test() ->
 
 query_test() ->
     Set0 = new(),
