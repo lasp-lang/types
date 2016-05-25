@@ -29,7 +29,6 @@
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
 -behaviour(type).
-%-behaviour(pure_type).
 
 -define(TYPE, ?MODULE).
 
