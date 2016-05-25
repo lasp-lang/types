@@ -58,8 +58,8 @@ new([]) ->
 %% @doc Update a `pure_gset()'.
 -spec mutate(pure_gset_op(), pure_type:id(), pure_gset()) ->
     {ok, pure_gset()}.
-mutate({add, Elem}, _VV, {?TYPE, {_POLog, PureGSet}}) ->
-    PureGSet1 = {?TYPE, {_POLog, ordsets:add_element(Elem, PureGSet)}},
+mutate({add, Elem}, _VV, {?TYPE, {POLog, PureGSet}}) ->
+    PureGSet1 = {?TYPE, {POLog, ordsets:add_element(Elem, PureGSet)}},
     {ok, PureGSet1}.
 
 %% @doc Returns the value of the `pure_gset()'.
@@ -69,9 +69,7 @@ query({?TYPE, {_, PureGSet}}) ->
     ordsets:to_list(PureGSet).
 
 %% @doc Equality for `pure_gset()'.
-%%      Two sets s1 and s2 are equal if both conditions below are true:
-%%          - s1 is subset of s2
-%%          - s2 is subset of s1
+%% @todo use ordsets_ext:equal instead
 -spec equal(pure_gset(), pure_gset()) -> boolean().
 equal({?TYPE, {_, PureGSet1}}, {?TYPE, {_, PureGSet2}}) ->
     ordsets:is_subset(PureGSet1, PureGSet2) andalso ordsets:is_subset(PureGSet2, PureGSet1).

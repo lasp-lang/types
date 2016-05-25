@@ -59,8 +59,8 @@ new([]) ->
 %% @doc Update a `pure_gcounter()'.
 -spec mutate(pure_gcounter_op(), pure_type:id(), pure_gcounter()) ->
     {ok, pure_gcounter()}.
-mutate(increment, _VV, {?TYPE, {_POLog, PureGCounter}}) ->
-    PureGCounter1 = {?TYPE, {_POLog, PureGCounter + 1}},
+mutate(increment, _VV, {?TYPE, {POLog, PureGCounter}}) ->
+    PureGCounter1 = {?TYPE, {POLog, PureGCounter + 1}},
     {ok, PureGCounter1}.
 
 %% @doc Return the value of the `pure_gcounter()'.

@@ -25,7 +25,6 @@
 -module(pure_type).
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
--export([mutate/3]).
 -export_type([polog/0, id/0, element/0]).
 
 
@@ -35,15 +34,4 @@
 -type id() :: orddict:orddict().
 -type crdt() :: {pure_type(), type:payload()}.
 -type element() :: term().
-
-%% @doc Generic update operation.
--spec mutate(type:operation(), type:id(), crdt()) ->
-    {ok, crdt()} | {error, type:error()}.
-mutate(Op, VV, {Type, _}=CRDT) ->
-    case Type:mutate(Op, VV, CRDT) of
-        {ok, {Type, New_CRDT}} ->
-            {ok, {Type, New_CRDT}};
-        Error ->
-            Error
-    end.
 

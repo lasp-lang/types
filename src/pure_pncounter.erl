@@ -59,11 +59,11 @@ new([]) ->
 %% @doc Update a `pure_pncounter()'.
 -spec mutate(pure_pncounter_op(), pure_type:id(), pure_pncounter()) ->
     {ok, pure_pncounter()}.
-mutate(increment, _VV, {?TYPE, {_POLog, PurePNCounter}}) ->
-    PurePNCounter1 = {?TYPE, {_POLog, PurePNCounter + 1}},
+mutate(increment, _VV, {?TYPE, {POLog, PurePNCounter}}) ->
+    PurePNCounter1 = {?TYPE, {POLog, PurePNCounter + 1}},
     {ok, PurePNCounter1};
-mutate(decrement, _VV, {?TYPE, {_POLog, PurePNCounter}}) ->
-    PurePNCounter1 = {?TYPE, {_POLog, PurePNCounter - 1}},
+mutate(decrement, _VV, {?TYPE, {POLog, PurePNCounter}}) ->
+    PurePNCounter1 = {?TYPE, {POLog, PurePNCounter - 1}},
     {ok, PurePNCounter1}.
 
 %% @doc Return the value of the `pure_pncounter()'.

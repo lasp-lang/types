@@ -4,6 +4,8 @@ deps/*
 ebin/*
 dev
 src/*.swp
+src/.DS_Store
+.DS_Store
 tags
 .qc/
 riak_test/ebin/*.beam
