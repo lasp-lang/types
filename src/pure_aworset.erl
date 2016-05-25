@@ -57,6 +57,8 @@ new([]) ->
 %% @doc Check causal order of 2 version vector.
 -spec happened_before(pure_type:id(), pure_type:id()) -> boolean().
 happened_before(VV1, VV2) ->
+Fun = fun(Value1, Value2) -> Value1 == Value2 end,
+orddict:size(VV1) == orddict:size(VV2) andalso
     orddict:fold(
         fun(Key, Value1, Acc) ->
             case orddict:find(Key, VV2) of
@@ -68,7 +70,7 @@ happened_before(VV1, VV2) ->
         end,
         true,
         VV1
-     ) andalso not (VV1 == VV2).
+     ) andalso not (orddict_ext:equal(VV1, VV2, Fun)).
 
 %% @doc Check if 2 POLogs are equal.
 -spec equal_polog(pure_type:polog(), pure_type:polog()) -> boolean().
@@ -78,7 +80,7 @@ equal_polog(POLog1, POLog2) ->
         fun(Key, Value1, Acc) ->
             case orddict:find(Key, POLog2) of
                 {ok, Value2} ->
-                    Acc andalso Value1 == Value2;
+                    Acc andalso Value1 =:= Value2;
                 error ->
                     Acc andalso false
             end
@@ -119,8 +121,8 @@ remove_redundant_POLog({VV1, Op}, {?TYPE, {POLog0, ORSet}}) ->
 
 %% @doc Removes redundant operations from POLog of `pure_aworset()'
 %% Called upon updating (add, rmv) the `pure_aworset()'
--spec remove_redundant_Crystal({pure_type:id(), pure_aworset_op()}, pure_aworset()) -> {boolean(), pure_aworset()}.
-remove_redundant_Crystal({_VV1, {_X, Elem}}, {?TYPE, {POLog0, AWORSet}}) ->
+-spec remove_redundant_crystal({pure_type:id(), pure_aworset_op()}, pure_aworset()) -> {boolean(), pure_aworset()}.
+remove_redundant_crystal({_VV1, {_X, Elem}}, {?TYPE, {POLog0, AWORSet}}) ->
     case ordsets:is_element(Elem, AWORSet) of
         true ->
             {true, {?TYPE, {POLog0, ordsets:del_element(Elem, AWORSet)}}};
@@ -133,13 +135,12 @@ remove_redundant_Crystal({_VV1, {_X, Elem}}, {?TYPE, {POLog0, AWORSet}}) ->
 %% Called upon updating (add, rmv) the `pure_aworset()'
 -spec remove_redundant({pure_type:id(), pure_aworset_op()}, pure_aworset()) -> pure_aworset().
 remove_redundant({VV1, Op}, {?TYPE, {POLog, ORSet}}) ->
-    {Crystal_Changed, {?TYPE, {POLog0, PureAWORSet0}}} = remove_redundant_Crystal({VV1, Op}, {?TYPE, {POLog, ORSet}}),
-    case Crystal_Changed of
+    {CrystalChanged, {?TYPE, {POLog0, PureAWORSet0}}} = remove_redundant_crystal({VV1, Op}, {?TYPE, {POLog, ORSet}}),
+    case CrystalChanged of
         true ->
             {?TYPE, {POLog0, PureAWORSet0}};
         false ->
-            {?TYPE, {POLog1, PureAWORSet1}} = remove_redundant_POLog({VV1, Op}, {?TYPE, {POLog, ORSet}}),
-            {?TYPE, {POLog1, PureAWORSet1}}
+            remove_redundant_POLog({VV1, Op}, {?TYPE, {POLog, ORSet}})
     end.
 
 %% @doc Update a `pure_aworset()'.
@@ -196,14 +197,14 @@ redundant_test() ->
     ?assertEqual(1, redundant({[{0, 0}, {1, 0}], {add, <<"a">>}}, {[{0, 1}, {1, 1}], {add, <<"a">>}})),
     ?assertEqual(0, redundant({[{0, 0}, {1, 0}], {add, <<"a">>}}, {[{0, 0}, {1, 0}], {add, <<"a">>}})).
 
-remove_redundant_Crystal_test() ->
-    {Redundant0, {?TYPE, {_POLog0, AWORSet0}}} = remove_redundant_Crystal({[{0, 1}, {1, 2}, {2, 3}], {add, <<"a">>}}, {?TYPE, {[{0, 1}], [<<"a">>, <<"b">>, <<"c">>]}}),
+remove_redundant_crystal_test() ->
+    {Redundant0, {?TYPE, {_POLog0, AWORSet0}}} = remove_redundant_crystal({[{0, 1}, {1, 2}, {2, 3}], {add, <<"a">>}}, {?TYPE, {[{0, 1}], [<<"a">>, <<"b">>, <<"c">>]}}),
     ?assertEqual(true, Redundant0),
     ?assertEqual([<<"b">>, <<"c">>], AWORSet0),
-    {Redundant1, {?TYPE, {_POLog1, AWORSet1}}} = remove_redundant_Crystal({[{0, 1}, {1, 2}, {2, 3}], {rmv, <<"a">>}}, {?TYPE, {[{0, 1}], [<<"a">>, <<"b">>, <<"c">>]}}),
+    {Redundant1, {?TYPE, {_POLog1, AWORSet1}}} = remove_redundant_crystal({[{0, 1}, {1, 2}, {2, 3}], {rmv, <<"a">>}}, {?TYPE, {[{0, 1}], [<<"a">>, <<"b">>, <<"c">>]}}),
     ?assertEqual(true, Redundant1),
     ?assertEqual([<<"b">>, <<"c">>], AWORSet1),
-    {Redundant2, {?TYPE, {_POLog2, AWORSet2}}} = remove_redundant_Crystal({[{0, 1}], {rmv, <<"d">>}}, {?TYPE, {[{0, 1}], [<<"a">>]}}),
+    {Redundant2, {?TYPE, {_POLog2, AWORSet2}}} = remove_redundant_crystal({[{0, 1}], {rmv, <<"d">>}}, {?TYPE, {[{0, 1}], [<<"a">>]}}),
     ?assertEqual(false, Redundant2),
     ?assertEqual([<<"a">>], AWORSet2).
 
