@@ -25,13 +25,12 @@
 -module(pure_type).
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
--export_type([polog/0, id/0, element/0]).
+-export_type([pure_type/0, polog/0, id/0, element/0]).
 
 
 %% Define some initial types.
 -type pure_type() :: pure_gcounter | pure_pncounter | pure_gset | pure_twopset | pure_aworset | pure_rworset.
 -type polog() :: orddict:orddict().
 -type id() :: orddict:orddict().
--type crdt() :: {pure_type(), type:payload()}.
 -type element() :: term().
 
