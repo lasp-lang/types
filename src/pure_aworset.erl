@@ -68,7 +68,7 @@ happened_before(VV1, VV2) ->
         end,
         true,
         VV1
-     ).
+     ) andalso not (VV1 == VV2).
 
 %% @doc Check if 2 POLogs are equal.
 -spec equal_polog(pure_type:polog(), pure_type:polog()) -> boolean().
@@ -178,7 +178,7 @@ new_test() ->
     ?assertEqual({?TYPE, {orddict:new(), ordsets:new()}}, new()).
 
 happened_before_test() ->
-    ?assertEqual(true, happened_before([{0, 1}, {1, 2}, {2, 3}], [{0, 1}, {1, 2}, {2, 3}])),
+    ?assertEqual(false, happened_before([{0, 1}, {1, 2}, {2, 3}], [{0, 1}, {1, 2}, {2, 3}])),
     ?assertEqual(true, happened_before([{0, 1}, {1, 2}, {2, 3}], [{0, 2}, {1, 4}, {2, 5}])),
     ?assertEqual(false, happened_before([{0, 1}, {1, 2}, {2, 3}], [{0, 1}, {1, 4}, {2, 2}])),
     ?assertEqual(false, happened_before([{0, 2}, {1, 5}, {2, 3}], [{0, 1}, {1, 4}, {2, 2}])),
@@ -194,7 +194,7 @@ equal_polog_test() ->
 redundant_test() ->
     ?assertEqual(0, redundant({[{0, 0}, {1, 0}], {add, <<"a">>}}, {[{0, 1}, {1, 1}], {add, <<"b">>}})),
     ?assertEqual(1, redundant({[{0, 0}, {1, 0}], {add, <<"a">>}}, {[{0, 1}, {1, 1}], {add, <<"a">>}})),
-    ?assertEqual(1, redundant({[{0, 0}, {1, 0}], {add, <<"a">>}}, {[{0, 0}, {1, 0}], {add, <<"a">>}})).
+    ?assertEqual(0, redundant({[{0, 0}, {1, 0}], {add, <<"a">>}}, {[{0, 0}, {1, 0}], {add, <<"a">>}})).
 
 remove_redundant_Crystal_test() ->
     {Redundant0, {?TYPE, {_POLog0, AWORSet0}}} = remove_redundant_Crystal({[{0, 1}, {1, 2}, {2, 3}], {add, <<"a">>}}, {?TYPE, {[{0, 1}], [<<"a">>, <<"b">>, <<"c">>]}}),
