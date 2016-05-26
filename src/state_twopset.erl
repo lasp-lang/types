@@ -101,11 +101,11 @@ minimum_delta(Elem, Set) ->
     end.
 
 %% @doc Returns the value of the `state_twopset()'.
-%%      This value is a list with added elements minus
+%%      This value is a set with added elements minus
 %%      the removed elements.
--spec query(state_twopset()) -> [element()].
+-spec query(state_twopset()) -> sets:set(element()).
 query({?TYPE, {Added, Removed}}) ->
-    ordsets:to_list(ordsets:subtract(Added, Removed)).
+    sets:from_list(ordsets:subtract(Added, Removed)).
 
 %% @doc Merge two `state_twopset()'.
 %%      The result is the component wise set union.
@@ -174,9 +174,9 @@ query_test() ->
     Set0 = new(),
     Set1 = {?TYPE, {[<<"a">>], []}},
     Set2 = {?TYPE, {[<<"a">>, <<"c">>], [<<"a">>, <<"b">>]}},
-    ?assertEqual([], query(Set0)),
-    ?assertEqual([<<"a">>], query(Set1)),
-    ?assertEqual([<<"c">>], query(Set2)).
+    ?assertEqual(sets:new(), query(Set0)),
+    ?assertEqual(sets:from_list([<<"a">>]), query(Set1)),
+    ?assertEqual(sets:from_list([<<"c">>]), query(Set2)).
 
 delta_add_test() ->
     Actor = 1,

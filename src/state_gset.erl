@@ -90,10 +90,10 @@ delta_mutate({add, Elem}, _Actor, {?TYPE, GSet}) ->
     {ok, {?TYPE, {delta, Delta}}}.
 
 %% @doc Returns the value of the `state_gset()'.
-%%      This value is a list with all the elements in the `state_gset()'.
--spec query(state_gset()) -> [element()].
+%%      This value is a set with all the elements in the `state_gset()'.
+-spec query(state_gset()) -> sets:set(element()).
 query({?TYPE, GSet}) ->
-    ordsets:to_list(GSet).
+    sets:from_list(GSet).
 
 %% @doc Merge two `state_gset()'.
 %%      The result is the set union of both sets in the
@@ -153,8 +153,8 @@ new_test() ->
 query_test() ->
     Set0 = new(),
     Set1 = {?TYPE, [<<"a">>]},
-    ?assertEqual([], query(Set0)),
-    ?assertEqual([<<"a">>], query(Set1)).
+    ?assertEqual(sets:new(), query(Set0)),
+    ?assertEqual(sets:from_list([<<"a">>]), query(Set1)).
 
 delta_add_test() ->
     Actor = 1,
