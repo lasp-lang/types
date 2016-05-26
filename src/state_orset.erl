@@ -143,7 +143,7 @@ delta_mutate({rmv_all, Elems}, Actor, {?TYPE, _}=ORSet) ->
     end.
 
 %% @doc Returns the value of the `state_orset()'.
-%%      This value is a list with all the elements in the `state_orset()'
+%%      This value is a set with all the elements in the `state_orset()'
 %%      that have at least one token still marked as active (true).
 -spec query(state_orset()) -> sets:set(element()).
 query({?TYPE, ORSet}) ->
