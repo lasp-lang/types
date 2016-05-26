@@ -143,23 +143,23 @@ delta_mutate({rmv_all, Elems}, Actor, {?TYPE, _}=ORSet) ->
     end.
 
 %% @doc Returns the value of the `state_orset()'.
-%%      This value is a list with all the elements in the `state_orset()'
+%%      This value is a set with all the elements in the `state_orset()'
 %%      that have at least one token still marked as active (true).
--spec query(state_orset()) -> [element()].
+-spec query(state_orset()) -> sets:set(element()).
 query({?TYPE, ORSet}) ->
-    lists:reverse(orddict:fold(
+    orddict:fold(
         fun(Elem, Tokens, Acc) ->
             ActiveTokens = [Token || {Token, true} <- orddict:to_list(Tokens)],
             case length(ActiveTokens) > 0 of
                 true ->
-                    [Elem | Acc];
+                    sets:add_element(Elem, Acc);
                 false ->
                     Acc
             end
         end,
-        [],
+        sets:new(),
         ORSet
-     )).
+     ).
 
 %% @doc Merge two `state_orset()'.
 %%      The keys (elements) of the resulting `state_orset()' are the union
@@ -280,8 +280,8 @@ new_test() ->
 query_test() ->
     Set0 = new(),
     Set1 = {?TYPE, [{<<"a">>, [{<<"token1">>, true}]}, {<<"b">>, [{<<"token2">>, false}]}]},
-    ?assertEqual([], query(Set0)),
-    ?assertEqual([<<"a">>], query(Set1)).
+    ?assertEqual(sets:new(), query(Set0)),
+    ?assertEqual(sets:from_list([<<"a">>]), query(Set1)).
 
 delta_add_test() ->
     Actor = 1,
@@ -315,7 +315,7 @@ rmv_test() ->
     {ok, Set1} = mutate({add, <<"a">>}, Actor, Set0),
     {error, _} = mutate({rmv, <<"b">>}, Actor, Set1),
     {ok, Set2} = mutate({rmv, <<"a">>}, Actor, Set1),
-    ?assertEqual([], query(Set2)).
+    ?assertEqual(sets:new(), query(Set2)).
 
 add_all_test() ->
     Actor = 1,
@@ -323,9 +323,9 @@ add_all_test() ->
     {ok, Set1} = mutate({add_all, []}, Actor, Set0),
     {ok, Set2} = mutate({add_all, [<<"a">>, <<"b">>]}, Actor, Set0),
     {ok, Set3} = mutate({add_all, [<<"b">>, <<"c">>]}, Actor, Set2),
-    ?assertEqual([], query(Set1)),
-    ?assertEqual(lists:sort([<<"a">>, <<"b">>]), lists:sort(query(Set2))),
-    ?assertEqual(lists:sort([<<"a">>, <<"b">>, <<"c">>]), lists:sort(query(Set3))).
+    ?assertEqual(sets:new(), query(Set1)),
+    ?assertEqual(sets:from_list([<<"a">>, <<"b">>]), query(Set2)),
+    ?assertEqual(sets:from_list([<<"a">>, <<"b">>, <<"c">>]), query(Set3)).
 
 remove_all_test() ->
     Actor = 1,
@@ -334,8 +334,8 @@ remove_all_test() ->
     {ok, Set2} = mutate({rmv_all, [<<"a">>, <<"c">>]}, Actor, Set1),
     {error, _} = mutate({rmv_all, [<<"b">>, <<"d">>]}, Actor, Set2),
     {ok, Set3} = mutate({rmv_all, [<<"b">>, <<"a">>]}, Actor, Set2),
-    ?assertEqual([<<"b">>], query(Set2)),
-    ?assertEqual([], query(Set3)).
+    ?assertEqual(sets:from_list([<<"b">>]), query(Set2)),
+    ?assertEqual(sets:new(), query(Set3)).
 
 merge_idempontent_test() ->
     Set1 = {?TYPE, [{<<"a">>, [{<<"token1">>, false}]}]},

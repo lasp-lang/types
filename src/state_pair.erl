@@ -181,7 +181,7 @@ query_test() ->
     GCounter = {?GCOUNTER_TYPE, [{1, 5}, {2, 10}]},
     GSet = {?GSET_TYPE, [<<"a">>]},
     Pair = {?TYPE, {GCounter, GSet}},
-    ?assertEqual({15, [<<"a">>]}, query(Pair)).
+    ?assertEqual({15, sets:from_list([<<"a">>])}, query(Pair)).
 
 mutate_test() ->
     Actor = 1,
@@ -292,12 +292,7 @@ equivalent_with_twopset_test() ->
     {ok, TwoPSet1} = ?TWOPSET_TYPE:mutate({add, <<"a">>}, Actor, TwoPSet0),
     {ok, TwoPSet2} = ?TWOPSET_TYPE:mutate({add, <<"b">>}, Actor, TwoPSet1),
     {ok, TwoPSet3} = ?TWOPSET_TYPE:mutate({rmv, <<"b">>}, Actor, TwoPSet2),
-    List = lists:filter(
-        fun(Elem) ->
-            not lists:member(Elem, Removed)
-        end,
-        Added
-    ),
-    ?assertEqual(List, ?TWOPSET_TYPE:query(TwoPSet3)).
+    Minus = sets:subtract(Added, Removed),
+    ?assertEqual(Minus, ?TWOPSET_TYPE:query(TwoPSet3)).
 
 -endif.
