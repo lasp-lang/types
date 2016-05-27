@@ -1,0 +1,243 @@
+% -------------------------------------------------------------------
+%% Copyright (c) 2015-2016 Christopher Meiklejohn.  All Rights Reserved.
+%% Copyright (c) 2007-2012 Basho Technologies, Inc.  All Rights Reserved.
+%%
+%% This file is provided to you under the Apache License,
+%% Version 2.0 (the "License"); you may not use this file
+%% except in compliance with the License.  You may obtain
+%% a copy of the License at
+%%
+%%   http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing,
+%% software distributed under the License is distributed on an
+%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+%% KIND, either express or implied.  See the License for the
+%% specific language governing permissions and limitations
+%% under the License.
+%%
+%% -------------------------------------------------------------------
+
+%% @doc Lexicographic Counter.
+%%
+%% @reference Paulo Sérgio Almeida, Ali Shoker, and Carlos Baquero
+%%      Delta State Replicated Data Types (2016)
+%%      [http://arxiv.org/pdf/1603.01529v1.pdf]
+%%
+%% @reference Carlos Baquero
+%%      delta-enabled-crdts C++ library
+%%      [https://github.com/CBaquero/delta-enabled-crdts]
+
+-module(state_lexcounter).
+-author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
+
+-behaviour(type).
+-behaviour(state_type).
+
+-define(TYPE, ?MODULE).
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
+-export([new/0, new/1]).
+-export([mutate/3, delta_mutate/3, merge/2]).
+-export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
+-export([join_decomposition/1]).
+
+-export_type([state_lexcounter/0, delta_state_lexcounter/0, state_lexcounter_op/0]).
+
+-opaque state_lexcounter() :: {?TYPE, payload()}.
+-opaque delta_state_lexcounter() :: {?TYPE, {delta, payload()}}.
+-type delta_or_state() :: state_lexcounter() | delta_state_lexcounter().
+-type payload() :: orddict:orddict().
+-type state_lexcounter_op() :: increment | decrement.
+
+%% @doc Create a new, empty `state_lexcounter()'
+-spec new() -> state_lexcounter().
+new() ->
+    {?TYPE, orddict:new()}.
+
+%% @doc Create a new, empty `state_lexcounter()'
+-spec new([term()]) -> state_lexcounter().
+new([]) ->
+    new().
+
+%% @doc Mutate a `state_lexcounter()'.
+-spec mutate(state_lexcounter_op(), type:id(), state_lexcounter()) ->
+    {ok, state_lexcounter()}.
+mutate(Op, Actor, {?TYPE, _LexCounter}=CRDT) ->
+    state_type:mutate(Op, Actor, CRDT).
+
+%% @doc Delta-mutate a `state_lexcounter()'.
+%%      The first argument can be `increment' or `decrement'.
+%%      The second argument is the replica id.
+%%      The third argument is the `state_lexcounter()' to be inflated.
+-spec delta_mutate(state_lexcounter_op(), type:id(), state_lexcounter()) ->
+    {ok, delta_state_lexcounter()}.
+delta_mutate(increment, Actor, {?TYPE, LexCounter}) ->
+    {Left, Right} = case orddict:find(Actor, LexCounter) of
+        {ok, Value} ->
+            Value;
+        error ->
+            {0, 0}
+    end,
+    Delta = orddict:store(Actor, {Left, Right + 1}, orddict:new()),
+    {ok, {?TYPE, {delta, Delta}}};
+
+delta_mutate(decrement, Actor, {?TYPE, LexCounter}) ->
+    {Left, Right} = case orddict:find(Actor, LexCounter) of
+        {ok, Value} ->
+            Value;
+        error ->
+            {0, 0}
+    end,
+    Delta = orddict:store(Actor, {Left + 1, Right - 1}, orddict:new()),
+    {ok, {?TYPE, {delta, Delta}}}.
+
+%% @doc Returns the value of the `state_lexcounter()'.
+%%      A `state_lexcounter()' is a dictionary where the values are
+%%      pairs. The value of the `state_lexcounter()' is the sum of
+%%      the second components of these pairs.
+-spec query(state_lexcounter()) -> non_neg_integer().
+query({?TYPE, LexCounter}) ->
+    lists:sum([ Right || {_Actor, {_Left, Right}} <- LexCounter ]).
+
+%% @doc Merge two `state_lexcounter()'.
+%%      The keys of the resulting `state_lexcounter()' are the union of the
+%%      keys of both `state_lexcounter()' passed as input.
+%%      If a key is only present on one of the `state_lexcounter()',
+%%      its correspondent value is preserved.
+%%      If a key is present in both `state_lexcounter()', the new value
+%%      will be the lexicographic join of both values.
+-spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
+merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
+    {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
+    {?TYPE, {delta, DeltaGroup}};
+merge({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
+    merge({?TYPE, Delta}, {?TYPE, CRDT});
+merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
+    merge({?TYPE, Delta}, {?TYPE, CRDT});
+merge({?TYPE, LexCounter1}, {?TYPE, LexCounter2}) ->
+    LexCounter = orddict:merge(
+        fun(_, Value1, Value2) ->
+            lex_join(Value1, Value2)
+        end,
+        LexCounter1,
+        LexCounter2
+    ),
+    {?TYPE, LexCounter}.
+
+lex_join({Left1, Right1}, {Left2, _Right2}) when Left1 > Left2 ->
+    {Left1, Right1};
+lex_join({Left1, _Right1}, {Left2, Right2}) when Left2 > Left1 ->
+    {Left2, Right2};
+lex_join({Left1, Right1}, {Left2, Right2}) when Left1 == Left2 ->
+    {Left1, max(Right1, Right2)};
+lex_join({Left1, _Right1}, {Left2, _Right2}) ->
+    {max(Left1, Left2), 0}.
+
+%% @doc Equality for `state_lexcounter()'.
+-spec equal(state_lexcounter(), state_lexcounter()) -> boolean().
+equal({?TYPE, LexCounter1}, {?TYPE, LexCounter2}) ->
+    Fun = fun({Left1, Right1}, {Left2, Right2}) -> Left1 == Left2 andalso Right1 == Right2 end,
+    orddict_ext:equal(LexCounter1, LexCounter2, Fun).
+
+%% @doc Given two `state_lexcounter()', check if the second is and inflation
+%%      of the first.
+%% @todo
+-spec is_inflation(state_lexcounter(), state_lexcounter()) -> boolean().
+is_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
+    state_type:is_inflation(CRDT1, CRDT2).
+
+%% @doc Check for strict inflation.
+-spec is_strict_inflation(state_lexcounter(), state_lexcounter()) -> boolean().
+is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
+    state_type:is_strict_inflation(CRDT1, CRDT2).
+
+%% @doc Join decomposition for `state_lexcounter()'.
+%% @todo Check how to do this.
+-spec join_decomposition(state_lexcounter()) -> [state_lexcounter()].
+join_decomposition({?TYPE, _LexCounter}) -> [].
+
+%% ===================================================================
+%% EUnit tests
+%% ===================================================================
+-ifdef(TEST).
+
+new_test() ->
+    ?assertEqual({?TYPE, []}, new()).
+
+query_test() ->
+    Counter0 = new(),
+    Counter1 = {?TYPE, [{1, {1, 2}}, {2, {1, 13}}, {3, {1, 2}}]},
+    ?assertEqual(0, query(Counter0)),
+    ?assertEqual(17, query(Counter1)).
+
+delta_test() ->
+    Counter0 = new(),
+    {ok, {?TYPE, {delta, Delta1}}} = delta_mutate(increment, 1, Counter0),
+    Counter1 = merge({?TYPE, Delta1}, Counter0),
+    {ok, {?TYPE, {delta, Delta2}}} = delta_mutate(decrement, 2, Counter1),
+    Counter2 = merge({?TYPE, Delta2}, Counter1),
+    {ok, {?TYPE, {delta, Delta3}}} = delta_mutate(increment, 1, Counter2),
+    Counter3 = merge({?TYPE, Delta3}, Counter2),
+    ?assertEqual({?TYPE, [{1, {0, 1}}]}, {?TYPE, Delta1}),
+    ?assertEqual({?TYPE, [{1, {0, 1}}]}, Counter1),
+    ?assertEqual({?TYPE, [{2, {1, -1}}]}, {?TYPE, Delta2}),
+    ?assertEqual({?TYPE, [{1, {0, 1}}, {2, {1, -1}}]}, Counter2),
+    ?assertEqual({?TYPE, [{1, {0, 2}}]}, {?TYPE, Delta3}),
+    ?assertEqual({?TYPE, [{1, {0, 2}}, {2, {1, -1}}]}, Counter3).
+
+increment_test() ->
+    Counter0 = new(),
+    {ok, Counter1} = mutate(increment, 1, Counter0),
+    {ok, Counter2} = mutate(decrement, 2, Counter1),
+    {ok, Counter3} = mutate(increment, 1, Counter2),
+    ?assertEqual({?TYPE, [{1, {0, 1}}]}, Counter1),
+    ?assertEqual({?TYPE, [{1, {0, 1}}, {2, {1, -1}}]}, Counter2),
+    ?assertEqual({?TYPE, [{1, {0, 2}}, {2, {1, -1}}]}, Counter3).
+
+merge_test() ->
+    Counter1 = {?TYPE, [{<<"5">>, {6, 2}}]},
+    Counter2 = {?TYPE, [{<<"5">>, {5, 3}}]},
+    Counter3 = {?TYPE, [{<<"5">>, {5, 10}}]},
+    Counter4 = merge(Counter1, Counter1),
+    Counter5 = merge(Counter1, Counter2),
+    Counter6 = merge(Counter2, Counter1),
+    Counter7 = merge(Counter2, Counter3),
+    ?assertEqual({?TYPE, [{<<"5">>, {6, 2}}]}, Counter4),
+    ?assertEqual({?TYPE, [{<<"5">>, {6, 2}}]}, Counter5),
+    ?assertEqual({?TYPE, [{<<"5">>, {6, 2}}]}, Counter6),
+    ?assertEqual({?TYPE, [{<<"5">>, {5, 10}}]}, Counter7).
+
+merge_delta_test() ->
+    Counter1 = {?TYPE, [{<<"1">>, {2, 3}}, {<<"2">>, {5, 2}}]},
+    Delta1 = {?TYPE, {delta, [{<<"1">>, {2, 4}}]}},
+    Delta2 = {?TYPE, {delta, [{<<"3">>, {1, 2}}]}},
+    Counter2 = merge(Delta1, Counter1),
+    Counter3 = merge(Counter1, Delta1),
+    DeltaGroup = merge(Delta1, Delta2),
+    ?assertEqual({?TYPE, [{<<"1">>, {2, 4}}, {<<"2">>, {5, 2}}]}, Counter2),
+    ?assertEqual({?TYPE, [{<<"1">>, {2, 4}}, {<<"2">>, {5, 2}}]}, Counter3),
+    ?assertEqual({?TYPE, {delta, [{<<"1">>, {2, 4}}, {<<"3">>, {1, 2}}]}}, DeltaGroup).
+
+equal_test() ->
+    Counter1 = {?TYPE, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}]},
+    Counter2 = {?TYPE, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}, {5, {6, 3}}]},
+    Counter3 = {?TYPE, [{1, {2, 0}}, {2, {2, 2}}, {4, {1, 2}}]},
+    Counter4 = {?TYPE, [{1, {2, 1}}, {2, {1, 2}}, {4, {1, 2}}]},
+    ?assert(equal(Counter1, Counter1)),
+    ?assertNot(equal(Counter1, Counter2)),
+    ?assertNot(equal(Counter1, Counter3)),
+    ?assertNot(equal(Counter1, Counter4)).
+
+is_inflation_test() ->
+    %% @todo
+    ok.
+
+join_decomposition_test() ->
+    %% @todo
+    ok.
+
+-endif.
