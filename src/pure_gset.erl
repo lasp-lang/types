@@ -62,16 +62,15 @@ mutate({add, Elem}, _VV, {?TYPE, {POLog, PureGSet}}) ->
     {ok, PureGSet1}.
 
 %% @doc Returns the value of the `pure_gset()'.
-%%      This value is a list with all the elements in the `pure_gset()'.
--spec query(pure_gset()) -> [pure_type:element()].
+%%      This value is a set with all the elements in the `pure_gset()'.
+-spec query(pure_gset()) -> sets:set(pure_type:element()).
 query({?TYPE, {_, PureGSet}}) ->
-    ordsets:to_list(PureGSet).
+    sets:from_list(PureGSet).
 
 %% @doc Equality for `pure_gset()'.
-%% @todo use ordsets_ext:equal instead
 -spec equal(pure_gset(), pure_gset()) -> boolean().
 equal({?TYPE, {_, PureGSet1}}, {?TYPE, {_, PureGSet2}}) ->
-    ordsets:is_subset(PureGSet1, PureGSet2) andalso ordsets:is_subset(PureGSet2, PureGSet1).
+    ordsets_ext:equal(PureGSet1, PureGSet2).
 
 %% ===================================================================
 %% EUnit tests
@@ -84,8 +83,8 @@ new_test() ->
 query_test() ->
     Set0 = new(),
     Set1 = {?TYPE, {[], [<<"a">>]}},
-    ?assertEqual([], query(Set0)),
-    ?assertEqual([<<"a">>], query(Set1)).
+    ?assertEqual(sets:new(), query(Set0)),
+    ?assertEqual(sets:from_list([<<"a">>]), query(Set1)).
 
 add_test() ->
     Set0 = new(),
