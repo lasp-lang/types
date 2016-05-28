@@ -107,9 +107,9 @@ query({?TYPE, LexCounter}) ->
 %%      The keys of the resulting `state_lexcounter()' are the union of the
 %%      keys of both `state_lexcounter()' passed as input.
 %%      If a key is only present on one of the `state_lexcounter()',
-%%      its correspondent value is preserved.
+%%      its correspondent lexicographic pair is preserved.
 %%      If a key is present in both `state_lexcounter()', the new value
-%%      will be the lexicographic join of both values.
+%%      will be the join of the lexicographic pairs.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
 merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
     {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
@@ -121,20 +121,20 @@ merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
 merge({?TYPE, LexCounter1}, {?TYPE, LexCounter2}) ->
     LexCounter = orddict:merge(
         fun(_, Value1, Value2) ->
-            lex_join(Value1, Value2)
+            join(Value1, Value2)
         end,
         LexCounter1,
         LexCounter2
     ),
     {?TYPE, LexCounter}.
 
-lex_join({Left1, Right1}, {Left2, _Right2}) when Left1 > Left2 ->
+join({Left1, Right1}, {Left2, _Right2}) when Left1 > Left2 ->
     {Left1, Right1};
-lex_join({Left1, _Right1}, {Left2, Right2}) when Left2 > Left1 ->
+join({Left1, _Right1}, {Left2, Right2}) when Left2 > Left1 ->
     {Left2, Right2};
-lex_join({Left1, Right1}, {Left2, Right2}) when Left1 == Left2 ->
+join({Left1, Right1}, {Left2, Right2}) when Left1 == Left2 ->
     {Left1, max(Right1, Right2)};
-lex_join({Left1, _Right1}, {Left2, _Right2}) ->
+join({Left1, _Right1}, {Left2, _Right2}) ->
     {max(Left1, Left2), 0}.
 
 %% @doc Equality for `state_lexcounter()'.
@@ -143,12 +143,38 @@ equal({?TYPE, LexCounter1}, {?TYPE, LexCounter2}) ->
     Fun = fun({Left1, Right1}, {Left2, Right2}) -> Left1 == Left2 andalso Right1 == Right2 end,
     orddict_ext:equal(LexCounter1, LexCounter2, Fun).
 
-%% @doc Given two `state_lexcounter()', check if the second is and inflation
-%%      of the first.
-%% @todo
+%% @doc Given two `state_lexcounter()', check if the second is and
+%%      inflation of the first.
+%%      We have an inflation if, for every key present in the first
+%%      `state_lexcounter()', that key is also in the second and,
+%%      the correspondent lexicographic pair in the second
+%%      `state_lexcounter()' is an inflation of the lexicographic pair
+%%      associated to the same key in the first `state_lexcounter()'.
+%%      A lexicographic pair P1 is an inflation of a lexicographic
+%%      pair P2 if one of the following:
+%%          - the first component of P2 is an inflation of the first
+%%          component of P1
+%%          - their first components are equal and the second component
+%%          of P2 is and inflation of the second component of P1
 -spec is_inflation(state_lexcounter(), state_lexcounter()) -> boolean().
-is_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    state_type:is_inflation(CRDT1, CRDT2).
+is_inflation({?TYPE, LexCounter1}, {?TYPE, LexCounter2}) ->
+    LexPairInflation = fun({Left1, Right1}, {Left2, Right2}) ->
+        (Left2 > Left1)
+        orelse
+        (Left1 == Left2 andalso Right2 >= Right1)
+    end,
+    orddict:fold(
+        fun(Key, Value1, Acc) ->
+            case orddict:find(Key, LexCounter2) of
+                {ok, Value2} ->
+                    Acc andalso LexPairInflation(Value1, Value2);
+                error ->
+                    Acc andalso false
+            end
+        end,
+        true,
+        LexCounter1
+    ).
 
 %% @doc Check for strict inflation.
 -spec is_strict_inflation(state_lexcounter(), state_lexcounter()) -> boolean().
@@ -233,8 +259,37 @@ equal_test() ->
     ?assertNot(equal(Counter1, Counter4)).
 
 is_inflation_test() ->
-    %% @todo
-    ok.
+    Counter1 = {?TYPE, [{<<"1">>, {2, 0}}]},
+    Counter2 = {?TYPE, [{<<"1">>, {2, 0}}, {<<"2">>, {1, -1}}]},
+    Counter3 = {?TYPE, [{<<"1">>, {2, 1}}]},
+    Counter4 = {?TYPE, [{<<"1">>, {3, -2}}]},
+    Counter5 = {?TYPE, [{<<"1">>, {2, -1}}]},
+    ?assert(is_inflation(Counter1, Counter1)),
+    ?assert(is_inflation(Counter1, Counter2)),
+    ?assertNot(is_inflation(Counter2, Counter1)),
+    ?assert(is_inflation(Counter1, Counter3)),
+    ?assert(is_inflation(Counter1, Counter4)),
+    ?assertNot(is_inflation(Counter1, Counter5)),
+    %% check inflation with merge
+    ?assert(state_type:is_inflation(Counter1, Counter1)),
+    ?assert(state_type:is_inflation(Counter1, Counter2)),
+    ?assertNot(state_type:is_inflation(Counter2, Counter1)),
+    ?assert(state_type:is_inflation(Counter1, Counter3)),
+    ?assert(state_type:is_inflation(Counter1, Counter4)),
+    ?assertNot(state_type:is_inflation(Counter1, Counter5)).
+
+is_strict_inflation_test() ->
+    Counter1 = {?TYPE, [{<<"1">>, {2, 0}}]},
+    Counter2 = {?TYPE, [{<<"1">>, {2, 0}}, {<<"2">>, {1, -1}}]},
+    Counter3 = {?TYPE, [{<<"1">>, {2, 1}}]},
+    Counter4 = {?TYPE, [{<<"1">>, {3, -2}}]},
+    Counter5 = {?TYPE, [{<<"1">>, {2, -1}}]},
+    ?assertNot(is_strict_inflation(Counter1, Counter1)),
+    ?assert(is_strict_inflation(Counter1, Counter2)),
+    ?assertNot(is_strict_inflation(Counter2, Counter1)),
+    ?assert(is_strict_inflation(Counter1, Counter3)),
+    ?assert(is_strict_inflation(Counter1, Counter4)),
+    ?assertNot(is_strict_inflation(Counter1, Counter5)).
 
 join_decomposition_test() ->
     %% @todo
