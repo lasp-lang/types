@@ -30,6 +30,7 @@
                       state_gmap |
                       state_gset |
                       state_ivar |
+                      state_lexcounter |
                       state_max_int |
                       state_orset |
                       state_pair |
