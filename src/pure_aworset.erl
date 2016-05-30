@@ -70,7 +70,7 @@ redundant({VV1, {add, Elem1}}, {VV2, {_X, Elem2}}) ->
 
 %% @doc Removes redundant operations from POLog of `pure_aworset()'
 %% Called upon updating (add, rmv) the `pure_aworset()'
--spec remove_redundant_polog({pure_type:id(), pure_aworset_op()}, pure_aworset()) -> pure_aworset().
+-spec remove_redundant_polog({pure_type:id(), pure_aworset_op()}, pure_aworset()) -> {boolean(), pure_aworset()}.
 remove_redundant_polog({VV1, Op}, {?TYPE, {POLog0, ORSet}}) ->
     POLog1 = orddict:fold(
         fun(Key, Value, Acc) ->
@@ -84,7 +84,7 @@ remove_redundant_polog({VV1, Op}, {?TYPE, {POLog0, ORSet}}) ->
         orddict:new(),
         POLog0
     ),
-    {?TYPE, {POLog1, ORSet}}.
+    {true, {?TYPE, {POLog1, ORSet}}}.
 
 %% @doc Removes redundant operations from POLog of `pure_aworset()'
 %% Called upon updating (add, rmv) the `pure_aworset()'
@@ -97,26 +97,14 @@ remove_redundant_crystal({_VV1, {_X, Elem}}, {?TYPE, {POLog0, AWORSet}}) ->
             {false, {?TYPE, {POLog0, AWORSet}}}
     end.
 
-% %% @doc Removes redundant operations from POLog of `pure_aworset()'
-% %% Called upon updating (add, rmv) the `pure_aworset()'
-% -spec remove_redundant({pure_type:id(), pure_aworset_op()}, pure_aworset()) -> pure_aworset().
-% remove_redundant({VV1, Op}, {?TYPE, {POLog, ORSet}}) ->
-%     {CrystalChanged, {?TYPE, {POLog0, PureAWORSet0}}} = remove_redundant_crystal({VV1, Op}, {?TYPE, {POLog, ORSet}}),
-%     case CrystalChanged of
-%         true ->
-%             {?TYPE, {POLog0, PureAWORSet0}};
-%         false ->
-%             remove_redundant_polog({VV1, Op}, {?TYPE, {POLog, ORSet}})
-%     end.
-
 %% @doc Update a `pure_aworset()'.
 -spec mutate(pure_aworset_op(), pure_type:id(), pure_aworset()) ->
     {ok, pure_aworset()}.
 mutate({add, Elem}, VV, {?TYPE, {POLog, PureAWORSet}}) ->
-    {?TYPE, {POLog0, PureAWORSet0}} = pure_polog:remove_redundant({VV, {add, Elem}}, {?TYPE, {POLog, PureAWORSet}}),
+    {_, {?TYPE, {POLog0, PureAWORSet0}}} = pure_polog:remove_redundant({VV, {add, Elem}}, {?TYPE, {POLog, PureAWORSet}}),
     {ok, {?TYPE, {orddict:store(VV, {add, Elem}, POLog0), PureAWORSet0}}};
 mutate({rmv, Elem}, VV, {?TYPE, {POLog, PureAWORSet}}) ->
-    {?TYPE, {POLog0, PureAWORSet0}} = pure_polog:remove_redundant({VV, {rmv, Elem}}, {?TYPE, {POLog, PureAWORSet}}),
+    {_, {?TYPE, {POLog0, PureAWORSet0}}} = pure_polog:remove_redundant({VV, {rmv, Elem}}, {?TYPE, {POLog, PureAWORSet}}),
     {ok, {?TYPE, {POLog0, PureAWORSet0}}}.
 
 %% @doc Returns the value of the `pure_aworset()'.
