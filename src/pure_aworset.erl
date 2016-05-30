@@ -28,6 +28,7 @@
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
 -behaviour(type).
+-behaviour(pure_polog).
 
 -define(TYPE, ?MODULE).
 
@@ -37,6 +38,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, query/1, equal/2]).
+-export([redundant/2, remove_redundant_crystal/2, remove_redundant_POLog/2]).
 
 -export_type([pure_aworset/0, pure_aworset_op/0]).
 
@@ -54,47 +56,12 @@ new() ->
 new([]) ->
     new().
 
-%% @doc Check causal order of 2 version vector.
--spec happened_before(pure_type:id(), pure_type:id()) -> boolean().
-happened_before(VV1, VV2) ->
-Fun = fun(Value1, Value2) -> Value1 == Value2 end,
-orddict:size(VV1) == orddict:size(VV2) andalso
-    orddict:fold(
-        fun(Key, Value1, Acc) ->
-            case orddict:find(Key, VV2) of
-                {ok, Value2} ->
-                    Acc andalso Value1 =< Value2;
-                error ->
-                    Acc andalso false
-            end
-        end,
-        true,
-        VV1
-     ) andalso not (orddict_ext:equal(VV1, VV2, Fun)).
-
-%% @doc Check if 2 POLogs are equal.
--spec equal_polog(pure_type:polog(), pure_type:polog()) -> boolean().
-equal_polog(POLog1, POLog2) ->
-    orddict:size(POLog1) == orddict:size(POLog2) andalso
-    orddict:fold(
-        fun(Key, Value1, Acc) ->
-            case orddict:find(Key, POLog2) of
-                {ok, Value2} ->
-                    Acc andalso Value1 =:= Value2;
-                error ->
-                    Acc andalso false
-            end
-        end,
-        true,
-        POLog1
-     ).
-
 %% @doc Check redundancy `pure_aworset()'
 %% Called in remove_redundant().
 -spec redundant({pure_type:id(), pure_aworset_op()}, {pure_type:id(), pure_aworset_op()}) ->
     integer().
 redundant({VV1, {add, Elem1}}, {VV2, {_X, Elem2}}) ->
-    case Elem1 == Elem2 andalso happened_before(VV1, VV2) of
+    case Elem1 == Elem2 andalso pure_trcb:happened_before(VV1, VV2) of
         true ->
             1;
         false ->
@@ -130,27 +97,26 @@ remove_redundant_crystal({_VV1, {_X, Elem}}, {?TYPE, {POLog0, AWORSet}}) ->
             {false, {?TYPE, {POLog0, AWORSet}}}
     end.
 
-
-%% @doc Removes redundant operations from POLog of `pure_aworset()'
-%% Called upon updating (add, rmv) the `pure_aworset()'
--spec remove_redundant({pure_type:id(), pure_aworset_op()}, pure_aworset()) -> pure_aworset().
-remove_redundant({VV1, Op}, {?TYPE, {POLog, ORSet}}) ->
-    {CrystalChanged, {?TYPE, {POLog0, PureAWORSet0}}} = remove_redundant_crystal({VV1, Op}, {?TYPE, {POLog, ORSet}}),
-    case CrystalChanged of
-        true ->
-            {?TYPE, {POLog0, PureAWORSet0}};
-        false ->
-            remove_redundant_POLog({VV1, Op}, {?TYPE, {POLog, ORSet}})
-    end.
+% %% @doc Removes redundant operations from POLog of `pure_aworset()'
+% %% Called upon updating (add, rmv) the `pure_aworset()'
+% -spec remove_redundant({pure_type:id(), pure_aworset_op()}, pure_aworset()) -> pure_aworset().
+% remove_redundant({VV1, Op}, {?TYPE, {POLog, ORSet}}) ->
+%     {CrystalChanged, {?TYPE, {POLog0, PureAWORSet0}}} = remove_redundant_crystal({VV1, Op}, {?TYPE, {POLog, ORSet}}),
+%     case CrystalChanged of
+%         true ->
+%             {?TYPE, {POLog0, PureAWORSet0}};
+%         false ->
+%             remove_redundant_POLog({VV1, Op}, {?TYPE, {POLog, ORSet}})
+%     end.
 
 %% @doc Update a `pure_aworset()'.
 -spec mutate(pure_aworset_op(), pure_type:id(), pure_aworset()) ->
     {ok, pure_aworset()}.
 mutate({add, Elem}, VV, {?TYPE, {POLog, PureAWORSet}}) ->
-    {?TYPE, {POLog0, PureAWORSet0}} = remove_redundant({VV, {add, Elem}}, {?TYPE, {POLog, PureAWORSet}}),
+    {?TYPE, {POLog0, PureAWORSet0}} = pure_polog:remove_redundant({VV, {add, Elem}}, {?TYPE, {POLog, PureAWORSet}}),
     {ok, {?TYPE, {orddict:store(VV, {add, Elem}, POLog0), PureAWORSet0}}};
 mutate({rmv, Elem}, VV, {?TYPE, {POLog, PureAWORSet}}) ->
-    {?TYPE, {POLog0, PureAWORSet0}} = remove_redundant({VV, {rmv, Elem}}, {?TYPE, {POLog, PureAWORSet}}),
+    {?TYPE, {POLog0, PureAWORSet0}} = pure_polog:remove_redundant({VV, {rmv, Elem}}, {?TYPE, {POLog, PureAWORSet}}),
     {ok, {?TYPE, {POLog0, PureAWORSet0}}}.
 
 %% @doc Returns the value of the `pure_aworset()'.
@@ -163,10 +129,10 @@ query({?TYPE, {POLog0, PureAWORSet0}}) ->
 
 
 %% @doc Equality for `pure_aworset()'.
-%% @todo use ordsets_ext:equal instead
 -spec equal(pure_aworset(), pure_aworset()) -> boolean().
 equal({?TYPE, {POLog1, PureAWORSet1}}, {?TYPE, {POLog2, PureAWORSet2}}) ->
-    ordsets_ext:equal(PureAWORSet1, PureAWORSet2) andalso equal_polog(POLog1, POLog2).
+    Fun = fun(Value1, Value2) -> Value1 == Value2 end,
+    ordsets_ext:equal(PureAWORSet1, PureAWORSet2) andalso orddict_ext:equal(POLog1, POLog2, Fun).
 
 
 %% ===================================================================
@@ -176,20 +142,6 @@ equal({?TYPE, {POLog1, PureAWORSet1}}, {?TYPE, {POLog2, PureAWORSet2}}) ->
 
 new_test() ->
     ?assertEqual({?TYPE, {orddict:new(), ordsets:new()}}, new()).
-
-happened_before_test() ->
-    ?assertEqual(false, happened_before([{0, 1}, {1, 2}, {2, 3}], [{0, 1}, {1, 2}, {2, 3}])),
-    ?assertEqual(true, happened_before([{0, 1}, {1, 2}, {2, 3}], [{0, 2}, {1, 4}, {2, 5}])),
-    ?assertEqual(false, happened_before([{0, 1}, {1, 2}, {2, 3}], [{0, 1}, {1, 4}, {2, 2}])),
-    ?assertEqual(false, happened_before([{0, 2}, {1, 5}, {2, 3}], [{0, 1}, {1, 4}, {2, 2}])),
-    ?assertEqual(true, happened_before([{0, 1}, {1, 2}, {2, 3}], [{0, 1}, {1, 4}, {2, 3}])).
-
-equal_polog_test() ->
-    ?assertEqual(false, equal_polog([{0, 1}], [{0, 1}, {1, 2}])),
-    ?assertEqual(true, equal_polog([{0, 1}, {1, 2}], [{0, 1}, {1, 2}])),
-    ?assertEqual(false, equal_polog([{0, 2}], [{0, 1}])),
-    ?assertEqual(false, equal_polog([{0, 1}, {1, 2}, {2, 3}], [{0, 1}, {1, 2}])),
-    ?assertEqual(true, equal_polog([], [])).
 
 redundant_test() ->
     ?assertEqual(0, redundant({[{0, 0}, {1, 0}], {add, <<"a">>}}, {[{0, 1}, {1, 1}], {add, <<"b">>}})),
