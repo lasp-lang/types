@@ -35,7 +35,8 @@
                       state_orset |
                       state_pair |
                       state_pncounter |
-                      state_twopset.
+                      state_twopset |
+                      state_oorset.
 -type crdt() :: {state_type(), type:payload()}.
 -type delta_crdt() :: {state_type(), {delta, type:payload()}}.
 -type delta_or_state() :: crdt() | delta_crdt().
