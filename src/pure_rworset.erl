@@ -38,7 +38,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, query/1, equal/2]).
--export([redundant/2, remove_redundant_crystal/2, remove_redundant_polog/2]).
+-export([redundant/2, remove_redundant_crystal/2, remove_redundant_polog/2, check_stability/2]).
 
 -export_type([pure_rworset/0, pure_rworset_op/0]).
 
@@ -127,13 +127,35 @@ remove_redundant_polog({VV1, Op}, {?TYPE, {POLog0, ORSet}}) ->
 %% @doc Removes redundant operations from POLog of `pure_rworset()'
 %% Called upon updating (add, rmv) the `pure_rworset()'
 -spec remove_redundant_crystal({pure_type:id(), pure_rworset_op()}, pure_rworset()) -> {boolean(), pure_rworset()}.
-remove_redundant_crystal({_VV1, {_X, Elem}}, {?TYPE, {POLog0, RWORSet}}) ->
+remove_redundant_crystal({_VV1, {_X, Elem}}, {?TYPE, {POLog, RWORSet}}) ->
     case ordsets:is_element(Elem, RWORSet) of
         true ->
-            {true, {?TYPE, {POLog0, ordsets:del_element(Elem, RWORSet)}}};
+            {true, {?TYPE, {POLog, ordsets:del_element(Elem, RWORSet)}}};
         false ->
-            {false, {?TYPE, {POLog0, RWORSet}}}
+            {false, {?TYPE, {POLog, RWORSet}}}
     end.
+
+%% @doc Checks stable operations and remove them from POLog of `pure_rworset()'
+-spec check_stability(pure_type:id(), pure_rworset()) -> pure_rworset().
+check_stability(StableVV, {?TYPE, {POLog0, RWORSet0}}) ->
+    {POLog1, RWORSet1} = orddict:fold(
+        fun(Key, {Op, Elem}=Value, {AccPOLog, AccORSet}) ->
+            case pure_trcb:happened_before(Key, StableVV) of
+                true ->
+                    case Op of
+                        add ->
+                            {AccPOLog, ordsets:add_element(Elem, AccORSet)};
+                        rmv ->
+                            {AccPOLog, ordsets:del_element(Elem, AccORSet)}
+                    end;
+                false ->
+                    {orddict:store(Key, Value, AccPOLog), AccORSet}
+            end
+        end,
+        {orddict:new(), RWORSet0},
+        POLog0
+    ),
+    {?TYPE, {POLog1, RWORSet1}}.
 
 %% @doc Update a `pure_rworset()'.
 -spec mutate(pure_rworset_op(), pure_type:id(), pure_rworset()) ->
@@ -229,6 +251,11 @@ rmv_test() ->
     ?assertEqual({?TYPE, {[{[{0, 1}], {add, <<"a">>}}, {[{0, 3}], {rmv, <<"b">>}}], []}}, Set2),
     ?assertEqual({?TYPE, {[{[{0, 1}], {add, <<"a">>}}, {[{0, 3}], {rmv, <<"b">>}}, {[{0, 5}], {rmv, <<"c">>}}], []}}, Set4),
     ?assertEqual({?TYPE, {[{[{0, 3}], {rmv, <<"b">>}}, {[{0, 4}], {rmv, <<"a">>}}], []}}, Set3).
+
+check_stability_test() ->
+    Set0 = new(),
+    Set1 = check_stability([], Set0),
+    ?assertEqual(Set0, Set1).
 
 equal_test() ->
     Set0 = {?TYPE, {[], [<<"a">>, <<"b">>, <<"c">>]}},

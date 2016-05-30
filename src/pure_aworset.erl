@@ -38,7 +38,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, query/1, equal/2]).
--export([redundant/2, remove_redundant_crystal/2, remove_redundant_polog/2]).
+-export([redundant/2, remove_redundant_crystal/2, remove_redundant_polog/2, check_stability/2]).
 
 -export_type([pure_aworset/0, pure_aworset_op/0]).
 
@@ -89,13 +89,30 @@ remove_redundant_polog({VV1, Op}, {?TYPE, {POLog0, ORSet}}) ->
 %% @doc Removes redundant operations from POLog of `pure_aworset()'
 %% Called upon updating (add, rmv) the `pure_aworset()'
 -spec remove_redundant_crystal({pure_type:id(), pure_aworset_op()}, pure_aworset()) -> {boolean(), pure_aworset()}.
-remove_redundant_crystal({_VV1, {_X, Elem}}, {?TYPE, {POLog0, AWORSet}}) ->
+remove_redundant_crystal({_VV1, {_X, Elem}}, {?TYPE, {POLog, AWORSet}}) ->
     case ordsets:is_element(Elem, AWORSet) of
         true ->
-            {true, {?TYPE, {POLog0, ordsets:del_element(Elem, AWORSet)}}};
+            {true, {?TYPE, {POLog, ordsets:del_element(Elem, AWORSet)}}};
         false ->
-            {false, {?TYPE, {POLog0, AWORSet}}}
+            {false, {?TYPE, {POLog, AWORSet}}}
     end.
+
+%% @doc Checks stable operations and remove them from POLog of `pure_aworset()'
+-spec check_stability(pure_type:id(), pure_aworset()) -> pure_aworset().
+check_stability(StableVV, {?TYPE, {POLog0, AWORSet0}}) ->
+    {POLog1, AWORSet1} = orddict:fold(
+        fun(Key, {_Op, Elem}=Value, {AccPOLog, AccORSet}) ->
+            case pure_trcb:happened_before(Key, StableVV) of
+                true ->
+                    {AccPOLog, ordsets:add_element(Elem, AccORSet)};
+                false ->
+                    {orddict:store(Key, Value, AccPOLog), AccORSet}
+            end
+        end,
+        {orddict:new(), AWORSet0},
+        POLog0
+    ),
+    {?TYPE, {POLog1, AWORSet1}}.
 
 %% @doc Update a `pure_aworset()'.
 -spec mutate(pure_aworset_op(), pure_type:id(), pure_aworset()) ->
@@ -183,6 +200,11 @@ rmv_test() ->
     ?assertEqual({?TYPE, {[{[{0, 1}], {add, <<"a">>}}], []}}, Set4),
     ?assertEqual({?TYPE, {[{[{0, 1}], {add, <<"a">>}}], []}}, Set5),
     ?assertEqual({?TYPE, {[], []}}, Set3).
+
+check_stability_test() ->
+    Set0 = new(),
+    Set1 = check_stability([], Set0),
+    ?assertEqual(Set0, Set1).
 
 equal_test() ->
     Set0 = {?TYPE, {[], [<<"a">>, <<"b">>, <<"c">>]}},
