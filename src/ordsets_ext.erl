@@ -1,4 +1,6 @@
-opyright (c) 2015-2016 Christopher Meiklejohn.  All Rights Reserved.
+% -------------------------------------------------------------------
+%%
+%% Copyright (c) 2015-2016 Christopher Meiklejohn.  All Rights Reserved.
 %% Copyright (c) 2007-2012 Basho Technologies, Inc.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
