@@ -154,20 +154,19 @@ mutate({rmv, Elem}, VV, {?TYPE, {POLog, PureAWORSet}}) ->
     {ok, {?TYPE, {POLog0, PureAWORSet0}}}.
 
 %% @doc Returns the value of the `pure_aworset()'.
-%%      This value is a list with all the elements in the `pure_aworset()'
-%%      that have at least one token still marked as active (true).
--spec query(pure_aworset()) -> [pure_type:element()].
+%%      This value is a set with all the elements in the `pure_aworset()'.
+-spec query(pure_aworset()) -> sets:set(pure_type:element()).
 query({?TYPE, {POLog0, PureAWORSet0}}) ->
     Elements0 = ordsets:to_list(PureAWORSet0),
     Elements1 = [El || {_Key, {_Op, El}} <- orddict:to_list(POLog0)],
-    lists:usort(lists:append(Elements0, Elements1)).
+    sets:from_list(lists:usort(lists:append(Elements0, Elements1))).
 
 
 %% @doc Equality for `pure_aworset()'.
 %% @todo use ordsets_ext:equal instead
 -spec equal(pure_aworset(), pure_aworset()) -> boolean().
 equal({?TYPE, {POLog1, PureAWORSet1}}, {?TYPE, {POLog2, PureAWORSet2}}) ->
-    ordsets:is_subset(PureAWORSet1, PureAWORSet2) andalso ordsets:is_subset(PureAWORSet2, PureAWORSet1) andalso equal_polog(POLog1, POLog2).
+    ordsets_ext:equal(PureAWORSet1, PureAWORSet2) andalso equal_polog(POLog1, POLog2).
 
 
 %% ===================================================================
@@ -214,11 +213,11 @@ query_test() ->
     Set2 = {?TYPE, {[], [<<"a">>, <<"c">>]}},
     Set3 = {?TYPE, {[{[{1, 2}], {add, <<"b">>}}], [<<"a">>]}},
     Set4 = {?TYPE, {[{[{1, 3}], {add, <<"a">>}}], [<<"a">>]}},
-    ?assertEqual([], query(Set0)),
-    ?assertEqual([<<"a">>], query(Set1)),
-    ?assertEqual([<<"a">>, <<"c">>], query(Set2)),
-    ?assertEqual([<<"a">>, <<"b">>], query(Set3)),
-    ?assertEqual([<<"a">>], query(Set4)).
+    ?assertEqual(sets:new(), query(Set0)),
+    ?assertEqual(sets:from_list([<<"a">>]), query(Set1)),
+    ?assertEqual(sets:from_list([<<"a">>, <<"c">>]), query(Set2)),
+    ?assertEqual(sets:from_list([<<"a">>, <<"b">>]), query(Set3)),
+    ?assertEqual(sets:from_list([<<"a">>]), query(Set4)).
 
 add_test() ->
     Set0 = new(),

@@ -71,17 +71,17 @@ mutate({rmv, Elem}, _VV, {?TYPE, {POLog, {Pure2PAddSet, Pure2PRmvSet}}}) ->
     {ok, PureTwoPSet}.
 
 %% @doc Returns the value of the `pure_twopset()'.
-%%      This value is a list with all the elements in the `pure_twopset()'.
--spec query(pure_twopset()) -> [pure_type:element()].
+%%      This value is a set with all the elements in the `pure_twopset()'.
+-spec query(pure_twopset()) -> sets:set(pure_type:element()).
 query({?TYPE, {_POLog, {Pure2PAddSet, Pure2PRmvSet}}}) ->
-    ordsets:subtract(Pure2PAddSet, Pure2PRmvSet).
+    sets:from_list(ordsets:subtract(Pure2PAddSet, Pure2PRmvSet)).
 
 %% @doc Equality for `pure_twopset()'.
 %% @todo use ordsets_ext:equal instead
 -spec equal(pure_twopset(), pure_twopset()) -> boolean().
 equal({?TYPE, {_POLog1, {Pure2PAddSet1, Pure2PRmvSet1}}}, {?TYPE, {_POLog2, {Pure2PAddSet2, Pure2PRmvSet2}}}) ->
-    ordsets:is_subset(Pure2PAddSet1, Pure2PAddSet2) andalso ordsets:is_subset(Pure2PAddSet2, Pure2PAddSet1) andalso ordsets:is_subset(Pure2PRmvSet1, Pure2PRmvSet2) andalso ordsets:is_subset(Pure2PRmvSet2, Pure2PRmvSet1).
-
+    ordsets_ext:equal(Pure2PAddSet1, Pure2PAddSet2) andalso
+    ordsets_ext:equal(Pure2PRmvSet1, Pure2PRmvSet2).
 %% ===================================================================
 %% EUnit tests
 %% ===================================================================
@@ -94,9 +94,9 @@ query_test() ->
     Set0 = new(),
     Set1 = {?TYPE, {[], {[<<"a">>], []}}},
     Set2 = {?TYPE, {[], {[<<"b">>, <<"c">>], [<<"a">>, <<"c">>]}}},
-    ?assertEqual([], query(Set0)),
-    ?assertEqual([<<"a">>], query(Set1)),
-    ?assertEqual([<<"b">>], query(Set2)).
+    ?assertEqual(sets:new(), query(Set0)),
+    ?assertEqual(sets:from_list([<<"a">>]), query(Set1)),
+    ?assertEqual(sets:from_list([<<"b">>]), query(Set2)).
 
 add_test() ->
     Set0 = new(),
