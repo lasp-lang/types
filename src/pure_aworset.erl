@@ -38,7 +38,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, query/1, equal/2]).
--export([redundant/2, remove_redundant_crystal/2, remove_redundant_POLog/2]).
+-export([redundant/2, remove_redundant_crystal/2, remove_redundant_polog/2]).
 
 -export_type([pure_aworset/0, pure_aworset_op/0]).
 
@@ -70,8 +70,8 @@ redundant({VV1, {add, Elem1}}, {VV2, {_X, Elem2}}) ->
 
 %% @doc Removes redundant operations from POLog of `pure_aworset()'
 %% Called upon updating (add, rmv) the `pure_aworset()'
--spec remove_redundant_POLog({pure_type:id(), pure_aworset_op()}, pure_aworset()) -> pure_aworset().
-remove_redundant_POLog({VV1, Op}, {?TYPE, {POLog0, ORSet}}) ->
+-spec remove_redundant_polog({pure_type:id(), pure_aworset_op()}, pure_aworset()) -> pure_aworset().
+remove_redundant_polog({VV1, Op}, {?TYPE, {POLog0, ORSet}}) ->
     POLog1 = orddict:fold(
         fun(Key, Value, Acc) ->
             case redundant({Key, Value}, {VV1, Op}) of
@@ -106,7 +106,7 @@ remove_redundant_crystal({_VV1, {_X, Elem}}, {?TYPE, {POLog0, AWORSet}}) ->
 %         true ->
 %             {?TYPE, {POLog0, PureAWORSet0}};
 %         false ->
-%             remove_redundant_POLog({VV1, Op}, {?TYPE, {POLog, ORSet}})
+%             remove_redundant_polog({VV1, Op}, {?TYPE, {POLog, ORSet}})
 %     end.
 
 %% @doc Update a `pure_aworset()'.
