@@ -38,13 +38,11 @@
 
 -callback remove_redundant_polog({pure_type:id(), type:operation()}, type:crdt()) -> {boolean(), type:crdt()}.
 
+-callback check_stability(pure_type:id(), type:crdt()) -> type:crdt().
+
 %% Check redundant operations in POLog.
 -spec remove_redundant({pure_type:id(), type:operation()}, type:crdt()) -> {boolean(), type:crdt()}.
 remove_redundant({VV1, Op}, {Type, {POLog, Crystal}}) ->
-    {CrystalChanged, {Type, {POLog0, Crystal0}}} = Type:remove_redundant_crystal({VV1, Op}, {Type, {POLog, Crystal}}),
-    case CrystalChanged of
-        true ->
-            {false, {Type, {POLog0, Crystal0}}};
-        false ->
-            Type:remove_redundant_polog({VV1, Op}, {Type, {POLog, Crystal}})
-    end.
+    {DoNotAdd0, {Type, {POLog0, Crystal0}}} = Type:remove_redundant_crystal({VV1, Op}, {Type, {POLog, Crystal}}),
+    {DoNotAdd1, {Type, {POLog1, Crystal1}}} = Type:remove_redundant_polog({VV1, Op}, {Type, {POLog0, Crystal0}}),
+    {DoNotAdd0 andalso DoNotAdd1, {Type, {POLog1, Crystal1}}}.
