@@ -144,16 +144,15 @@ equal({?TYPE, GCounter1}, {?TYPE, GCounter2}) ->
 %%          replica in the second `state_gcounter()'
 -spec is_inflation(state_gcounter(), state_gcounter()) -> boolean().
 is_inflation({?TYPE, GCounter1}, {?TYPE, GCounter2}) ->
-    orddict:fold(
-        fun(Key, Value1, Acc) ->
+    lists_ext:fold_until(
+        fun({Key, Value1}) ->
             case orddict:find(Key, GCounter2) of
                 {ok, Value2} ->
-                    Acc andalso Value1 =< Value2;
+                    Value1 =< Value2;
                 error ->
-                    Acc andalso false
+                    false
             end
         end,
-        true,
         GCounter1
      );
 

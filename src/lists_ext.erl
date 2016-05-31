@@ -19,24 +19,14 @@
 %%
 %% -------------------------------------------------------------------
 
--module(orddict_ext).
+-module(lists_ext).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
--export([equal/3]).
+-export([fold_until/2]).
 
--spec equal(orddict:orddict(), orddict:orddict(), function()) ->
+-spec fold_until(function(), lists:list()) ->
     boolean().
-equal(Dict1, Dict2, Fun) ->
-    orddict:size(Dict1) == orddict:size(Dict2) andalso
-    lists_ext:fold_until(
-        fun({Key, Value1}) ->
-            case orddict:find(Key, Dict2) of
-                {ok, Value2} ->
-                    Fun(Value1, Value2);
-                error ->
-                    false
-            end
-        end,
-        Dict1
-     ).
-
+fold_until(_Fun, []) ->
+    true;
+fold_until(Fun, [H | T]) ->
+    Fun(H) andalso fold_until(Fun, T).

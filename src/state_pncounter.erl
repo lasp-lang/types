@@ -64,18 +64,18 @@
 %% @doc Create a new, empty `state_pncounter()'
 -spec new() -> state_pncounter().
 new() ->
-    {?TYPE, orddict:new()}.
+{?TYPE, orddict:new()}.
 
 %% @doc Create a new, empty `state_pncounter()'
 -spec new([term()]) -> state_pncounter().
 new([]) ->
-    new().
+new().
 
 %% @doc Mutate a `state_pncounter()'.
 -spec mutate(state_pncounter_op(), type:id(), state_pncounter()) ->
-    {ok, state_pncounter()}.
+{ok, state_pncounter()}.
 mutate(Op, Actor, {?TYPE, _PNCounter}=CRDT) ->
-    state_type:mutate(Op, Actor, CRDT).
+state_type:mutate(Op, Actor, CRDT).
 
 %% @doc Delta-mutate a `state_pncounter()'.
 %%      The first argument can be `increment' or `decrement'.
@@ -88,33 +88,33 @@ mutate(Op, Actor, {?TYPE, _PNCounter}=CRDT) ->
 %%          increments plus 1 and the second component will be zero
 %%          - vice versa for `decrement'
 -spec delta_mutate(state_pncounter_op(), type:id(), state_pncounter()) ->
-    {ok, delta_state_pncounter()}.
+{ok, delta_state_pncounter()}.
 delta_mutate(increment, Actor, {?TYPE, PNCounter}) ->
-    Value = case orddict:find(Actor, PNCounter) of
-        {ok, {Inc, _Dec}} ->
-            Inc;
-        error ->
-            0
-    end,
-    Delta = orddict:store(Actor, {Value + 1, 0}, orddict:new()),
-    {ok, {?TYPE, {delta, Delta}}};
+Value = case orddict:find(Actor, PNCounter) of
+    {ok, {Inc, _Dec}} ->
+        Inc;
+    error ->
+        0
+end,
+Delta = orddict:store(Actor, {Value + 1, 0}, orddict:new()),
+{ok, {?TYPE, {delta, Delta}}};
 
 delta_mutate(decrement, Actor, {?TYPE, PNCounter}) ->
-    Value = case orddict:find(Actor, PNCounter) of
-        {ok, {_Inc, Dec}} ->
-            Dec;
-        error ->
-            0
-    end,
-    Delta = orddict:store(Actor, {0, Value + 1}, orddict:new()),
-    {ok, {?TYPE, {delta, Delta}}}.
+Value = case orddict:find(Actor, PNCounter) of
+    {ok, {_Inc, Dec}} ->
+        Dec;
+    error ->
+        0
+end,
+Delta = orddict:store(Actor, {0, Value + 1}, orddict:new()),
+{ok, {?TYPE, {delta, Delta}}}.
 
 %% @doc Returns the value of the `state_pncounter()'.
 %%      This value is the sum of all increments minus the sum of all
 %%      decrements.
 -spec query(state_pncounter()) -> non_neg_integer().
 query({?TYPE, PNCounter}) ->
-    lists:sum([ Inc - Dec || {_Actor, {Inc, Dec}} <- PNCounter ]).
+lists:sum([ Inc - Dec || {_Actor, {Inc, Dec}} <- PNCounter ]).
 
 %% @doc Merge two `state_pncounter()'.
 %%      The keys of the resulting `state_pncounter()' are the union of the
@@ -126,21 +126,21 @@ query({?TYPE, PNCounter}) ->
 %%      Return the join of the two `state_pncounter()'.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
 merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
-    {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
-    {?TYPE, {delta, DeltaGroup}};
+{?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
+{?TYPE, {delta, DeltaGroup}};
 merge({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
+merge({?TYPE, Delta}, {?TYPE, CRDT});
 merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
+merge({?TYPE, Delta}, {?TYPE, CRDT});
 merge({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
-    PNCounter = orddict:merge(
-        fun(_, {Inc1, Dec1}, {Inc2, Dec2}) ->
-            {max(Inc1, Inc2), max(Dec1, Dec2)}
-        end,
-        PNCounter1,
-        PNCounter2
-    ),
-    {?TYPE, PNCounter}.
+PNCounter = orddict:merge(
+    fun(_, {Inc1, Dec1}, {Inc2, Dec2}) ->
+        {max(Inc1, Inc2), max(Dec1, Dec2)}
+    end,
+    PNCounter1,
+    PNCounter2
+),
+{?TYPE, PNCounter}.
 
 %% @doc Are two `state_pncounter()'s structurally equal?
 %%      This is not `query/1' equality.
@@ -150,8 +150,8 @@ merge({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
 %%      increments and decrements.
 -spec equal(state_pncounter(), state_pncounter()) -> boolean().
 equal({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
-    Fun = fun({Inc1, Dec1}, {Inc2, Dec2}) -> Inc1 == Inc2 andalso Dec1 == Dec2 end,
-    orddict_ext:equal(PNCounter1, PNCounter2, Fun).
+Fun = fun({Inc1, Dec1}, {Inc2, Dec2}) -> Inc1 == Inc2 andalso Dec1 == Dec2 end,
+orddict_ext:equal(PNCounter1, PNCounter2, Fun).
 
 %% @doc Given two `state_pncounter()', check if the second is and inflation
 %%      of the first.
@@ -163,16 +163,15 @@ equal({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
 %%          for the same replica in the second `state_pncounter()'
 -spec is_inflation(state_pncounter(), state_pncounter()) -> boolean().
 is_inflation({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
-    orddict:fold(
-        fun(Key, {Inc1, Dec1}, Acc) ->
+    lists_ext:fold_until(
+        fun({Key, {Inc1, Dec1}}) ->
             case orddict:find(Key, PNCounter2) of
                 {ok, {Inc2, Dec2}} ->
-                    Acc andalso Inc1 =< Inc2 andalso Dec1 =< Dec2;
+                    Inc1 =< Inc2 andalso Dec1 =< Dec2;
                 error ->
-                    Acc andalso false
+                    false
             end
         end,
-        true,
         PNCounter1
      ).
 

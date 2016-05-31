@@ -130,19 +130,10 @@ merge({?TYPE, {Type, GMap1}}, {?TYPE, {Type, GMap2}}) ->
 %%      and for each key, their values are also `equal/2'.
 -spec equal(state_gmap(), state_gmap()) -> boolean().
 equal({?TYPE, {Type, GMap1}}, {?TYPE, {Type, GMap2}}) ->
-    orddict:size(GMap1) == orddict:size(GMap2) andalso
-    orddict:fold(
-        fun(Key, Value1, Acc) ->
-            case orddict:find(Key, GMap2) of
-                {ok, Value2} ->
-                    Acc andalso Type:equal(Value1, Value2);
-                error ->
-                    Acc andalso false
-            end
-        end,
-        true,
-        GMap1
-    ).
+    Fun = fun(Value1, Value2) ->
+        Type:equal(Value1, Value2)
+    end,
+    orddict_ext:equal(GMap1, GMap2, Fun).
 
 %% @doc Given two `state_gmap()', check if the second is an inflation
 %%      of the first.
@@ -154,17 +145,15 @@ equal({?TYPE, {Type, GMap1}}, {?TYPE, {Type, GMap2}}) ->
 %%          should be an inflation of the value in the first.
 -spec is_inflation(state_gmap(), state_gmap()) -> boolean().
 is_inflation({?TYPE, {Type, GMap1}}, {?TYPE, {Type, GMap2}}) ->
-    orddict:size(GMap1) =< orddict:size(GMap2) andalso
-    orddict:fold(
-        fun(Key, Value1, Acc) ->
+    lists_ext:fold_until(
+        fun({Key, Value1}) ->
             case orddict:find(Key, GMap2) of
                 {ok, Value2} ->
-                    Acc andalso Type:is_inflation(Value1, Value2);
+                    Type:is_inflation(Value1, Value2);
                 error ->
-                    Acc andalso false
+                    false
             end
         end,
-        true,
         GMap1
      ).
 

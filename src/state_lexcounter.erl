@@ -163,16 +163,15 @@ is_inflation({?TYPE, LexCounter1}, {?TYPE, LexCounter2}) ->
         orelse
         (Left1 == Left2 andalso Right2 >= Right1)
     end,
-    orddict:fold(
-        fun(Key, Value1, Acc) ->
+    lists_ext:fold_until(
+        fun({Key, Value1}) ->
             case orddict:find(Key, LexCounter2) of
                 {ok, Value2} ->
-                    Acc andalso LexPairInflation(Value1, Value2);
+                    LexPairInflation(Value1, Value2);
                 error ->
-                    Acc andalso false
+                    false
             end
         end,
-        true,
         LexCounter1
     ).
 
