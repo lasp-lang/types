@@ -28,7 +28,7 @@
     boolean().
 equal(Dict1, Dict2, Fun) ->
     orddict:size(Dict1) == orddict:size(Dict2) andalso
-    lists_ext:fold_until(
+    lists_ext:iterate_until(
         fun({Key, Value1}) ->
             case orddict:find(Key, Dict2) of
                 {ok, Value2} ->

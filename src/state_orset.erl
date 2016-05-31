@@ -213,12 +213,12 @@ equal({?TYPE, ORSet1}, {?TYPE, ORSet2}) ->
 %%          - first active and second inactive
 -spec is_inflation(state_orset(), state_orset()) -> boolean().
 is_inflation({?TYPE, ORSet1}, {?TYPE, ORSet2}) ->
-    lists_ext:fold_until(
+    lists_ext:iterate_until(
         fun({Elem, Tokens1}) ->
             case orddict:find(Elem, ORSet2) of
                 %% if element is found, compare tokens
                 {ok, Tokens2} ->
-                    lists_ext:fold_until(
+                    lists_ext:iterate_until(
                         fun({Token, Active1}) ->
                             case orddict:find(Token, Tokens2) of
                                 %% if token is found, compare activeness

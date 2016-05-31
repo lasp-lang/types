@@ -163,7 +163,7 @@ equal({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
 %%          for the same replica in the second `state_pncounter()'
 -spec is_inflation(state_pncounter(), state_pncounter()) -> boolean().
 is_inflation({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
-    lists_ext:fold_until(
+    lists_ext:iterate_until(
         fun({Key, {Inc1, Dec1}}) ->
             case orddict:find(Key, PNCounter2) of
                 {ok, {Inc2, Dec2}} ->

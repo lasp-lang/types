@@ -145,7 +145,7 @@ equal({?TYPE, {Type, GMap1}}, {?TYPE, {Type, GMap2}}) ->
 %%          should be an inflation of the value in the first.
 -spec is_inflation(state_gmap(), state_gmap()) -> boolean().
 is_inflation({?TYPE, {Type, GMap1}}, {?TYPE, {Type, GMap2}}) ->
-    lists_ext:fold_until(
+    lists_ext:iterate_until(
         fun({Key, Value1}) ->
             case orddict:find(Key, GMap2) of
                 {ok, Value2} ->

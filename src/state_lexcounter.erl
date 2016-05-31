@@ -163,7 +163,7 @@ is_inflation({?TYPE, LexCounter1}, {?TYPE, LexCounter2}) ->
         orelse
         (Left1 == Left2 andalso Right2 >= Right1)
     end,
-    lists_ext:fold_until(
+    lists_ext:iterate_until(
         fun({Key, Value1}) ->
             case orddict:find(Key, LexCounter2) of
                 {ok, Value2} ->

@@ -22,11 +22,11 @@
 -module(lists_ext).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
--export([fold_until/2]).
+-export([iterate_until/2]).
 
--spec fold_until(function(), lists:list()) ->
+-spec iterate_until(function(), lists:list()) ->
     boolean().
-fold_until(_Fun, []) ->
+iterate_until(_Fun, []) ->
     true;
-fold_until(Fun, [H | T]) ->
-    Fun(H) andalso fold_until(Fun, T).
+iterate_until(Fun, [H | T]) ->
+    Fun(H) andalso iterate_until(Fun, T).

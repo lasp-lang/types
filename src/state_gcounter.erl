@@ -144,7 +144,7 @@ equal({?TYPE, GCounter1}, {?TYPE, GCounter2}) ->
 %%          replica in the second `state_gcounter()'
 -spec is_inflation(state_gcounter(), state_gcounter()) -> boolean().
 is_inflation({?TYPE, GCounter1}, {?TYPE, GCounter2}) ->
-    lists_ext:fold_until(
+    lists_ext:iterate_until(
         fun({Key, Value1}) ->
             case orddict:find(Key, GCounter2) of
                 {ok, Value2} ->
