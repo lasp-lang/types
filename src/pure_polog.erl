@@ -30,17 +30,20 @@
 
 -export([remove_redundant/2]).
 
-%% Check redundant operations in POLog.
+%% @doc Check redundant operations.
 -callback redundant({pure_type:id(), type:operation()}, {pure_type:id(), type:operation()}) ->
     integer().
 
+%% @doc Remove redundant operations from the crystal.
 -callback remove_redundant_crystal({pure_type:id(), type:operation()}, type:crdt()) -> {boolean(), type:crdt()}.
 
+%% @doc Remove redundant operations from the POLog.
 -callback remove_redundant_polog({pure_type:id(), type:operation()}, type:crdt()) -> {boolean(), type:crdt()}.
 
+%% @doc Check stable operations and move them from the POLog to the crystal
 -callback check_stability(pure_type:id(), type:crdt()) -> type:crdt().
 
-%% Check redundant operations in POLog.
+%% @doc Remove redundant operations.
 -spec remove_redundant({pure_type:id(), type:operation()}, type:crdt()) -> {boolean(), type:crdt()}.
 remove_redundant({VV1, Op}, {Type, {POLog, Crystal}}) ->
     {DoNotAdd0, {Type, {POLog0, Crystal0}}} = Type:remove_redundant_crystal({VV1, Op}, {Type, {POLog, Crystal}}),

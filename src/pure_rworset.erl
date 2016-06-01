@@ -59,7 +59,7 @@ new([]) ->
 -spec redundant({pure_type:id(), pure_rworset_op()}, {pure_type:id(), pure_rworset_op()}) ->
     integer().
 redundant({VV1, {add, Elem1}}, {VV2, {X, Elem2}}) ->
-    case Elem1 == Elem2 of
+    case Elem1 =:= Elem2 of
         true ->
             case pure_trcb:happened_before(VV1, VV2) of
                 true ->
@@ -79,7 +79,7 @@ redundant({VV1, {add, Elem1}}, {VV2, {X, Elem2}}) ->
             0
     end;
 redundant({VV1, {rmv, Elem1}}, {VV2, {X, Elem2}}) ->
-    case Elem1 == Elem2 of
+    case Elem1 =:= Elem2 of
         true ->
             case pure_trcb:happened_before(VV1, VV2) of
                 true ->
@@ -183,7 +183,7 @@ mutate({rmv, Elem}, VV, {?TYPE, {POLog, PureRWORSet}}) ->
 query({?TYPE, {POLog0, PureRWORSet0}}) ->
     Elements0 = ordsets:to_list(PureRWORSet0),
     Elements1 = [El || {_Key, {_Op, El}} <- orddict:to_list(POLog0)],
-    sets:from_list(lists:usort(lists:append(Elements0, Elements1))).
+    sets:from_list(lists:append(Elements0, Elements1)).
 
 
 %% @doc Equality for `pure_rworset()'.
