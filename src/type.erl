@@ -30,7 +30,8 @@
 -type payload() :: term().
 -type crdt() :: {type(), payload()}.
 -type operation() :: term().
--type id() :: term().
+-type id() :: term()
+            | state_oorset_ps:ps_event_id().
 -type value() :: term().
 -type error() :: term().
 
