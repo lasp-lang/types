@@ -43,7 +43,7 @@
 -export([new_data_store/1,
          is_bottom_data_store/1]).
 %% {{dot_map, data_store_type()}, dot_map()} related.
--export([get_data_store/2,
+-export([get_sub_data_store/2,
          insert_object/3,
          remove_object/2,
          get_all_objects/1,
@@ -164,8 +164,8 @@ causal_join({{{dot_map, ValueDataStoreType}, DataStoreA}=Fst, DotCloudA},
                                  ordsets:from_list(orddict:fetch_keys(DataStoreB))),
     MergedDataStore =
         ordsets:fold(fun(Object, MergedDataStore0) ->
-                             {ok, SubDataStoreA} = get_data_store(Object, Fst),
-                             {ok, SubDataStoreB} = get_data_store(Object, Snd),
+                             {ok, SubDataStoreA} = get_sub_data_store(Object, Fst),
+                             {ok, SubDataStoreB} = get_sub_data_store(Object, Snd),
                              {MergedSubDataStore, _} =
                                  causal_join({SubDataStoreA, DotCloudA},
                                              {SubDataStoreB, DotCloudB}),
@@ -223,10 +223,10 @@ is_bottom_data_store({dot_fun, DataStore}) ->
 is_bottom_data_store({{dot_map, _ValueDataStoreType}, DataStore}) ->
     orddict:is_empty(DataStore).
 
-%% @doc Get DataStore pointed by the object from {dot_map, dot_map()}.
--spec get_data_store(term(), {{dot_map, data_store_type()}, dot_map()}) ->
+%% @doc Get SubDataStore pointed by the object from {dot_map, dot_map()}.
+-spec get_sub_data_store(term(), {{dot_map, data_store_type()}, dot_map()}) ->
           {ok, data_store()}.
-get_data_store(Object, {{dot_map, ValueDataStoreType}, DataStore}) ->
+get_sub_data_store(Object, {{dot_map, ValueDataStoreType}, DataStore}) ->
     case orddict:find(Object, DataStore) of
         {ok, SubDataStore} ->
             {ok, SubDataStore};

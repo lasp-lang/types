@@ -180,7 +180,7 @@ join_decomposition({?TYPE, {{{dot_map, dot_set}, DataStoreDict}, DotCloud0}}) ->
 add_elem_delta(Elem, Actor, {DataStore0, DotCloud0}, {DeltaDataStore0, DeltaDotCloud0}) ->
     NewDotContext = state_causal_type:get_next_dot_context(Actor, DotCloud0),
 
-    {ok, {dot_set, DotSet}} = state_causal_type:get_data_store(Elem, DataStore0),
+    {ok, {dot_set, DotSet}} = state_causal_type:get_sub_data_store(Elem, DataStore0),
     DeltaDotCloud1 = state_causal_type:insert_dot_context(NewDotContext, DotSet),
     DeltaDotCloud = state_causal_type:merge_dot_clouds(DeltaDotCloud0, DeltaDotCloud1),
     DeltaDataStore =
@@ -193,7 +193,7 @@ add_elem_delta(Elem, Actor, {DataStore0, DotCloud0}, {DeltaDataStore0, DeltaDotC
     {ok, {DataStore0, DotCloud}, {DeltaDataStore, DeltaDotCloud}}.
 
 remove_elem_delta(Elem, DataStore, {DeltaDataStore0, DeltaDotCloud0}) ->
-    {ok, SubDataStore} = state_causal_type:get_data_store(Elem, DataStore),
+    {ok, SubDataStore} = state_causal_type:get_sub_data_store(Elem, DataStore),
     case state_causal_type:is_bottom_data_store(SubDataStore) of
         false ->
             DeltaDotCloud = state_causal_type:merge_dot_clouds(
