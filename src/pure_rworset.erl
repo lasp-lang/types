@@ -169,20 +169,15 @@ mutate({add, Elem}, VV, {?TYPE, {POLog, PureRWORSet}}) ->
             {ok, {?TYPE, {orddict:store(VV, {add, Elem}, POLog0), PureRWORSet0}}}
     end;
 mutate({rmv, Elem}, VV, {?TYPE, {POLog, PureRWORSet}}) ->
-    {DoNotAdd, {?TYPE, {POLog0, PureRWORSet0}}} = pure_polog:remove_redundant({VV, {rmv, Elem}}, {?TYPE, {POLog, PureRWORSet}}),
-    case DoNotAdd of
-        true ->
-            {ok, {?TYPE, {POLog0, PureRWORSet0}}};
-        false ->
-            {ok, {?TYPE, {orddict:store(VV, {rmv, Elem}, POLog0), PureRWORSet0}}}
-    end.
+    {_, {?TYPE, {POLog0, PureRWORSet0}}} = pure_polog:remove_redundant({VV, {rmv, Elem}}, {?TYPE, {POLog, PureRWORSet}}),
+    {ok, {?TYPE, {orddict:store(VV, {rmv, Elem}, POLog0), PureRWORSet0}}}.
 
 %% @doc Returns the value of the `pure_rworset()'.
 %%      This value is a set with all the elements in the `pure_rworset()'.
 -spec query(pure_rworset()) -> sets:set(pure_type:element()).
 query({?TYPE, {POLog0, PureRWORSet0}}) ->
     Elements0 = ordsets:to_list(PureRWORSet0),
-    Elements1 = [El || {_Key, {_Op, El}} <- orddict:to_list(POLog0)],
+    Elements1 = [El || {_Key, {Op, El}} <- orddict:to_list(POLog0), Op == add],
     sets:from_list(lists:append(Elements0, Elements1)).
 
 
