@@ -18,11 +18,14 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Optimised ORSet CRDT: observed-remove set without tombstones
+%% @doc Optimised ORSet CRDT: observed-remove set without tombstones.
+%% This type is an example of the causal CRDTs using the common library.
+%% Currently, the set-theoretic functions (product(), union(), intersection()) and
+%% the functional programming functions (map(), filter(), fold()) are not supported.
 %%
 %% @reference Paulo Sérgio Almeida, Ali Shoker, and Carlos Baquero
-%%      Delta State Replicated Data Types (2016)
-%%      [http://arxiv.org/pdf/1603.01529v1.pdf]
+%% Delta State Replicated Data Types (2016)
+%% [http://arxiv.org/pdf/1603.01529v1.pdf]
 
 -module(state_oorset).
 -author("Junghun Yoo <junghun.yoo@cs.ox.ac.uk>").
@@ -54,6 +57,7 @@
                          | {rmv_all, [element()]}.
 
 %% @doc Create a new, empty `state_oorset()'
+%% DotMap<Elem, DotSet>
 -spec new() -> state_oorset().
 new() ->
     {?TYPE, state_causal_type:new_causal_crdt({dot_map, dot_set})}.
@@ -70,47 +74,56 @@ mutate(Op, Actor, {?TYPE, _ORSet}=CRDT) ->
     state_type:mutate(Op, Actor, CRDT).
 
 %% @doc Delta-mutate a `state_oorset()'.
-%%      The first argument can be:
-%%          - `{add, element()}'
-%%          - `{rmv, element()}'
-%%      The second argument is the replica id.
-%%      The third argument is the `state_oorset()' to be inflated.
+%% The first argument can be:
+%%     - `{add, element()}'
+%%     - `{rmv, element()}'
+%%     - `{add_all, [element()]}'
+%%     - `{rmv_all, [element()]}'
+%% The second argument is the replica id.
+%% The third argument is the `state_oorset()' to be inflated.
 -spec delta_mutate(state_oorset_op(), type:id(), state_oorset()) ->
     {ok, delta_state_oorset()} | {error, {precondition, {not_present, element()}}}.
+%% @doc Adds a single elemenet to `state_oorset()'.
 delta_mutate({add, Elem}, Actor, {?TYPE, ORSet}) ->
     {ok, _ORSet1, Delta} =
         add_elem_delta(Elem,
                        Actor,
                        ORSet,
-                       {state_causal_type:new_data_store({dot_map, dot_set}), ordsets:new()}),
+                       {state_causal_type:new_data_store({dot_map, dot_set}),
+                        ordsets:new()}),
     {ok, {?TYPE, {delta, Delta}}};
 
 %% @doc Adds a list of elemenets to `state_oorset()'.
 delta_mutate({add_all, Elems}, Actor, {?TYPE, ORSet}) ->
     {ok, _ORSet1, Delta} =
-        lists:foldl(fun(Elem, {ok, ORSet0, Delta0}) ->
-                            add_elem_delta(Elem, Actor, ORSet0, Delta0)
-                    end,
-                    {ok, ORSet, {state_causal_type:new_data_store({dot_map, dot_set}), ordsets:new()}},
-                    Elems),
+        lists:foldl(
+          fun(Elem, {ok, ORSet0, Delta0}) ->
+                  add_elem_delta(Elem, Actor, ORSet0, Delta0)
+          end,
+          {ok,
+           ORSet,
+           {state_causal_type:new_data_store({dot_map, dot_set}), ordsets:new()}},
+          Elems),
     {ok, {?TYPE, {delta, Delta}}};
 
 %% @doc Removes a single element in `state_oorset()'.
-%% an empty data store and observed dots for the element.
+%% An empty data store and observed dots for the element.
 delta_mutate({rmv, Elem}, _Actor, {?TYPE, {DataStore0, _DotCloud}}) ->
     case remove_elem_delta(Elem,
                            DataStore0,
-                           {state_causal_type:new_data_store({dot_map, dot_set}), ordsets:new()}) of
+                           {state_causal_type:new_data_store({dot_map, dot_set}),
+                            ordsets:new()}) of
         {ok, _DataStore, Delta} -> {ok, {?TYPE, {delta, Delta}}};
         Error -> Error
     end;
 
 %% @doc Removes a list of elemenets in `state_oorset()'.
-%% an empty data store and observed dots for all elements in the list.
+%% An empty data store and observed dots for all elements in the list.
 delta_mutate({rmv_all, Elems}, _Actor, {?TYPE, {DataStore0, _DotCloud}}) ->
     case remove_elems_delta(Elems,
                             DataStore0,
-                            {state_causal_type:new_data_store({dot_map, dot_set}), ordsets:new()}) of
+                            {state_causal_type:new_data_store({dot_map, dot_set}),
+                             ordsets:new()}) of
         {ok, _DataStore, Delta} -> {ok, {?TYPE, {delta, Delta}}};
         Error -> Error
     end.
@@ -157,32 +170,44 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 -spec join_decomposition(state_oorset()) -> [state_oorset()].
 join_decomposition({?TYPE, {{{dot_map, dot_set}, DataStoreDict}, DotCloud0}}) ->
     {DecompList, AccDotCloud} =
-        orddict:fold(fun(Elem, SubDataStore, {DecompList0, AccDotCloud0}) ->
-                             NewDotCloud = state_causal_type:get_dot_cloud(SubDataStore),
-                             NewDataStore =
-                                 state_causal_type:insert_object(Elem,
-                                                                 SubDataStore,
-                                                                 state_causal_type:new_data_store({dot_map, dot_set})),
-                             NewORSet = [{?TYPE, {NewDataStore, NewDotCloud}}],
-                             DecompList1 = lists:append(DecompList0, NewORSet),
-                             {DecompList1, state_causal_type:merge_dot_clouds(AccDotCloud0, NewDotCloud)}
-                     end, {[], ordsets:new()}, DataStoreDict),
+        orddict:fold(
+          fun(Elem, SubDataStore, {DecompList0, AccDotCloud0}) ->
+                  NewDotCloud = state_causal_type:get_dot_cloud(SubDataStore),
+                  NewDataStore =
+                      state_causal_type:insert_object(
+                        Elem,
+                        SubDataStore,
+                        state_causal_type:new_data_store({dot_map, dot_set})),
+                  NewORSet = [{?TYPE, {NewDataStore, NewDotCloud}}],
+                  DecompList1 = lists:append(DecompList0, NewORSet),
+                  {DecompList1, state_causal_type:merge_dot_clouds(AccDotCloud0,
+                                                                   NewDotCloud)}
+          end, {[], ordsets:new()}, DataStoreDict),
     case ordsets:subtract(DotCloud0, AccDotCloud) of
         [] ->
             DecompList;
         RemovedDotCloud ->
-            lists:append(DecompList,
-                         [{?TYPE, {state_causal_type:new_data_store({dot_map, dot_set}),
-                                   RemovedDotCloud}}])
+            ordsets:fold(
+              fun(Dot0, DecompList0) ->
+                      lists:append(
+                        DecompList0,
+                        [{?TYPE,
+                          {state_causal_type:new_data_store({dot_map, dot_set}),
+                           [Dot0]}}])
+              end, DecompList, RemovedDotCloud)
     end.
 
-%% Private
-add_elem_delta(Elem, Actor, {DataStore0, DotCloud0}, {DeltaDataStore0, DeltaDotCloud0}) ->
+%% @private
+add_elem_delta(Elem,
+               Actor,
+               {DataStore0, DotCloud0},
+               {DeltaDataStore0, DeltaDotCloud0}) ->
     NewDotContext = state_causal_type:get_next_dot_context(Actor, DotCloud0),
 
     {ok, {dot_set, DotSet}} = state_causal_type:get_sub_data_store(Elem, DataStore0),
     DeltaDotCloud1 = state_causal_type:insert_dot_context(NewDotContext, DotSet),
-    DeltaDotCloud = state_causal_type:merge_dot_clouds(DeltaDotCloud0, DeltaDotCloud1),
+    DeltaDotCloud = state_causal_type:merge_dot_clouds(DeltaDotCloud0,
+                                                       DeltaDotCloud1),
     DeltaDataStore =
         state_causal_type:insert_object(Elem,
                                         {dot_set, DeltaDotCloud1},
@@ -192,6 +217,7 @@ add_elem_delta(Elem, Actor, {DataStore0, DotCloud0}, {DeltaDataStore0, DeltaDotC
 
     {ok, {DataStore0, DotCloud}, {DeltaDataStore, DeltaDotCloud}}.
 
+%% @private
 remove_elem_delta(Elem, DataStore, {DeltaDataStore0, DeltaDotCloud0}) ->
     {ok, SubDataStore} = state_causal_type:get_sub_data_store(Elem, DataStore),
     case state_causal_type:is_bottom_data_store(SubDataStore) of
@@ -204,6 +230,7 @@ remove_elem_delta(Elem, DataStore, {DeltaDataStore0, DeltaDotCloud0}) ->
             {error, {precondition, {not_present, Elem}}}
     end.
 
+%% @private
 remove_elems_delta([], DataStore, Delta) ->
     {ok, DataStore, Delta};
 remove_elems_delta([Elem|Rest], DataStore, {DeltaDataStore0, DeltaDotCloud0}) ->
@@ -218,11 +245,13 @@ remove_elems_delta([Elem|Rest], DataStore, {DeltaDataStore0, DeltaDotCloud0}) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, {{{dot_map, dot_set}, orddict:new()}, ordsets:new()}}, new()).
+    ?assertEqual({?TYPE, {{{dot_map, dot_set}, orddict:new()}, ordsets:new()}},
+                 new()).
 
 query_test() ->
     Set0 = new(),
-    Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{a, 2}]}}]}, [{a, 1}, {a, 2}]}},
+    Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{a, 2}]}}]},
+                    [{a, 1}, {a, 2}]}},
     ?assertEqual(sets:new(), query(Set0)),
     ?assertEqual(sets:from_list([<<"a">>]), query(Set1)).
 
@@ -235,12 +264,28 @@ delta_add_test() ->
     Set2 = merge({?TYPE, Delta2}, Set1),
     {ok, {?TYPE, {delta, Delta3}}} = delta_mutate({add, <<"b">>}, Actor, Set2),
     Set3 = merge({?TYPE, Delta3}, Set2),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]}, [{1, 1}]}}, {?TYPE, Delta1}),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]}, [{1, 1}]}}, Set1),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}, {1, 2}]}}]}, [{1, 1}, {1, 2}]}}, {?TYPE, Delta2}),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}, {1, 2}]}}]}, [{1, 1}, {1, 2}]}}, Set2),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{1, 3}]}}]}, [{1, 3}]}}, {?TYPE, Delta3}),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}, {1, 2}]}}, {<<"b">>, {dot_set, [{1, 3}]}}]}, [{1, 1}, {1, 2}, {1, 3}]}}, Set3).
+    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
+                          [{1, 1}]}},
+                 {?TYPE, Delta1}),
+    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
+                          [{1, 1}]}},
+                 Set1),
+    ?assertEqual({?TYPE, {{{dot_map, dot_set},
+                           [{<<"a">>, {dot_set, [{1, 1}, {1, 2}]}}]},
+                          [{1, 1}, {1, 2}]}},
+                 {?TYPE, Delta2}),
+    ?assertEqual({?TYPE, {{{dot_map, dot_set},
+                           [{<<"a">>, {dot_set, [{1, 1}, {1, 2}]}}]},
+                          [{1, 1}, {1, 2}]}},
+                 Set2),
+    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{1, 3}]}}]},
+                          [{1, 3}]}},
+                 {?TYPE, Delta3}),
+    ?assertEqual({?TYPE, {{{dot_map, dot_set},
+                           [{<<"a">>, {dot_set, [{1, 1}, {1, 2}]}},
+                            {<<"b">>, {dot_set, [{1, 3}]}}]},
+                          [{1, 1}, {1, 2}, {1, 3}]}},
+                 Set3).
 
 add_test() ->
     Actor = 1,
@@ -248,9 +293,18 @@ add_test() ->
     {ok, Set1} = mutate({add, <<"a">>}, Actor, Set0),
     {ok, Set2} = mutate({add, <<"a">>}, Actor, Set1),
     {ok, Set3} = mutate({add, <<"b">>}, Actor, Set2),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]}, [{1, 1}]}}, Set1),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}, {1, 2}]}}]}, [{1, 1}, {1, 2}]}}, Set2),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}, {1, 2}]}}, {<<"b">>, {dot_set, [{1, 3}]}}]}, [{1, 1}, {1, 2}, {1, 3}]}}, Set3).
+    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
+                          [{1, 1}]}},
+                 Set1),
+    ?assertEqual({?TYPE, {{{dot_map, dot_set},
+                           [{<<"a">>, {dot_set, [{1, 1}, {1, 2}]}}]},
+                          [{1, 1}, {1, 2}]}},
+                 Set2),
+    ?assertEqual({?TYPE, {{{dot_map, dot_set},
+                           [{<<"a">>, {dot_set, [{1, 1}, {1, 2}]}},
+                            {<<"b">>, {dot_set, [{1, 3}]}}]},
+                          [{1, 1}, {1, 2}, {1, 3}]}},
+                 Set3).
 
 rmv_test() ->
     Actor = 1,
@@ -281,20 +335,28 @@ remove_all_test() ->
     ?assertEqual(sets:new(), query(Set3)).
 
 merge_idempontent_test() ->
-    Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]}, [{1, 1}]}},
-    Set2 = {?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{2, 1}]}}]}, [{2, 1}]}},
-    Set3 = {?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{2, 1}]}}]}, [{1, 1}, {2, 1}]}},
+    Set1 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}},
+    Set2 = {?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{2, 1}]}}]},
+                    [{2, 1}]}},
+    Set3 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
+                    [{1, 1}, {2, 1}]}},
     Set4 = merge(Set1, Set1),
     Set5 = merge(Set2, Set2),
     Set6 = merge(Set3, Set3),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]}, [{1, 1}]}}, Set4),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{2, 1}]}}]}, [{2, 1}]}}, Set5),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{2, 1}]}}]}, [{1, 1}, {2, 1}]}}, Set6).
+    ?assertEqual({?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}}, Set4),
+    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{2, 1}]}}]},
+                          [{2, 1}]}},
+                 Set5),
+    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
+                          [{1, 1}, {2, 1}]}},
+                 Set6).
 
 merge_commutative_test() ->
-    Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]}, [{1, 1}]}},
-    Set2 = {?TYPE, {{{dot_map, dot_set}, []}, [{2, 1}]}},
-    Set3 = {?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{4, 1}]}}]}, [{3, 1}, {4, 1}]}},
+    Set1 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}},
+    Set2 = {?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{2, 1}]}}]},
+                    [{2, 1}]}},
+    Set3 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
+                    [{1, 1}, {2, 1}]}},
     Set4 = merge(Set1, Set2),
     Set5 = merge(Set2, Set1),
     Set6 = merge(Set1, Set3),
@@ -302,33 +364,40 @@ merge_commutative_test() ->
     Set8 = merge(Set2, Set3),
     Set9 = merge(Set3, Set2),
     Set10 = merge(Set1, merge(Set2, Set3)),
-    Set1_2 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]}, [{1, 1}, {2, 1}]}},
-    Set1_3 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}, {<<"b">>, {dot_set, [{4, 1}]}}]}, [{1, 1}, {3, 1}, {4, 1}]}},
-    Set2_3 = {?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{4, 1}]}}]}, [{2, 1}, {3, 1}, {4, 1}]}},
-    Set1_2_3 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}, {<<"b">>, {dot_set, [{4, 1}]}}]}, [{1, 1}, {2, 1}, {3, 1}, {4, 1}]}},
+    Set1_2 = {?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{2, 1}]}}]},
+                      [{1, 1}, {2, 1}]}},
+    Set1_3 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}, {2, 1}]}},
+    Set2_3 = Set3,
     ?assertEqual(Set1_2, Set4),
     ?assertEqual(Set1_2, Set5),
     ?assertEqual(Set1_3, Set6),
     ?assertEqual(Set1_3, Set7),
     ?assertEqual(Set2_3, Set8),
     ?assertEqual(Set2_3, Set9),
-    ?assertEqual(Set1_2_3, Set10).
+    ?assertEqual(Set1_3, Set10).
 
 merge_delta_test() ->
-    Set1 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}},
-    Delta1 = {?TYPE, {delta, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{2, 1}]}}]}, [{2, 1}]}}},
-    Delta2 = {?TYPE, {delta, {{{dot_map, dot_set}, []}, [{3, 1}]}}},
+    Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
+                    [{1, 1}]}},
+    Delta1 = {?TYPE, {delta, {{{dot_map, dot_set}, []}, [{1, 1}]}}},
+    Delta2 = {?TYPE, {delta, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{2, 1}]}}]},
+                              [{2, 1}]}}},
     Set2 = merge(Delta1, Set1),
     Set3 = merge(Set1, Delta1),
     DeltaGroup = merge(Delta1, Delta2),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{2, 1}]}}]}, [{1, 1}, {2, 1}]}}, Set2),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{2, 1}]}}]}, [{1, 1}, {2, 1}]}}, Set3),
-    ?assertEqual({?TYPE, {delta, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{2, 1}]}}]}, [{2, 1}, {3, 1}]}}}, DeltaGroup).
+    ?assertEqual({?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}}, Set2),
+    ?assertEqual({?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}}, Set3),
+    ?assertEqual({?TYPE, {delta, {{{dot_map, dot_set},
+                                   [{<<"b">>, {dot_set, [{2, 1}]}}]},
+                                  [{1, 1}, {2, 1}]}}},
+                 DeltaGroup).
 
 equal_test() ->
-    Set1 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}},
-    Set2 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{2, 1}]}}]}, [{2, 1}]}},
-    Set3 = {?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{4, 1}]}}]}, [{3, 1}, {4, 1}]}},
+    Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
+                    [{1, 1}]}},
+    Set2 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}},
+    Set3 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
+                    [{1, 1}, {2, 1}]}},
     ?assert(equal(Set1, Set1)),
     ?assert(equal(Set2, Set2)),
     ?assert(equal(Set3, Set3)),
@@ -337,9 +406,11 @@ equal_test() ->
     ?assertNot(equal(Set2, Set3)).
 
 is_inflation_test() ->
-    Set1 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}},
-    Set2 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{2, 1}]}}]}, [{1, 1}, {2, 1}]}},
-    Set3 = {?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{3, 1}]}}]}, [{1, 1}, {3, 1}]}},
+    Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
+                    [{1, 1}]}},
+    Set2 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}},
+    Set3 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
+                    [{1, 1}, {2, 1}]}},
     ?assert(is_inflation(Set1, Set1)),
     ?assert(is_inflation(Set1, Set2)),
     ?assertNot(is_inflation(Set2, Set1)),
@@ -355,9 +426,11 @@ is_inflation_test() ->
     ?assertNot(state_type:is_inflation(Set3, Set2)).
 
 is_strict_inflation_test() ->
-    Set1 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}},
-    Set2 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{2, 1}]}}]}, [{1, 1}, {2, 1}]}},
-    Set3 = {?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{3, 1}]}}]}, [{1, 1}, {3, 1}]}},
+    Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
+                    [{1, 1}]}},
+    Set2 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}},
+    Set3 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
+                    [{1, 1}, {2, 1}]}},
     ?assertNot(is_strict_inflation(Set1, Set1)),
     ?assert(is_strict_inflation(Set1, Set2)),
     ?assertNot(is_strict_inflation(Set2, Set1)),
@@ -366,13 +439,15 @@ is_strict_inflation_test() ->
     ?assertNot(is_strict_inflation(Set3, Set2)).
 
 join_decomposition_test() ->
-    Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]}, [{1, 1}]}},
-    Set2 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{3, 1}]}}, {<<"b">>, {dot_set, [{2, 1}]}}]}, [{1, 1}, {2, 1}, {3, 1}]}},
+    Set1 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}},
+    Set2 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
+                    [{1, 1}, {2, 1}, {3, 1}]}},
     Decomp1 = join_decomposition(Set1),
     Decomp2 = join_decomposition(Set2),
-    List = [{?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{3, 1}]}}]}, [{3, 1}]}},
-            {?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{2, 1}]}}]}, [{2, 1}]}},
-            {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}}],
+    List = [{?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
+                     [{1, 1}]}},
+            {?TYPE, {{{dot_map, dot_set}, []}, [{2, 1}]}},
+            {?TYPE, {{{dot_map, dot_set}, []}, [{3, 1}]}}],
     ?assertEqual([Set1], Decomp1),
     ?assertEqual(lists:sort(List), lists:sort(Decomp2)).
 
