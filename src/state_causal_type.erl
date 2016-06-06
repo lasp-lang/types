@@ -31,8 +31,7 @@
 %% causal_crdt() related.
 -export([new_causal_crdt/1,
          causal_join/2,
-         is_lattice_inflation/2,
-         is_lattice_strict_inflation/2]).
+         is_lattice_inflation/2]).
 
 %% data_store() related.
 -export([new_data_store/1,
@@ -150,26 +149,11 @@ causal_join({{{dot_map, ValueDataStoreType}, DataStoreA}=Fst, DotCloudA},
 %% Given a particular causal crdt and two instances of that causal crdt,
 %% determine if `B(second)' is an inflation of `A(first)'.
 -spec is_lattice_inflation(causal_crdt(), causal_crdt()) -> boolean().
-is_lattice_inflation({_DataStoreA, DotCloudA}, {_DataStoreB, DotCloudB}) ->
+is_lattice_inflation({DataStoreA, DotCloudA}, {DataStoreB, DotCloudB}) ->
     DotCloudAList = get_maxs_for_all(DotCloudA),
     DotCloudBList = get_maxs_for_all(DotCloudB),
-    lists:foldl(fun({DotActor, Count}, Acc) ->
-                        case lists:keyfind(DotActor, 1, DotCloudBList) of
-                            false ->
-                                Acc andalso false;
-                            {_DotActor1, Count1} ->
-                                Acc andalso (Count =< Count1)
-                        end
-                end, true, DotCloudAList).
-
-%% @doc Determine if a change for a given causal crdt is a strict inflation or not.
-%%
-%% Given a particular causal crdt and two instances of that causal crdt,
-%% determine if `B(second)' is a strict inflation of `A(first)'.
--spec is_lattice_strict_inflation(causal_crdt(), causal_crdt()) -> boolean().
-is_lattice_strict_inflation(CausalCRDTA, CausalCRDTB) ->
-    is_lattice_inflation(CausalCRDTA, CausalCRDTB) andalso
-        not is_lattice_inflation(CausalCRDTB, CausalCRDTA).
+    is_inflation(DotCloudAList, DotCloudBList) andalso
+        ordsets:is_subset(get_dot_cloud(DataStoreB), get_dot_cloud(DataStoreA)).
 
 %% @doc Create an empty DataStore.
 new_data_store(dot_set) ->
@@ -271,3 +255,21 @@ get_maxs_for_all(DotCloud) ->
                              end,
                          [{DotActor0,Counter}|NewList]
                  end, [], DotCloud).
+
+%% @private
+is_inflation([], _) ->
+    % all DotClouds are the inflation of the empty DotCloud
+    true;
+is_inflation(DotCloudA, DotCloudB) ->
+    [{DotActorA, DotCounterA} | RestA] = DotCloudA,
+    case lists:keyfind(DotActorA, 1, DotCloudB) of
+        false ->
+            false;
+        {_, DotCounterB} ->
+            case DotCounterA == DotCounterB of
+                true ->
+                    is_inflation(RestA, DotCloudB);
+                false ->
+                    DotCounterA < DotCounterB
+            end
+    end.
