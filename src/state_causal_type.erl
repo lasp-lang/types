@@ -22,26 +22,26 @@
 %% @doc Common library for causal CRDTs.
 %%
 %% @reference Paulo Sérgio Almeida, Ali Shoker, and Carlos Baquero
-%%      Delta State Replicated Data Types (2016)
-%%      [http://arxiv.org/pdf/1603.01529v1.pdf]
+%% Delta State Replicated Data Types (2016)
+%% [http://arxiv.org/pdf/1603.01529v1.pdf]
 
 -module(state_causal_type).
 -author("Junghun Yoo <junghun.yoo@cs.ox.ac.uk>").
 
 %% causal_crdt() related.
 -export([new_causal_crdt/1,
-         get_dot_cloud/1,
          causal_join/2,
          is_lattice_inflation/2,
          is_lattice_strict_inflation/2]).
 
+%% data_store() related.
+-export([new_data_store/1,
+         get_dot_cloud/1,
+         is_bottom_data_store/1]).
 %% dot_cloud() related.
 -export([get_next_dot_context/2,
          insert_dot_context/2,
          merge_dot_clouds/2]).
-%% data_store() related.
--export([new_data_store/1,
-         is_bottom_data_store/1]).
 %% {{dot_map, data_store_type()}, dot_map()} related.
 -export([get_sub_data_store/2,
          insert_object/3,
@@ -57,39 +57,15 @@
 
 -type dot_actor() :: term().
 -type dot_context() :: {dot_actor(), pos_integer()}.
--type dot_cloud() :: ordsets:ordsets(). %% Set of dot_context()
+-type dot_cloud() :: ordsets:ordsets(dot_context()).
 -type dot_set() :: dot_cloud().
--type dot_fun() :: orddict:orddict(). %% dot_context() -> Object
--type dot_map() :: orddict:orddict(). %% Object -> data_store()
+-type dot_fun() :: orddict:orddict(dot_context(), term()).
+-type dot_map() :: orddict:orddict(term(), data_store()).
 -type data_store_type() :: dot_set | dot_fun | {dot_map, data_store_type()}.
 -type data_store() :: {dot_set, dot_set()}
                     | {dot_fun, dot_fun()}
                     | {{dot_map, data_store_type()}, dot_map()}.
 -type causal_crdt() :: {data_store(), dot_cloud()}.
-
-%% @doc Get the Actor's next DotContext from DotCloud.
--spec get_next_dot_context(dot_actor(), dot_cloud()) -> dot_context().
-get_next_dot_context(DotActor, DotCloud) ->
-    MaxCounter = ordsets:fold(fun({DotActor0, DotCounter0}, MaxValue0) ->
-                                      case (DotActor0 == DotActor) andalso
-                                              (DotCounter0 > MaxValue0) of
-                                          true ->
-                                              DotCounter0;
-                                          false ->
-                                              MaxValue0
-                                      end
-                              end, 0, DotCloud),
-    {DotActor, MaxCounter + 1}.
-
-%% @doc Insert a dot to DotCloud.
--spec insert_dot_context(dot_context(), dot_cloud()) -> dot_cloud().
-insert_dot_context(DotContext, DotCloud) ->
-    ordsets:add_element(DotContext, DotCloud).
-
-%% @doc Merge two DotClouds.
--spec merge_dot_clouds(dot_cloud(), dot_cloud()) -> dot_cloud().
-merge_dot_clouds(DotCloudA, DotCloudB) ->
-    ordsets:union(DotCloudA, DotCloudB).
 
 %% @doc Create an empty CausalCRDT.
 -spec new_causal_crdt(data_store_type()) -> causal_crdt().
@@ -99,17 +75,6 @@ new_causal_crdt(dot_fun) ->
     {{dot_fun, orddict:new()}, ordsets:new()};
 new_causal_crdt({dot_map, ValueDataStoreType}) ->
     {{{dot_map, ValueDataStoreType}, orddict:new()}, ordsets:new()}.
-
-%% @doc Get DotCloud from DataStore.
--spec get_dot_cloud(data_store()) -> dot_cloud().
-get_dot_cloud({dot_set, DataStore}) ->
-    DataStore;
-get_dot_cloud({dot_fun, DataStore}) ->
-    ordsets:from_list(orddict:fetch_keys(DataStore));
-get_dot_cloud({{dot_map, _ValueDataStoreType}, DataStore}) ->
-    orddict:fold(fun(_Object, SubDataStore, DotCloud) ->
-                         ordsets:union(DotCloud, get_dot_cloud(SubDataStore))
-                 end, ordsets:new(), DataStore).
 
 %% @doc Universal causal join for a two CausalCRDTs.
 -spec causal_join(causal_crdt(), causal_crdt()) -> causal_crdt().
@@ -182,8 +147,8 @@ causal_join({{{dot_map, ValueDataStoreType}, DataStoreA}=Fst, DotCloudA},
 
 %% @doc Determine if a change for a given causal crdt is an inflation or not.
 %%
-%%      Given a particular causal crdt and two instances of that causal crdt,
-%%      determine if `B(second)' is an inflation of `A(first)'.
+%% Given a particular causal crdt and two instances of that causal crdt,
+%% determine if `B(second)' is an inflation of `A(first)'.
 -spec is_lattice_inflation(causal_crdt(), causal_crdt()) -> boolean().
 is_lattice_inflation({_DataStoreA, DotCloudA}, {_DataStoreB, DotCloudB}) ->
     DotCloudAList = get_maxs_for_all(DotCloudA),
@@ -199,8 +164,8 @@ is_lattice_inflation({_DataStoreA, DotCloudA}, {_DataStoreB, DotCloudB}) ->
 
 %% @doc Determine if a change for a given causal crdt is a strict inflation or not.
 %%
-%%      Given a particular causal crdt and two instances of that causal crdt,
-%%      determine if `B(second)' is a strict inflation of `A(first)'.
+%% Given a particular causal crdt and two instances of that causal crdt,
+%% determine if `B(second)' is a strict inflation of `A(first)'.
 -spec is_lattice_strict_inflation(causal_crdt(), causal_crdt()) -> boolean().
 is_lattice_strict_inflation(CausalCRDTA, CausalCRDTB) ->
     is_lattice_inflation(CausalCRDTA, CausalCRDTB) andalso
@@ -214,6 +179,17 @@ new_data_store(dot_fun) ->
 new_data_store({dot_map, ValueDataStoreType}) ->
     {{dot_map, ValueDataStoreType}, orddict:new()}.
 
+%% @doc Get DotCloud from DataStore.
+-spec get_dot_cloud(data_store()) -> dot_cloud().
+get_dot_cloud({dot_set, DataStore}) ->
+    DataStore;
+get_dot_cloud({dot_fun, DataStore}) ->
+    ordsets:from_list(orddict:fetch_keys(DataStore));
+get_dot_cloud({{dot_map, _ValueDataStoreType}, DataStore}) ->
+    orddict:fold(fun(_Object, SubDataStore, DotCloud) ->
+                         ordsets:union(DotCloud, get_dot_cloud(SubDataStore))
+                 end, ordsets:new(), DataStore).
+
 %% @doc Check whether the DataStore is empty.
 -spec is_bottom_data_store(data_store()) -> boolean().
 is_bottom_data_store({dot_set, DataStore}) ->
@@ -222,6 +198,30 @@ is_bottom_data_store({dot_fun, DataStore}) ->
     orddict:is_empty(DataStore);
 is_bottom_data_store({{dot_map, _ValueDataStoreType}, DataStore}) ->
     orddict:is_empty(DataStore).
+
+%% @doc Get the Actor's next DotContext from DotCloud.
+-spec get_next_dot_context(dot_actor(), dot_cloud()) -> dot_context().
+get_next_dot_context(DotActor, DotCloud) ->
+    MaxCounter = ordsets:fold(fun({DotActor0, DotCounter0}, MaxValue0) ->
+                                      case (DotActor0 == DotActor) andalso
+                                              (DotCounter0 > MaxValue0) of
+                                          true ->
+                                              DotCounter0;
+                                          false ->
+                                              MaxValue0
+                                      end
+                              end, 0, DotCloud),
+    {DotActor, MaxCounter + 1}.
+
+%% @doc Insert a dot to DotCloud.
+-spec insert_dot_context(dot_context(), dot_cloud()) -> dot_cloud().
+insert_dot_context(DotContext, DotCloud) ->
+    ordsets:add_element(DotContext, DotCloud).
+
+%% @doc Merge two DotClouds.
+-spec merge_dot_clouds(dot_cloud(), dot_cloud()) -> dot_cloud().
+merge_dot_clouds(DotCloudA, DotCloudB) ->
+    ordsets:union(DotCloudA, DotCloudB).
 
 %% @doc Get SubDataStore pointed by the object from {dot_map, dot_map()}.
 -spec get_sub_data_store(term(), {{dot_map, data_store_type()}, dot_map()}) ->
@@ -258,7 +258,7 @@ get_all_objects({{dot_map, _ValueDataStoreType}, DataStore}) ->
 get_objects_count({{dot_map, _ValueDataStoreType}, DataStore}) ->
     orddict:size(DataStore).
 
-%% Private
+%% @private
 %% @todo This function can be used for the compressing functionality.
 get_maxs_for_all(DotCloud) ->
     ordsets:fold(fun({DotActor0, DotCounter0}, MaxList) ->
