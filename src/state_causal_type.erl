@@ -253,7 +253,7 @@ get_maxs_for_all(DotCloud) ->
                                  {value, {_DotActor, C}, ModList} ->
                                      {max(DotCounter0, C), ModList}
                              end,
-                         [{DotActor0,Counter}|NewList]
+                         [{DotActor0, Counter}|NewList]
                  end, [], DotCloud).
 
 %% @private
