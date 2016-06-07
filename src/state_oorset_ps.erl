@@ -173,7 +173,7 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 join_decomposition({?TYPE, ORSet}) ->
     [ORSet].
 
-%% Private
+%% @private
 -spec get_next_event(ps_event_id(), ps_all_events()) -> ps_event().
 get_next_event(EventId, AllEvents) ->
     MaxCounter = ordsets:fold(fun({EventId0, EventCounter0}, MaxValue0) ->
@@ -187,12 +187,14 @@ get_next_event(EventId, AllEvents) ->
                               end, 0, AllEvents),
     {EventId, MaxCounter + 1}.
 
+%% @private
 -spec get_events_from_provenance(ps_provenance()) -> ps_dot().
 get_events_from_provenance(Provenance) ->
     ordsets:fold(fun(Dot0, Acc0) ->
                          ordsets:union(Acc0, Dot0)
                  end, ordsets:new(), Provenance).
 
+%% @private
 -spec is_lattice_inflation_oorset_ps(payload(), payload()) -> boolean().
 is_lattice_inflation_oorset_ps({_DataStoreA, _SurvivedEventsA, AllEventsA},
                                {_DataStoreB, _SurvivedEventsB, AllEventsB}) ->
@@ -207,57 +209,69 @@ is_lattice_inflation_oorset_ps({_DataStoreA, _SurvivedEventsA, AllEventsA},
                         end
                 end, true, AllEventsAList).
 
+%% @private
 -spec join_oorset_ps(payload(), payload()) -> payload().
 join_oorset_ps({DataStoreA, SurvivedEventsA, AllEventsA}=FstORSet,
                {DataStoreB, SurvivedEventsB, AllEventsB}=SndORSet) ->
     UnionElems = ordsets:union(ordsets:from_list(orddict:fetch_keys(DataStoreA)),
                                ordsets:from_list(orddict:fetch_keys(DataStoreB))),
     JoinedDataStore =
-        ordsets:fold(fun(Elem, JoinedDataStore0) ->
-                             {ok, ProvenanceA} = get_provenance(Elem, FstORSet),
-                             {ok, ProvenanceB} = get_provenance(Elem, SndORSet),
-                             JoinedProvenance =
-                                 join_provenance(ProvenanceA, ordsets:union(SurvivedEventsA, AllEventsA),
-                                                 ProvenanceB, ordsets:union(SurvivedEventsB, AllEventsB)),
-                             case ordsets:size(JoinedProvenance) of
-                                 0 ->
-                                     JoinedDataStore0;
-                                 _ ->
-                                     orddict:store(Elem,
-                                                   JoinedProvenance,
-                                                   JoinedDataStore0)
-                             end
-                     end, orddict:new(), UnionElems),
+        ordsets:fold(
+          fun(Elem, JoinedDataStore0) ->
+                  {ok, ProvenanceA} = get_provenance(Elem, FstORSet),
+                  {ok, ProvenanceB} = get_provenance(Elem, SndORSet),
+                  JoinedProvenance =
+                      join_provenance(ProvenanceA, SurvivedEventsA, AllEventsA,
+                                      ProvenanceB, SurvivedEventsB, AllEventsB),
+                  case ordsets:size(JoinedProvenance) of
+                      0 ->
+                          JoinedDataStore0;
+                      _ ->
+                          orddict:store(Elem, JoinedProvenance, JoinedDataStore0)
+                  end
+          end, orddict:new(), UnionElems),
     JoinedSurvivedEvents =
         ordsets:union([ordsets:intersection(SurvivedEventsA, SurvivedEventsB)] ++
                           [ordsets:subtract(SurvivedEventsA, AllEventsB)] ++
                           [ordsets:subtract(SurvivedEventsB, AllEventsA)]),
     {JoinedDataStore, JoinedSurvivedEvents, ordsets:union(AllEventsA, AllEventsB)}.
 
--spec join_provenance(ps_provenance(), ps_survived_events(),
-                      ps_provenance(), ps_survived_events()) -> ps_provenance().
-join_provenance(ProvenanceA, SurvivedEventsA, ProvenanceB, SurvivedEventsB) ->
+%% @private
+-spec join_provenance(ps_provenance(), ps_survived_events(), ps_all_events(),
+                      ps_provenance(), ps_survived_events(), ps_all_events()) ->
+          ps_provenance().
+join_provenance(ProvenanceA, SurvivedEventsA, AllEventsA,
+                ProvenanceB, SurvivedEventsB, AllEventsB) ->
     JoinedProvenance0 = ordsets:intersection(ProvenanceA, ProvenanceB),
+    InterSurvived = ordsets:intersection(SurvivedEventsA, SurvivedEventsB),
     JoinedProvenance1 = 
         ordsets:fold(fun(Dot0, Acc) ->
-                             CurDot = ordsets:subtract(Dot0, SurvivedEventsB),
-                             case ordsets:size(CurDot) of
-                                 0 ->
+                             case is_valid_dot(Dot0, InterSurvived, AllEventsB) of
+                                 false ->
                                      Acc;
-                                 _ ->
-                                     ordsets:add_element(CurDot, Acc)
+                                 true ->
+                                     ordsets:add_element(Dot0, Acc)
                              end
                      end, JoinedProvenance0, ProvenanceA),
     ordsets:fold(fun(Dot0, Acc) ->
-                         CurDot = ordsets:subtract(Dot0, SurvivedEventsA),
-                         case ordsets:size(CurDot) of
-                             0 ->
+                         case is_valid_dot(Dot0, InterSurvived, AllEventsA) of
+                             false ->
                                  Acc;
-                             _ ->
-                                 ordsets:add_element(CurDot, Acc)
+                             true ->
+                                 ordsets:add_element(Dot0, Acc)
                          end
                  end, JoinedProvenance1, ProvenanceB).
 
+%% @private
+-spec is_valid_dot(ps_dot(), ps_survived_events(), ps_all_events()) -> boolean().
+is_valid_dot(Dot, InterSurvived, AllEvents) ->
+    ordsets:fold(fun(Event0, IsValid0) ->
+                         (ordsets:is_element(Event0, InterSurvived) orelse
+                              (not ordsets:is_element(Event0, AllEvents)))
+                         andalso IsValid0
+                 end, true, Dot).
+
+%% @private
 -spec get_provenance(element(), payload()) -> ps_provenance().
 get_provenance(Elem, {DataStore, _SurvivedEvents, _AllEvents}) ->
     case orddict:find(Elem, DataStore) of
@@ -267,7 +281,7 @@ get_provenance(Elem, {DataStore, _SurvivedEvents, _AllEvents}) ->
             {ok, ordsets:new()}
     end.
 
-%% Private
+%% @private
 get_maxs_for_all(AllEvents) ->
     ordsets:fold(fun({EventId0, EventCounter0}, MaxList) ->
                          {Counter, NewList} =
@@ -395,6 +409,28 @@ merge_commutative_test() ->
     ?assertEqual(Set6, Set7),
     ?assertEqual(Set8, Set9),
     ?assertEqual(Set10, Set11).
+
+merge_test() ->
+    EventId1 = {<<"object1">>, a},
+    EventId2 = {<<"object1">>, b},
+    Set1 = {?TYPE, {[{<<"1">>, [[{EventId1, 1}, {EventId2, 1}]]},
+                     {<<"2">>, [[{EventId1, 2}, {EventId2, 2}]]}],
+                    [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}, {EventId2, 2}],
+                    [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}, {EventId2, 2}]}},
+    Set2 = {?TYPE, {[{<<"1">>, [[{EventId1, 1}, {EventId2, 3}]]},
+                     {<<"2">>, [[{EventId1, 2}, {EventId2, 4}]]}],
+                    [{EventId1, 1}, {EventId1, 2}, {EventId2, 3}, {EventId2, 4}],
+                    [{EventId1, 1}, {EventId1, 2}, {EventId2, 3}, {EventId2, 4}]}},
+    Set3 = merge(Set1, Set2),
+    ?assertEqual({?TYPE, {[{<<"1">>, [[{EventId1, 1}, {EventId2, 1}],
+                                      [{EventId1, 1}, {EventId2, 3}]]},
+                           {<<"2">>, [[{EventId1, 2}, {EventId2, 2}],
+                                      [{EventId1, 2}, {EventId2, 4}]]}],
+                    [{EventId1, 1}, {EventId1, 2}, {EventId2, 1},
+                     {EventId2, 2}, {EventId2, 3}, {EventId2, 4}],
+                    [{EventId1, 1}, {EventId1, 2}, {EventId2, 1},
+                     {EventId2, 2}, {EventId2, 3}, {EventId2, 4}]}},
+                 Set3).
 
 merge_delta_test() ->
     EventId = {<<"object1">>, a},
