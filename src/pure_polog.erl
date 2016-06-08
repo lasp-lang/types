@@ -46,6 +46,8 @@
 %% @doc Remove redundant operations.
 -spec remove_redundant({pure_type:id(), type:operation()}, type:crdt()) -> {boolean(), type:crdt()}.
 remove_redundant({VV1, Op}, {Type, {POLog, Crystal}}) ->
-    {DoNotAdd0, {Type, {POLog0, Crystal0}}} = Type:remove_redundant_crystal({VV1, Op}, {Type, {POLog, Crystal}}),
-    {DoNotAdd1, {Type, {POLog1, Crystal1}}} = Type:remove_redundant_polog({VV1, Op}, {Type, {POLog0, Crystal0}}),
-    {DoNotAdd0 andalso DoNotAdd1, {Type, {POLog1, Crystal1}}}.
+    {Add0, {Type, {POLog0, Crystal0}}} = Type:remove_redundant_crystal({VV1, Op}, {Type, {POLog, Crystal}}),
+    {Add1, {Type, {POLog1, Crystal1}}} = Type:remove_redundant_polog({VV1, Op}, {Type, {POLog0, Crystal0}}),
+    {Add0 andalso Add1, {Type, {POLog1, Crystal1}}}.
+
+

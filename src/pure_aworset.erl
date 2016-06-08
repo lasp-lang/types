@@ -94,7 +94,7 @@ remove_redundant_crystal({_VV1, {_X, Elem}}, {?TYPE, {POLog, AWORSet}}) ->
         true ->
             {true, {?TYPE, {POLog, ordsets:del_element(Elem, AWORSet)}}};
         false ->
-            {false, {?TYPE, {POLog, AWORSet}}}
+            {true, {?TYPE, {POLog, AWORSet}}}
     end.
 
 %% @doc Checks stable operations and remove them from POLog of `pure_aworset()'
@@ -161,7 +161,7 @@ remove_redundant_crystal_test() ->
     ?assertEqual(true, Redundant1),
     ?assertEqual([<<"b">>, <<"c">>], AWORSet1),
     {Redundant2, {?TYPE, {_POLog2, AWORSet2}}} = remove_redundant_crystal({[{0, 1}], {rmv, <<"d">>}}, {?TYPE, {[{0, 1}], [<<"a">>]}}),
-    ?assertEqual(false, Redundant2),
+    ?assertEqual(true, Redundant2),
     ?assertEqual([<<"a">>], AWORSet2).
 
 query_test() ->

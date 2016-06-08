@@ -50,7 +50,20 @@ orddict:size(VV1) == orddict:size(VV2) andalso
         true,
         VV1
      ) andalso not (orddict_ext:equal(VV1, VV2, Fun)).
-
+% to-do: replace happend before wth this
+% Fun = fun(Value1, Value2) -> Value1 == Value2 end,
+% orddict:size(VV1) == orddict:size(VV2) andalso
+%     lists_ext:iterate_until(
+%         fun({Key, Value1}) ->
+%             case orddict:find(Key, VV2) of
+%                 {ok, Value2} ->
+%                     Value1 =< Value2;
+%                 error ->
+%                     false
+%             end
+%         end,
+%         VV1
+%      ) andalso not (orddict_ext:equal(VV1, VV2, Fun)).
 
 %% ===================================================================
 %% EUnit tests

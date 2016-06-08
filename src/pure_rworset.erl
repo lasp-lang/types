@@ -105,23 +105,23 @@ redundant({VV1, {rmv, Elem1}}, {VV2, {X, Elem2}}) ->
 remove_redundant_polog({VV1, Op}, {?TYPE, {POLog0, ORSet}}) ->
     case orddict:is_empty(POLog0) of
         true ->
-            {false, {?TYPE, {POLog0, ORSet}}};
+            {true, {?TYPE, {POLog0, ORSet}}};
         false ->
-            {POLog1, DoNotAdd1} = orddict:fold(
-                fun(Key, Value, {Acc, DoNotAdd}) ->
+            {POLog1, Add1} = orddict:fold(
+                fun(Key, Value, {Acc, Add}) ->
                     case redundant({Key, Value}, {VV1, Op}) of
                         0 ->
-                            {orddict:store(Key, Value, Acc), DoNotAdd andalso false};
+                            {orddict:store(Key, Value, Acc), Add};
                         1 ->
-                            {Acc, DoNotAdd andalso false};
+                            {Acc, Add};
                         2 ->
-                            {orddict:store(Key, Value, Acc), DoNotAdd}
+                            {orddict:store(Key, Value, Acc), Add andalso false}
                     end
                 end,
                 {orddict:new(), true},
                 POLog0
             ),
-            {DoNotAdd1, {?TYPE, {POLog1, ORSet}}}
+            {Add1, {?TYPE, {POLog1, ORSet}}}
     end.
 
 %% @doc Removes redundant operations from POLog of `pure_rworset()'
@@ -132,7 +132,7 @@ remove_redundant_crystal({_VV1, {_X, Elem}}, {?TYPE, {POLog, RWORSet}}) ->
         true ->
             {true, {?TYPE, {POLog, ordsets:del_element(Elem, RWORSet)}}};
         false ->
-            {false, {?TYPE, {POLog, RWORSet}}}
+            {true, {?TYPE, {POLog, RWORSet}}}
     end.
 
 %% @doc Checks stable operations and remove them from POLog of `pure_rworset()'
@@ -161,11 +161,11 @@ check_stability(StableVV, {?TYPE, {POLog0, RWORSet0}}) ->
 -spec mutate(pure_rworset_op(), pure_type:id(), pure_rworset()) ->
     {ok, pure_rworset()}.
 mutate({add, Elem}, VV, {?TYPE, {POLog, PureRWORSet}}) ->
-    {DoNotAdd, {?TYPE, {POLog0, PureRWORSet0}}} = pure_polog:remove_redundant({VV, {add, Elem}}, {?TYPE, {POLog, PureRWORSet}}),
-    case DoNotAdd of
-        true ->
-            {ok, {?TYPE, {POLog0, PureRWORSet0}}};
+    {Add, {?TYPE, {POLog0, PureRWORSet0}}} = pure_polog:remove_redundant({VV, {add, Elem}}, {?TYPE, {POLog, PureRWORSet}}),
+    case Add of
         false ->
+            {ok, {?TYPE, {POLog0, PureRWORSet0}}};
+        true ->
             {ok, {?TYPE, {orddict:store(VV, {add, Elem}, POLog0), PureRWORSet0}}}
     end;
 mutate({rmv, Elem}, VV, {?TYPE, {POLog, PureRWORSet}}) ->
@@ -209,7 +209,7 @@ remove_redundant_crystal_test() ->
     ?assertEqual(true, Redundant1),
     ?assertEqual([<<"b">>, <<"c">>], RWORSet1),
     {Redundant2, {?TYPE, {_POLog2, RWORSet2}}} = remove_redundant_crystal({[{0, 1}], {rmv, <<"d">>}}, {?TYPE, {[{0, 1}], [<<"a">>]}}),
-    ?assertEqual(false, Redundant2),
+    ?assertEqual(true, Redundant2),
     ?assertEqual([<<"a">>], RWORSet2).
 
 query_test() ->
