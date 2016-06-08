@@ -47,15 +47,14 @@
 -opaque state_oorset_ps() :: {?TYPE, payload()}.
 -opaque delta_state_oorset_ps() :: {?TYPE, {delta, payload()}}.
 -type delta_or_state() :: state_oorset_ps() | delta_state_oorset_ps().
--type payload() :: {ps_data_store(), ps_survived_events(), ps_all_events()}
-                 | state_causal_type:causal_crdt().
+-type payload() :: {ps_data_store(), ps_survived_events(), ps_all_events()}.
 -type element() :: term().
 -type state_oorset_ps_op() :: {add, element()}
                             | {add_all, [element()]}
                             | {rmv, element()}
                             | {rmv_all, [element()]}.
 
-%% Provenanve semirings related.
+%% Provenanve semiring related.
 -export_type([ps_event_id/0]).
 
 -type ps_object_id() :: binary().
@@ -87,6 +86,7 @@ mutate(Op, Actor, {?TYPE, _ORSet}=CRDT) ->
 %% @doc Delta-mutate a `state_oorset_ps()'.
 %%      The first argument can be:
 %%          - `{add, element()}'
+%%          - `{add_all, [element()]}'
 %%          - `{rmv, element()}'
 %%      The second argument is the event id ({object_id, replica_id}).
 %%      The third argument is the `state_oorset_ps()' to be inflated.
@@ -94,17 +94,34 @@ mutate(Op, Actor, {?TYPE, _ORSet}=CRDT) ->
     {ok, delta_state_oorset_ps()} | {error, {precondition, {not_present, element()}}}.
 %% Adds a single element to `state_oorset_ps()'.
 %% Delta: {[{Elem, {{NewEvent}}}], [NewEvent], [NewEvent]}
-delta_mutate({add, Elem}, EventId, {?TYPE, {_DataStore, _SurvivedEvents, AllEvents}}) ->
+delta_mutate({add, Elem},
+             EventId,
+             {?TYPE, {_DataStore, _SurvivedEvents, AllEvents}}) ->
     NewEvent = get_next_event(EventId, AllEvents),
     NewDot = ordsets:add_element(NewEvent, ordsets:new()),
     NewProvenance = ordsets:add_element(NewDot, ordsets:new()),
     DeltaDataStore = orddict:store(Elem, NewProvenance, orddict:new()),
     {ok, {?TYPE, {delta, {DeltaDataStore, NewDot, NewDot}}}};
 
-%% @todo
 %% Adds a list of elemenets to `state_oorset_ps()'.
-delta_mutate({add_all, _Elems}, _Actor, {?TYPE, ORSet}) ->
-    {ok, {?TYPE, {delta, ORSet}}};
+delta_mutate({add_all, Elems},
+             EventId,
+             {?TYPE, {_DataStore, _SurvivedEvents, AllEvents}}) ->
+    {AccDelta, _AccAllEvents} =
+        lists:foldl(
+          fun(Elem, {AccDelta0, AccAllEvents0}) ->
+                  NewEvent = get_next_event(EventId, AccAllEvents0),
+                  NewDot = ordsets:add_element(NewEvent, ordsets:new()),
+                  NewProvenance = ordsets:add_element(NewDot, ordsets:new()),
+                  DeltaDataStore = orddict:store(Elem, NewProvenance, orddict:new()),
+                  {merge(AccDelta0,
+                         {?TYPE, {delta, {DeltaDataStore, NewDot, NewDot}}}),
+                   ordsets:add_element(NewEvent, AccAllEvents0)}
+          end,
+          {{?TYPE, {delta, {orddict:new(), ordsets:new(), ordsets:new()}}},
+           AllEvents},
+          Elems),
+    {ok, AccDelta};
 
 %% Removes a single element in `state_oorset_ps()'.
 %% Delta: {[], (ElemEvents - OwnedElemEvents), ElemEvents}
@@ -366,8 +383,17 @@ rmv_test() ->
     {ok, Set3} = mutate({rmv, <<"1">>}, EventId, Set2),
     ?assertEqual(sets:new(), query(Set3)).
 
+add_all_test() ->
+    EventId = {<<"object1">>, a},
+    Set0 = new(),
+    {ok, Set1} = mutate({add_all, []}, EventId, Set0),
+    {ok, Set2} = mutate({add_all, [<<"a">>, <<"b">>]}, EventId, Set0),
+    {ok, Set3} = mutate({add_all, [<<"b">>, <<"c">>]}, EventId, Set2),
+    ?assertEqual(sets:new(), query(Set1)),
+    ?assertEqual(sets:from_list([<<"a">>, <<"b">>]), query(Set2)),
+    ?assertEqual(sets:from_list([<<"a">>, <<"b">>, <<"c">>]), query(Set3)).
+
 %% @todo
-%%add_all_test() ->
 %%remove_all_test() ->
 
 merge_idempontent_test() ->
