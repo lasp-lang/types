@@ -213,33 +213,22 @@ get_events_from_provenance(Provenance) ->
 
 %% @private
 -spec is_lattice_inflation_oorset_ps(payload(), payload()) -> boolean().
-is_lattice_inflation_oorset_ps({DataStoreA, SurvivedEventsA, AllEventsA},
-                               {DataStoreB, SurvivedEventsB, AllEventsB}) ->
-    case ordsets:is_subset(AllEventsA, AllEventsB) of
-        false ->
-            false;
-        true ->
-            case ordsets:is_subset(SurvivedEventsB, SurvivedEventsA) of
-                false ->
-                    false;
-                true ->
-                    DataStoreEventsA =
-                        orddict:fold(
-                          fun(_Elem, Provenance, DataStoreEventsA0) ->
-                                  ordsets:union(
-                                    DataStoreEventsA0,
-                                    get_events_from_provenance(Provenance))
-                          end, ordsets:new(), DataStoreA),
-                    DataStoreEventsB =
-                        orddict:fold(
-                          fun(_Elem, Provenance, DataStoreEventsB0) ->
-                                  ordsets:union(
-                                    DataStoreEventsB0,
-                                    get_events_from_provenance(Provenance))
-                          end, ordsets:new(), DataStoreB),
-                    ordsets:is_subset(DataStoreEventsB, DataStoreEventsA)
-            end
-    end.
+is_lattice_inflation_oorset_ps({DataStoreA, _SurvivedEventsA, AllEventsA},
+                               {DataStoreB, _SurvivedEventsB, AllEventsB}) ->
+    DataStoreEventsA = orddict:fold(
+                         fun(_Elem, Provenance, DataStoreEventsA0) ->
+                                 ordsets:union(
+                                   DataStoreEventsA0,
+                                   get_events_from_provenance(Provenance))
+                         end, ordsets:new(), DataStoreA),
+    DataStoreEventsB = orddict:fold(
+                         fun(_Elem, Provenance, DataStoreEventsB0) ->
+                                 ordsets:union(
+                                   DataStoreEventsB0,
+                                   get_events_from_provenance(Provenance))
+                         end, ordsets:new(), DataStoreB),
+    ordsets:is_subset(AllEventsA, AllEventsB) andalso
+        ordsets:is_subset(DataStoreEventsB, DataStoreEventsA).
 
 %% @private
 -spec join_oorset_ps(payload(), payload()) -> payload().
