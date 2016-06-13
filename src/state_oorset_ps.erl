@@ -213,22 +213,19 @@ get_events_from_provenance(Provenance) ->
 
 %% @private
 -spec is_lattice_inflation_oorset_ps(payload(), payload()) -> boolean().
-is_lattice_inflation_oorset_ps({DataStoreA, _SurvivedEventsA, AllEventsA},
+is_lattice_inflation_oorset_ps(Payload, Payload) ->
+    true;
+is_lattice_inflation_oorset_ps({_DataStoreA, SurvivedEventsA, AllEventsA},
                                {DataStoreB, _SurvivedEventsB, AllEventsB}) ->
-    DataStoreEventsA = orddict:fold(
-                         fun(_Elem, Provenance, DataStoreEventsA0) ->
-                                 ordsets:union(
-                                   DataStoreEventsA0,
-                                   get_events_from_provenance(Provenance))
-                         end, ordsets:new(), DataStoreA),
     DataStoreEventsB = orddict:fold(
                          fun(_Elem, Provenance, DataStoreEventsB0) ->
                                  ordsets:union(
                                    DataStoreEventsB0,
                                    get_events_from_provenance(Provenance))
                          end, ordsets:new(), DataStoreB),
+    RemovedA = ordsets:subtract(AllEventsA, SurvivedEventsA),
     ordsets:is_subset(AllEventsA, AllEventsB) andalso
-        ordsets:is_subset(DataStoreEventsB, DataStoreEventsA).
+        (ordsets:intersection(RemovedA, DataStoreEventsB) == []).
 
 %% @private
 -spec join_oorset_ps(payload(), payload()) -> payload().
@@ -265,7 +262,7 @@ join_provenance(ProvenanceA, SurvivedEventsA, AllEventsA,
                 ProvenanceB, SurvivedEventsB, AllEventsB) ->
     JoinedProvenance0 = ordsets:intersection(ProvenanceA, ProvenanceB),
     InterSurvived = ordsets:intersection(SurvivedEventsA, SurvivedEventsB),
-    JoinedProvenance1 = 
+    JoinedProvenance1 =
         ordsets:fold(fun(Dot0, Acc) ->
                              case is_valid_dot(Dot0, InterSurvived, AllEventsB) of
                                  false ->
