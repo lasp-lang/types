@@ -213,18 +213,33 @@ get_events_from_provenance(Provenance) ->
 
 %% @private
 -spec is_lattice_inflation_oorset_ps(payload(), payload()) -> boolean().
-is_lattice_inflation_oorset_ps({_DataStoreA, _SurvivedEventsA, AllEventsA},
-                               {_DataStoreB, _SurvivedEventsB, AllEventsB}) ->
-    AllEventsAList = get_maxs_for_all(AllEventsA),
-    AllEventsBList = get_maxs_for_all(AllEventsB),
-    lists:foldl(fun({EventId, Count}, Acc) ->
-                        case lists:keyfind(EventId, 1, AllEventsBList) of
-                            false ->
-                                Acc andalso false;
-                            {_EventId1, Count1} ->
-                                Acc andalso (Count =< Count1)
-                        end
-                end, true, AllEventsAList).
+is_lattice_inflation_oorset_ps({DataStoreA, SurvivedEventsA, AllEventsA},
+                               {DataStoreB, SurvivedEventsB, AllEventsB}) ->
+    case ordsets:is_subset(AllEventsA, AllEventsB) of
+        false ->
+            false;
+        true ->
+            case ordsets:is_subset(SurvivedEventsB, SurvivedEventsA) of
+                false ->
+                    false;
+                true ->
+                    DataStoreEventsA =
+                        orddict:fold(
+                          fun(_Elem, Provenance, DataStoreEventsA0) ->
+                                  ordsets:union(
+                                    DataStoreEventsA0,
+                                    get_events_from_provenance(Provenance))
+                          end, ordsets:new(), DataStoreA),
+                    DataStoreEventsB =
+                        orddict:fold(
+                          fun(_Elem, Provenance, DataStoreEventsB0) ->
+                                  ordsets:union(
+                                    DataStoreEventsB0,
+                                    get_events_from_provenance(Provenance))
+                          end, ordsets:new(), DataStoreB),
+                    ordsets:is_subset(DataStoreEventsB, DataStoreEventsA)
+            end
+    end.
 
 %% @private
 -spec join_oorset_ps(payload(), payload()) -> payload().
@@ -298,19 +313,6 @@ get_provenance(Elem, {DataStore, _SurvivedEvents, _AllEvents}) ->
             {ok, ordsets:new()}
     end.
 
-%% @private
-get_maxs_for_all(AllEvents) ->
-    ordsets:fold(fun({EventId0, EventCounter0}, MaxList) ->
-                         {Counter, NewList} =
-                             case lists:keytake(EventId0, 1, MaxList) of
-                                 false ->
-                                     {EventCounter0, MaxList};
-                                 {value, {_EventId, C}, ModList} ->
-                                     {max(EventCounter0, C), ModList}
-                             end,
-                         [{EventId0, Counter} | NewList]
-                 end, [], AllEvents).
-
 %% ===================================================================
 %% EUnit tests
 %% ===================================================================
@@ -322,8 +324,8 @@ new_test() ->
 query_test() ->
     EventId = {<<"object1">>, a},
     Set0 = new(),
-    Set1 = {?TYPE, {[{<<"1">>, [[{EventId, 2}]]}],
-                    [{EventId, 2}],
+    Set1 = {?TYPE, {[{<<"1">>, [[{EventId, 1}]]}],
+                    [{EventId, 1}],
                     [{EventId, 1}, {EventId, 2}]}},
     ?assertEqual(sets:new(), query(Set0)),
     ?assertEqual(sets:from_list([<<"1">>]), query(Set1)).
@@ -399,12 +401,12 @@ add_all_test() ->
 merge_idempontent_test() ->
     EventId1 = {<<"object1">>, a},
     EventId2 = {<<"object1">>, b},
-    Set1 = {?TYPE, {[{<<"1">>, [[{EventId1, 1}]]}],
-                    [{EventId1, 1}],
-                    [{EventId1, 1}]}},
-    Set2 = {?TYPE, {[], [], [{EventId2, 1}]}},
-    Set3 = {?TYPE, {[{<<"2">>, [[{EventId2, 1}]]}],
+    Set1 = {?TYPE, {[], [], [{EventId1, 1}]}},
+    Set2 = {?TYPE, {[{<<"2">>, [[{EventId2, 1}]]}],
                     [{EventId2, 1}],
+                    [{EventId2, 1}]}},
+    Set3 = {?TYPE, {[{<<"1">>, [[{EventId1, 1}]]}],
+                    [{EventId1, 1}],
                     [{EventId1, 1}, {EventId2, 1}]}},
     Set4 = merge(Set1, Set1),
     Set5 = merge(Set2, Set2),
@@ -416,12 +418,12 @@ merge_idempontent_test() ->
 merge_commutative_test() ->
     EventId1 = {<<"object1">>, a},
     EventId2 = {<<"object1">>, b},
-    Set1 = {?TYPE, {[{<<"1">>, [[{EventId1, 1}]]}],
-                    [{EventId1, 1}],
-                    [{EventId1, 1}]}},
-    Set2 = {?TYPE, {[], [], [{EventId2, 1}]}},
-    Set3 = {?TYPE, {[{<<"2">>, [[{EventId2, 1}]]}],
+    Set1 = {?TYPE, {[], [], [{EventId1, 1}]}},
+    Set2 = {?TYPE, {[{<<"2">>, [[{EventId2, 1}]]}],
                     [{EventId2, 1}],
+                    [{EventId2, 1}]}},
+    Set3 = {?TYPE, {[{<<"1">>, [[{EventId1, 1}]]}],
+                    [{EventId1, 1}],
                     [{EventId1, 1}, {EventId2, 1}]}},
     Set4 = merge(Set1, Set2),
     Set5 = merge(Set2, Set1),
@@ -430,11 +432,18 @@ merge_commutative_test() ->
     Set8 = merge(Set2, Set3),
     Set9 = merge(Set3, Set2),
     Set10 = merge(Set1, merge(Set2, Set3)),
-    Set11 = merge(merge(Set2, Set3), Set1),
-    ?assertEqual(Set4, Set5),
-    ?assertEqual(Set6, Set7),
-    ?assertEqual(Set8, Set9),
-    ?assertEqual(Set10, Set11).
+    Set1_2 = {?TYPE, {[{<<"2">>, [[{EventId2, 1}]]}],
+                      [{EventId2, 1}],
+                      [{EventId1, 1}, {EventId2, 1}]}},
+    Set1_3 = {?TYPE, {[], [], [{EventId1, 1}, {EventId2, 1}]}},
+    Set2_3 = Set3,
+    ?assertEqual(Set1_2, Set4),
+    ?assertEqual(Set1_2, Set5),
+    ?assertEqual(Set1_3, Set6),
+    ?assertEqual(Set1_3, Set7),
+    ?assertEqual(Set2_3, Set8),
+    ?assertEqual(Set2_3, Set9),
+    ?assertEqual(Set1_3, Set10).
 
 merge_test() ->
     EventId1 = {<<"object1">>, a},
@@ -443,11 +452,13 @@ merge_test() ->
                      {<<"2">>, [[{EventId1, 2}, {EventId2, 2}]]}],
                     [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}, {EventId2, 2}],
                     [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}, {EventId2, 2}]}},
-    Set2 = {?TYPE, {[{<<"1">>, [[{EventId1, 1}, {EventId2, 3}]]},
-                     {<<"2">>, [[{EventId1, 2}, {EventId2, 4}]]}],
-                    [{EventId1, 1}, {EventId1, 2}, {EventId2, 3}, {EventId2, 4}],
-                    [{EventId1, 1}, {EventId1, 2}, {EventId2, 3}, {EventId2, 4}]}},
-    Set3 = merge(Set1, Set2),
+    Delta = {?TYPE, {delta, {[{<<"1">>, [[{EventId1, 1}, {EventId2, 3}]]},
+                              {<<"2">>, [[{EventId1, 2}, {EventId2, 4}]]}],
+                             [{EventId1, 1}, {EventId1, 2},
+                              {EventId2, 3}, {EventId2, 4}],
+                             [{EventId1, 1}, {EventId1, 2},
+                              {EventId2, 3}, {EventId2, 4}]}}},
+    Set2 = merge(Set1, Delta),
     ?assertEqual({?TYPE, {[{<<"1">>, [[{EventId1, 1}, {EventId2, 1}],
                                       [{EventId1, 1}, {EventId2, 3}]]},
                            {<<"2">>, [[{EventId1, 2}, {EventId2, 2}],
@@ -456,40 +467,35 @@ merge_test() ->
                      {EventId2, 2}, {EventId2, 3}, {EventId2, 4}],
                     [{EventId1, 1}, {EventId1, 2}, {EventId2, 1},
                      {EventId2, 2}, {EventId2, 3}, {EventId2, 4}]}},
-                 Set3).
+                 Set2).
 
 merge_delta_test() ->
     EventId = {<<"object1">>, a},
-    Set1 = {?TYPE, {[], [], [{EventId, 1}]}},
-    Delta1 = {?TYPE, {delta, {[{<<"1">>, [[{EventId, 2}]]}],
+    Set1 = {?TYPE, {[{<<"1">>, [[{EventId, 1}]]}],
+                    [{EventId, 1}],
+                    [{EventId, 1}]}},
+    Delta1 = {?TYPE, {delta, {[], [], [{EventId, 1}]}}},
+    Delta2 = {?TYPE, {delta, {[{<<"2">>, [[{EventId, 2}]]}],
                               [{EventId, 2}],
                               [{EventId, 2}]}}},
-    Delta2 = {?TYPE, {delta, {[], [], [{EventId, 3}]}}},
     Set2 = merge(Delta1, Set1),
     Set3 = merge(Set1, Delta1),
     DeltaGroup = merge(Delta1, Delta2),
-    ?assertEqual({?TYPE, {[{<<"1">>, [[{EventId, 2}]]}],
-                          [{EventId, 2}],
-                          [{EventId, 1}, {EventId, 2}]}}, Set2),
-    ?assertEqual({?TYPE, {[{<<"1">>, [[{EventId, 2}]]}],
-                          [{EventId, 2}],
-                          [{EventId, 1}, {EventId, 2}]}}, Set3),
-    ?assertEqual({?TYPE, {delta, {[{<<"1">>, [[{EventId, 2}]]}],
+    ?assertEqual({?TYPE, {[], [], [{EventId, 1}]}}, Set2),
+    ?assertEqual({?TYPE, {[], [], [{EventId, 1}]}}, Set3),
+    ?assertEqual({?TYPE, {delta, {[{<<"2">>, [[{EventId, 2}]]}],
                                   [{EventId, 2}],
-                                  [{EventId, 2}, {EventId, 3}]}}}, DeltaGroup).
+                                  [{EventId, 1}, {EventId, 2}]}}}, DeltaGroup).
 
 equal_test() ->
     EventId1 = {<<"object1">>, a},
-    EventId2 = {<<"object1">>, b},
-    Set1 = {?TYPE, {[], [], [{EventId1, 1}]}},
-    %% Set2 = mutate({add, <<"1">>}, EventId1, Set1),
-    Set2 = {?TYPE, {[{<<"1">>, [[{EventId1, 2}]]}],
-                    [{EventId1, 2}],
+    Set1 = {?TYPE, {[{<<"1">>, [[{EventId1, 1}]]}],
+                    [{EventId1, 1}],
+                    [{EventId1, 1}]}},
+    Set2 = {?TYPE, {[], [], [{EventId1, 1}]}},
+    Set3 = {?TYPE, {[{<<"1">>, [[{EventId1, 1}]]}],
+                    [{EventId1, 1}],
                     [{EventId1, 1}, {EventId1, 2}]}},
-    %% Set3 = mutate({add, <<"2">>}, EventId2, Set1),
-    Set3 = {?TYPE, {[{<<"2">>, [[{EventId2, 1}]]}],
-                    [{EventId2, 1}],
-                    [{EventId1, 1}, {EventId2, 1}]}},
     ?assert(equal(Set1, Set1)),
     ?assert(equal(Set2, Set2)),
     ?assert(equal(Set3, Set3)),
@@ -499,16 +505,13 @@ equal_test() ->
 
 is_inflation_test() ->
     EventId1 = {<<"object1">>, a},
-    EventId2 = {<<"object1">>, b},
-    Set1 = {?TYPE, {[], [], [{EventId1, 1}]}},
-    %% Set2 = mutate({add, <<"1">>}, EventId1, Set1),
-    Set2 = {?TYPE, {[{<<"1">>, [[{EventId1, 2}]]}],
-                    [{EventId1, 2}],
+    Set1 = {?TYPE, {[{<<"1">>, [[{EventId1, 1}]]}],
+                    [{EventId1, 1}],
+                    [{EventId1, 1}]}},
+    Set2 = {?TYPE, {[], [], [{EventId1, 1}]}},
+    Set3 = {?TYPE, {[{<<"1">>, [[{EventId1, 1}]]}],
+                    [{EventId1, 1}],
                     [{EventId1, 1}, {EventId1, 2}]}},
-    %% Set3 = mutate({add, <<"2">>}, EventId2, Set1),
-    Set3 = {?TYPE, {[{<<"2">>, [[{EventId2, 1}]]}],
-                    [{EventId2, 1}],
-                    [{EventId1, 1}, {EventId2, 1}]}},
     ?assert(is_inflation(Set1, Set1)),
     ?assert(is_inflation(Set1, Set2)),
     ?assertNot(is_inflation(Set2, Set1)),
@@ -525,16 +528,13 @@ is_inflation_test() ->
 
 is_strict_inflation_test() ->
     EventId1 = {<<"object1">>, a},
-    EventId2 = {<<"object1">>, b},
-    Set1 = {?TYPE, {[], [], [{EventId1, 1}]}},
-    %% Set2 = mutate({add, <<"1">>}, EventId1, Set1),
-    Set2 = {?TYPE, {[{<<"1">>, [[{EventId1, 2}]]}],
-                    [{EventId1, 2}],
+    Set1 = {?TYPE, {[{<<"1">>, [[{EventId1, 1}]]}],
+                    [{EventId1, 1}],
+                    [{EventId1, 1}]}},
+    Set2 = {?TYPE, {[], [], [{EventId1, 1}]}},
+    Set3 = {?TYPE, {[{<<"1">>, [[{EventId1, 1}]]}],
+                    [{EventId1, 1}],
                     [{EventId1, 1}, {EventId1, 2}]}},
-    %% Set3 = mutate({add, <<"2">>}, EventId2, Set1),
-    Set3 = {?TYPE, {[{<<"2">>, [[{EventId2, 1}]]}],
-                    [{EventId2, 1}],
-                    [{EventId1, 1}, {EventId2, 1}]}},
     ?assertNot(is_strict_inflation(Set1, Set1)),
     ?assert(is_strict_inflation(Set1, Set2)),
     ?assertNot(is_strict_inflation(Set2, Set1)),
