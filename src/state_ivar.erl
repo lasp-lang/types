@@ -77,7 +77,11 @@ query({?TYPE, Value}) ->
 -spec merge(state_ivar(), state_ivar()) -> state_ivar().
 merge({?TYPE, undefined}, {?TYPE, undefined}) ->
     {?TYPE, undefined};
+merge({?TYPE, {delta, Value}}, {?TYPE, undefined}) ->
+    {?TYPE, Value};
 merge({?TYPE, Value}, {?TYPE, undefined}) ->
+    {?TYPE, Value};
+merge({?TYPE, undefined}, {?TYPE, {delta, Value}}) ->
     {?TYPE, Value};
 merge({?TYPE, undefined}, {?TYPE, Value}) ->
     {?TYPE, Value};
