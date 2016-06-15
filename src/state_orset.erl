@@ -247,7 +247,9 @@ is_inflation({?TYPE, ORSet1}, {?TYPE, ORSet2}) ->
     ).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(state_orset(), state_orset()) -> boolean().
+-spec is_strict_inflation(delta_or_state(), state_orset()) -> boolean().
+is_strict_inflation({?TYPE, {delta, ORSet1}}, {?TYPE, ORSet2}) ->
+    is_strict_inflation({?TYPE, ORSet1}, {?TYPE, ORSet2});
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
@@ -398,6 +400,7 @@ is_inflation_test() ->
     Set3 = {?TYPE, [{<<"a">>, [{<<"token1">>, true}]}, {<<"b">>, [{<<"token2">>, false}]}]},
     ?assert(is_inflation(Set1, Set1)),
     ?assert(is_inflation(Set1, Set2)),
+    ?assert(is_inflation(DeltaSet1, Set1)),
     ?assert(is_inflation(DeltaSet1, Set2)),
     ?assertNot(is_inflation(Set2, Set1)),
     ?assert(is_inflation(Set1, Set3)),
@@ -416,9 +419,9 @@ is_strict_inflation_test() ->
     DeltaSet1 = {?TYPE, {delta, [{<<"a">>, [{<<"token1">>, true}]}]}},
     Set2 = {?TYPE, [{<<"a">>, [{<<"token1">>, false}]}]},
     Set3 = {?TYPE, [{<<"a">>, [{<<"token1">>, true}]}, {<<"b">>, [{<<"token2">>, false}]}]},
-    ?assert(is_strict_inflation(DeltaSet1, Set1)),
     ?assertNot(is_strict_inflation(Set1, Set1)),
     ?assert(is_strict_inflation(Set1, Set2)),
+    ?assertNot(is_strict_inflation(DeltaSet1, Set1)),
     ?assert(is_strict_inflation(DeltaSet1, Set2)),
     ?assertNot(is_strict_inflation(Set2, Set1)),
     ?assert(is_strict_inflation(Set1, Set3)),
