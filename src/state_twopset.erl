@@ -133,13 +133,17 @@ equal({?TYPE, {Added1, Removed1}}, {?TYPE, {Added2, Removed2}}) ->
 %%      The second `state_twopset()' is an inflation if the first set
 %%      with adds is a subset of the second with adds.
 %%      Vice versa for the sets with removes.
--spec is_inflation(state_twopset(), state_twopset()) -> boolean().
+-spec is_inflation(delta_or_state(), state_twopset()) -> boolean().
+is_inflation({?TYPE, {delta, Set1}}, {?TYPE, Set2}) ->
+    is_inflation({?TYPE, Set1}, {?TYPE, Set2});
 is_inflation({?TYPE, {Added1, Removed1}}, {?TYPE, {Added2, Removed2}}) ->
     ordsets:is_subset(Added1, Added2) andalso
     ordsets:is_subset(Removed1, Removed2).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(state_twopset(), state_twopset()) -> boolean().
+-spec is_strict_inflation(delta_or_state(), state_twopset()) -> boolean().
+is_strict_inflation({?TYPE, {delta, Set1}}, {?TYPE, Set2}) ->
+    is_strict_inflation({?TYPE, Set1}, {?TYPE, Set2});
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
@@ -232,10 +236,13 @@ equal_test() ->
 
 is_inflation_test() ->
     Set1 = {?TYPE, {[<<"a">>], []}},
+    DeltaSet1 = {?TYPE, {delta, {[<<"a">>], []}}},
     Set2 = {?TYPE, {[<<"a">>], [<<"b">>]}},
     Set3 = {?TYPE, {[<<"a">>, <<"b">>], []}},
     ?assert(is_inflation(Set1, Set1)),
     ?assert(is_inflation(Set1, Set2)),
+    ?assert(is_inflation(DeltaSet1, Set1)),
+    ?assert(is_inflation(DeltaSet1, Set2)),
     ?assertNot(is_inflation(Set2, Set1)),
     ?assert(is_inflation(Set1, Set3)),
     ?assertNot(is_inflation(Set2, Set3)),
@@ -248,10 +255,13 @@ is_inflation_test() ->
 
 is_strict_inflation_test() ->
     Set1 = {?TYPE, {[<<"a">>], []}},
+    DeltaSet1 = {?TYPE, {delta, {[<<"a">>], []}}},
     Set2 = {?TYPE, {[<<"a">>], [<<"b">>]}},
     Set3 = {?TYPE, {[<<"a">>, <<"b">>], []}},
     ?assertNot(is_strict_inflation(Set1, Set1)),
     ?assert(is_strict_inflation(Set1, Set2)),
+    ?assertNot(is_strict_inflation(DeltaSet1, Set1)),
+    ?assert(is_strict_inflation(DeltaSet1, Set2)),
     ?assertNot(is_strict_inflation(Set2, Set1)),
     ?assert(is_strict_inflation(Set1, Set3)),
     ?assertNot(is_strict_inflation(Set2, Set3)).

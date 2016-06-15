@@ -140,7 +140,9 @@ equal({?TYPE, {{FstType, _}=Fst1, {SndType, _}=Snd1}},
 
 %% @doc Check for `state_pair()' inflation.
 %%      We have an inflation when both of the components are inflations.
--spec is_inflation(state_pair(), state_pair()) -> boolean().
+-spec is_inflation(delta_or_state(), state_pair()) -> boolean().
+is_inflation({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
+    is_inflation({?TYPE, Delta}, {?TYPE, CRDT});
 is_inflation({?TYPE, {{FstType, _}=Fst1, {SndType, _}=Snd1}},
              {?TYPE, {{FstType, _}=Fst2, {SndType, _}=Snd2}}) ->
     FstType:is_inflation(Fst1, Fst2) andalso
@@ -154,7 +156,9 @@ is_inflation({?TYPE, {{FstType, _}=Fst1, {SndType, _}=Snd1}},
 %%      Composition of State-based CRDTs (2015)
 %%      [http://haslab.uminho.pt/cbm/files/crdtcompositionreport.pdf]
 %%
--spec is_strict_inflation(state_pair(), state_pair()) -> boolean().
+-spec is_strict_inflation(delta_or_state(), state_pair()) -> boolean().
+is_strict_inflation({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
+    is_strict_inflation({?TYPE, Delta}, {?TYPE, CRDT});
 is_strict_inflation({?TYPE, {{FstType, _}=Fst1, {SndType, _}=Snd1}},
                     {?TYPE, {{FstType, _}=Fst2, {SndType, _}=Snd2}}) ->
     (FstType:is_strict_inflation(Fst1, Fst2) andalso SndType:is_inflation(Snd1, Snd2))
@@ -241,11 +245,14 @@ is_inflation_test() ->
     GSet1 = {?GSET_TYPE, [<<"a">>]},
     GSet2 = {?GSET_TYPE, [<<"b">>]},
     Pair1 = {?TYPE, {GCounter1, GSet1}},
+    DeltaPair1 = {?TYPE, {delta, {GCounter1, GSet1}}},
     Pair2 = {?TYPE, {GCounter1, GSet2}},
     Pair3 = {?TYPE, {GCounter1, GSet1}},
     Pair4 = {?TYPE, {GCounter2, GSet1}},
     ?assert(is_inflation(Pair1, Pair1)),
     ?assertNot(is_inflation(Pair1, Pair2)),
+    ?assert(is_inflation(DeltaPair1, Pair1)),
+    ?assertNot(is_inflation(DeltaPair1, Pair2)),
     ?assert(is_inflation(Pair3, Pair4)),
     %% check inflation with merge
     ?assert(state_type:is_inflation(Pair1, Pair1)),
@@ -258,11 +265,15 @@ is_strict_inflation_test() ->
     GSet1 = {?GSET_TYPE, [<<"a">>]},
     GSet2 = {?GSET_TYPE, [<<"b">>]},
     Pair1 = {?TYPE, {GCounter1, GSet1}},
+    DeltaPair1 = {?TYPE, {delta, {GCounter1, GSet1}}},
+    Pair2 = {?TYPE, {GCounter1, GSet2}},
     Pair2 = {?TYPE, {GCounter1, GSet2}},
     Pair3 = {?TYPE, {GCounter1, GSet1}},
     Pair4 = {?TYPE, {GCounter2, GSet1}},
     ?assertNot(is_strict_inflation(Pair1, Pair1)),
     ?assertNot(is_strict_inflation(Pair1, Pair2)),
+    ?assertNot(is_strict_inflation(DeltaPair1, Pair1)),
+    ?assertNot(is_strict_inflation(DeltaPair1, Pair2)),
     ?assert(is_strict_inflation(Pair3, Pair4)),
     ?assertNot(is_strict_inflation(Pair2, Pair4)).
 

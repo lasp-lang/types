@@ -119,12 +119,16 @@ equal({?TYPE, GSet1}, {?TYPE, GSet2}) ->
 %%      of the first.
 %%      The second `state_gset()' is an inflation if the first set is
 %%      a subset of the second.
--spec is_inflation(state_gset(), state_gset()) -> boolean().
+-spec is_inflation(delta_or_state(), state_gset()) -> boolean().
+is_inflation({?TYPE, {delta, GSet1}}, {?TYPE, GSet2}) ->
+    is_inflation({?TYPE, GSet1}, {?TYPE, GSet2});
 is_inflation({?TYPE, GSet1}, {?TYPE, GSet2}) ->
     ordsets:is_subset(GSet1, GSet2).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(state_gset(), state_gset()) -> boolean().
+-spec is_strict_inflation(delta_or_state(), state_gset()) -> boolean().
+is_strict_inflation({?TYPE, {delta, GSet1}}, {?TYPE, GSet2}) ->
+    is_strict_inflation({?TYPE, GSet1}, {?TYPE, GSet2});
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
@@ -215,9 +219,12 @@ equal_test() ->
 
 is_inflation_test() ->
     Set1 = {?TYPE, [<<"a">>]},
+    DeltaSet1 = {?TYPE, {delta, [<<"a">>]}},
     Set2 = {?TYPE, [<<"a">>, <<"b">>]},
     ?assert(is_inflation(Set1, Set1)),
     ?assert(is_inflation(Set1, Set2)),
+    ?assert(is_inflation(DeltaSet1, Set1)),
+    ?assert(is_inflation(DeltaSet1, Set2)),
     ?assertNot(is_inflation(Set2, Set1)),
     %% check inflation with merge
     ?assert(state_type:is_inflation(Set1, Set1)),
@@ -226,9 +233,12 @@ is_inflation_test() ->
 
 is_strict_inflation_test() ->
     Set1 = {?TYPE, [<<"a">>]},
+    DeltaSet1 = {?TYPE, {delta, [<<"a">>]}},
     Set2 = {?TYPE, [<<"a">>, <<"b">>]},
     ?assertNot(is_strict_inflation(Set1, Set1)),
     ?assert(is_strict_inflation(Set1, Set2)),
+    ?assertNot(is_strict_inflation(DeltaSet1, Set1)),
+    ?assert(is_strict_inflation(DeltaSet1, Set2)),
     ?assertNot(is_strict_inflation(Set2, Set1)).
 
 join_decomposition_test() ->

@@ -42,6 +42,7 @@
 
 -opaque state_ivar() :: {?TYPE, payload()}.
 -opaque delta_state_ivar() :: {?TYPE, {delta, payload()}}.
+-type delta_or_state() :: state_ivar() | delta_state_ivar().
 -type payload() :: term().
 -type state_ivar_op() :: {set, term()}.
 
@@ -74,7 +75,7 @@ query({?TYPE, Value}) ->
     Value.
 
 %% @doc Merge two `state_ivar()'.
--spec merge(state_ivar(), state_ivar()) -> state_ivar().
+-spec merge(delta_or_state(), delta_or_state()) -> state_ivar().
 merge({?TYPE, undefined}, {?TYPE, undefined}) ->
     {?TYPE, undefined};
 merge({?TYPE, {delta, Value}}, {?TYPE, undefined}) ->
@@ -97,7 +98,9 @@ equal({?TYPE, Value1}, {?TYPE, Value2}) ->
 %%      of the first.
 %%      The second `state_ivar()' is and inflation if the first set is
 %%      a subset of the second.
--spec is_inflation(state_ivar(), state_ivar()) -> boolean().
+-spec is_inflation(delta_or_state(), state_ivar()) -> boolean().
+is_inflation({?TYPE, {delta, Value1}}, {?TYPE, Value2}) ->
+    is_inflation({?TYPE, Value1}, {?TYPE, Value2});
 is_inflation({?TYPE, undefined}, {?TYPE, undefined}) ->
     true;
 is_inflation({?TYPE, undefined}, {?TYPE, _Value}) ->
@@ -108,7 +111,9 @@ is_inflation({?TYPE, _}=Var1, {?TYPE, _}=Var2) ->
     equal(Var1, Var2).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(state_ivar(), state_ivar()) -> boolean().
+-spec is_strict_inflation(delta_or_state(), state_ivar()) -> boolean().
+is_strict_inflation({?TYPE, {delta, Value1}}, {?TYPE, Value2}) ->
+    is_strict_inflation({?TYPE, Value1}, {?TYPE, Value2});
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
@@ -161,11 +166,14 @@ equal_test() ->
 is_inflation_test() ->
     Var0 = new(),
     Var1 = {?TYPE, [<<"a">>]},
+    DeltaVar1 = {?TYPE, {delta, [<<"a">>]}},
     Var2 = {?TYPE, [<<"b">>]},
     ?assert(is_inflation(Var0, Var0)),
     ?assert(is_inflation(Var0, Var1)),
     ?assert(is_inflation(Var1, Var1)),
     ?assertNot(is_inflation(Var1, Var2)),
+    ?assert(is_inflation(DeltaVar1, Var1)),
+    ?assertNot(is_inflation(DeltaVar1, Var2)),
     ?assertNot(is_inflation(Var2, Var1)),
     %% check inflation with merge
     ?assert(state_type:is_inflation(Var0, Var0)),
@@ -175,11 +183,14 @@ is_inflation_test() ->
 is_strict_inflation_test() ->
     Var0 = new(),
     Var1 = {?TYPE, [<<"a">>]},
+    DeltaVar1 = {?TYPE, {delta, [<<"a">>]}},
     Var2 = {?TYPE, [<<"b">>]},
     ?assertNot(is_strict_inflation(Var0, Var0)),
     ?assert(is_strict_inflation(Var0, Var1)),
     ?assertNot(is_strict_inflation(Var1, Var1)),
     ?assertNot(is_strict_inflation(Var1, Var2)),
+    ?assertNot(is_strict_inflation(DeltaVar1, Var1)),
+    ?assertNot(is_strict_inflation(DeltaVar1, Var2)),
     ?assertNot(is_strict_inflation(Var2, Var1)).
 
 join_decomposition_test() ->
