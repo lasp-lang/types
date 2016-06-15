@@ -143,7 +143,9 @@ equal({?TYPE, {Type, GMap1}}, {?TYPE, {Type, GMap2}}) ->
 %%          - for each key in the first `state_gmap()',
 %%          the correspondent value in the second `state_gmap()'
 %%          should be an inflation of the value in the first.
--spec is_inflation(state_gmap(), state_gmap()) -> boolean().
+-spec is_inflation(delta_or_state(), state_gmap()) -> boolean().
+is_inflation({?TYPE, {delta, {Type, _GMap1}=G1}}, {?TYPE, {Type, _GMap2}=G2}) ->
+    is_inflation({?TYPE, G1}, {?TYPE, G2});
 is_inflation({?TYPE, {Type, GMap1}}, {?TYPE, {Type, GMap2}}) ->
     lists_ext:iterate_until(
         fun({Key, Value1}) ->
@@ -158,7 +160,9 @@ is_inflation({?TYPE, {Type, GMap1}}, {?TYPE, {Type, GMap2}}) ->
      ).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(state_gmap(), state_gmap()) -> boolean().
+-spec is_strict_inflation(delta_or_state(), state_gmap()) -> boolean().
+is_strict_inflation({?TYPE, {delta, {Type, _GMap1}=G1}}, {?TYPE, {Type, _GMap2}=G2}) ->
+    is_strict_inflation({?TYPE, G1}, {?TYPE, G2});
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
@@ -232,10 +236,13 @@ equal_test() ->
 
 is_inflation_test() ->
     Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
+    DeltaMap1 = {?TYPE, {delta, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}}},
     Map2 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 2}]}}]}},
     Map3 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
     ?assert(is_inflation(Map1, Map1)),
     ?assert(is_inflation(Map1, Map2)),
+    ?assert(is_inflation(DeltaMap1, Map1)),
+    ?assert(is_inflation(DeltaMap1, Map2)),
     ?assertNot(is_inflation(Map1, Map3)),
     %% check inflation with merge
     ?assert(state_type:is_inflation(Map1, Map1)),
@@ -244,10 +251,13 @@ is_inflation_test() ->
 
 is_strict_inflation_test() ->
     Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
+    DeltaMap1 = {?TYPE, {delta, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}}},
     Map2 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 2}]}}]}},
     Map3 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
     ?assertNot(is_strict_inflation(Map1, Map1)),
     ?assert(is_strict_inflation(Map1, Map2)),
+    ?assertNot(is_strict_inflation(DeltaMap1, Map1)),
+    ?assert(is_strict_inflation(DeltaMap1, Map2)),
     ?assertNot(is_strict_inflation(Map1, Map3)).
 
 join_decomposition_test() ->

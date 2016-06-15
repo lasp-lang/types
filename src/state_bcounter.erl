@@ -189,7 +189,9 @@ equal({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) ->
 %% @doc Given two `state_bcounter()', check if the second is an
 %%      inflation of the first.
 %%      We have and inflation if we have an inflation component wise.
--spec is_inflation(state_bcounter(), state_bcounter()) -> boolean().
+-spec is_inflation(delta_or_state(), state_bcounter()) -> boolean().
+is_inflation({?TYPE, {delta, BCounter1}}, {?TYPE, BCounter2}) ->
+    is_inflation({?TYPE, BCounter1}, {?TYPE, BCounter2});
 is_inflation({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) ->
     ?PNCOUNTER_TYPE:is_inflation(PNCounter1, PNCounter2) andalso
     ?GMAP_TYPE:is_inflation(GMap1, GMap2).
@@ -202,7 +204,9 @@ is_inflation({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) ->
 %%      Composition of State-based CRDTs (2015)
 %%      [http://haslab.uminho.pt/cbm/files/crdtcompositionreport.pdf]
 %%
--spec is_strict_inflation(state_bcounter(), state_bcounter()) -> boolean().
+-spec is_strict_inflation(delta_or_state(), state_bcounter()) -> boolean().
+is_strict_inflation({?TYPE, {delta, BCounter1}}, {?TYPE, BCounter2}) ->
+    is_strict_inflation({?TYPE, BCounter1}, {?TYPE, BCounter2});
 is_strict_inflation({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) ->
     (?PNCOUNTER_TYPE:is_strict_inflation(PNCounter1, PNCounter2)
         andalso

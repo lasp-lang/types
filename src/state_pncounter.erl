@@ -161,7 +161,9 @@ equal({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
 %%          - component wise the value for each replica in the first
 %%          `state_pncounter()' should be less or equal than the value
 %%          for the same replica in the second `state_pncounter()'
--spec is_inflation(state_pncounter(), state_pncounter()) -> boolean().
+-spec is_inflation(delta_or_state(), state_pncounter()) -> boolean().
+is_inflation({?TYPE, {delta, PNCounter1}}, {?TYPE, PNCounter2}) ->
+    is_inflation({?TYPE, PNCounter1}, {?TYPE, PNCounter2});
 is_inflation({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
     lists_ext:iterate_until(
         fun({Key, {Inc1, Dec1}}) ->
@@ -176,7 +178,9 @@ is_inflation({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
      ).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(state_pncounter(), state_pncounter()) -> boolean().
+-spec is_strict_inflation(delta_or_state(), state_pncounter()) -> boolean().
+is_strict_inflation({?TYPE, {delta, PNCounter1}}, {?TYPE, PNCounter2}) ->
+    is_strict_inflation({?TYPE, PNCounter1}, {?TYPE, PNCounter2});
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
@@ -286,11 +290,14 @@ equal_test() ->
 
 is_inflation_test() ->
     Counter1 = {?TYPE, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}]},
+    DeltaCounter1 = {?TYPE, {delta, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}]}},
     Counter2 = {?TYPE, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}, {5, {6, 3}}]},
     Counter3 = {?TYPE, [{1, {2, 0}}, {2, {2, 2}}, {4, {1, 2}}]},
     Counter4 = {?TYPE, [{1, {2, 1}}, {2, {1, 1}}, {4, {1, 2}}]},
     ?assert(is_inflation(Counter1, Counter1)),
     ?assert(is_inflation(Counter1, Counter2)),
+    ?assert(is_inflation(DeltaCounter1, Counter1)),
+    ?assert(is_inflation(DeltaCounter1, Counter2)),
     ?assert(is_inflation(Counter1, Counter3)),
     ?assertNot(is_inflation(Counter1, Counter4)),
     %% check inflation with merge
@@ -301,11 +308,14 @@ is_inflation_test() ->
 
 is_strict_inflation_test() ->
     Counter1 = {?TYPE, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}]},
+    DeltaCounter1 = {?TYPE, {delta, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}]}},
     Counter2 = {?TYPE, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}, {5, {6, 3}}]},
     Counter3 = {?TYPE, [{1, {2, 0}}, {2, {2, 2}}, {4, {1, 2}}]},
     Counter4 = {?TYPE, [{1, {2, 1}}, {2, {1, 1}}, {4, {1, 2}}]},
     ?assertNot(is_strict_inflation(Counter1, Counter1)),
     ?assert(is_strict_inflation(Counter1, Counter2)),
+    ?assertNot(is_strict_inflation(DeltaCounter1, Counter1)),
+    ?assert(is_strict_inflation(DeltaCounter1, Counter2)),
     ?assert(is_strict_inflation(Counter1, Counter3)),
     ?assertNot(is_strict_inflation(Counter1, Counter4)).
 

@@ -101,12 +101,16 @@ equal({?TYPE, Value1}, {?TYPE, Value2}) ->
 %%      of the first.
 %%      The second is an inflation if its value is greater or equal
 %%      to the value of the first.
--spec is_inflation(state_max_int(), state_max_int()) -> boolean().
+-spec is_inflation(delta_or_state(), state_max_int()) -> boolean().
+is_inflation({?TYPE, {delta, Value1}}, {?TYPE, Value2}) ->
+    is_inflation({?TYPE, Value1}, {?TYPE, Value2});
 is_inflation({?TYPE, Value1}, {?TYPE, Value2}) ->
     Value1 =< Value2.
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(state_max_int(), state_max_int()) -> boolean().
+-spec is_strict_inflation(delta_or_state(), state_max_int()) -> boolean().
+is_strict_inflation({?TYPE, {delta, Value1}}, {?TYPE, Value2}) ->
+    is_strict_inflation({?TYPE, Value1}, {?TYPE, Value2});
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
@@ -184,9 +188,12 @@ equal_test() ->
 
 is_inflation_test() ->
     MaxInt1 = {?TYPE, 23},
+    DeltaMaxInt1 = {?TYPE, {delta, 23}},
     MaxInt2 = {?TYPE, 42},
     ?assert(is_inflation(MaxInt1, MaxInt1)),
     ?assert(is_inflation(MaxInt1, MaxInt2)),
+    ?assert(is_inflation(DeltaMaxInt1, MaxInt1)),
+    ?assert(is_inflation(DeltaMaxInt1, MaxInt2)),
     ?assertNot(is_inflation(MaxInt2, MaxInt1)),
     %% check inflation with merge
     ?assert(state_type:is_inflation(MaxInt1, MaxInt1)),
@@ -195,9 +202,12 @@ is_inflation_test() ->
 
 is_strict_inflation_test() ->
     MaxInt1 = {?TYPE, 23},
+    DeltaMaxInt1 = {?TYPE, {delta, 23}},
     MaxInt2 = {?TYPE, 42},
     ?assertNot(is_strict_inflation(MaxInt1, MaxInt1)),
     ?assert(is_strict_inflation(MaxInt1, MaxInt2)),
+    ?assertNot(is_strict_inflation(DeltaMaxInt1, MaxInt1)),
+    ?assert(is_strict_inflation(DeltaMaxInt1, MaxInt2)),
     ?assertNot(is_strict_inflation(MaxInt2, MaxInt1)).
 
 join_decomposition_test() ->
