@@ -330,15 +330,25 @@ join_all_events({vclock, AllEventsA}, {vclock, AllEventsB}) ->
 join_all_events({vclock, AllEventsA}, AllEventsB) ->
     JoinedAllEvents =
         ordsets:fold(
-          fun({EventId0, _Counter0}=Event0, AllEventsA0) ->
-                  lists:keystore(EventId0, 1, AllEventsA0, Event0)
+          fun({EventId0, Counter0}=Event0, AllEventsA0) ->
+                  case lists:keytake(EventId0, 1, AllEventsA0) of
+                      false ->
+                          [Event0|AllEventsA0];
+                      {value, {_EventIdA, CounterA}, RestAllEventsA0} ->
+                          [{EventId0, max(CounterA, Counter0)}|RestAllEventsA0]
+                  end
           end, AllEventsA, AllEventsB),
     {vclock, JoinedAllEvents};
 join_all_events(AllEventsA, {vclock, AllEventsB}) ->
     JoinedAllEvents =
         ordsets:fold(
-          fun({EventId0, _Counter0}=Event0, AllEventsB0) ->
-                  lists:keystore(EventId0, 1, AllEventsB0, Event0)
+          fun({EventId0, Counter0}=Event0, AllEventsB0) ->
+                  case lists:keytake(EventId0, 1, AllEventsB0) of
+                      false ->
+                          [Event0|AllEventsB0];
+                      {value, {_EventIdB, CounterB}, RestAllEventsB0} ->
+                          [{EventId0, max(CounterB, Counter0)}|RestAllEventsB0]
+                  end
           end, AllEventsB, AllEventsA),
     {vclock, JoinedAllEvents};
 join_all_events(AllEventsA, AllEventsB) ->
@@ -560,13 +570,13 @@ merge_test() ->
                               [{EventId1, 1}, {EventId1, 2},
                                {EventId2, 3}, {EventId2, 4}]}}},
     Set2 = merge(Set1, Delta1),
-    ?assertEqual({?TYPE, {[{<<"1">>, [[{EventId1, 1}, {EventId2, 1}],
-                                      [{EventId1, 1}, {EventId2, 3}]]},
-                           {<<"2">>, [[{EventId1, 2}, {EventId2, 2}],
-                                      [{EventId1, 2}, {EventId2, 4}]]}],
-                          [],
-                          {vclock, [{EventId1, 2}, {EventId2, 4}]}}},
-                 Set2).
+    ?assert(equal({?TYPE, {[{<<"1">>, [[{EventId1, 1}, {EventId2, 1}],
+                                       [{EventId1, 1}, {EventId2, 3}]]},
+                            {<<"2">>, [[{EventId1, 2}, {EventId2, 2}],
+                                       [{EventId1, 2}, {EventId2, 4}]]}],
+                           [],
+                           {vclock, [{EventId1, 2}, {EventId2, 4}]}}},
+                  Set2)).
 
 merge_delta_test() ->
     EventId = {<<"object1">>, a},
