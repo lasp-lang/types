@@ -226,7 +226,7 @@ get_events_from_provenance(Provenance) ->
 -spec is_lattice_inflation_oorset_ps(payload(), payload()) -> boolean().
 is_lattice_inflation_oorset_ps(Payload, Payload) ->
     true;
-is_lattice_inflation_oorset_ps({DataStoreA, _FilteredOutEventsA, AllEventsA},
+is_lattice_inflation_oorset_ps({DataStoreA, FilteredOutEventsA, AllEventsA},
                                {DataStoreB, _FilteredOutEventsB, AllEventsB}) ->
     DataStoreEventsA = orddict:fold(
                          fun(_Elem, Provenance, DataStoreEventsA0) ->
@@ -240,7 +240,8 @@ is_lattice_inflation_oorset_ps({DataStoreA, _FilteredOutEventsA, AllEventsA},
                                    DataStoreEventsB0,
                                    get_events_from_provenance(Provenance))
                          end, ordsets:new(), DataStoreB),
-    RemovedA = subtract_all_events(AllEventsA, DataStoreEventsA),
+    RemovedA = subtract_all_events(AllEventsA, ordsets:union(DataStoreEventsA,
+                                                             FilteredOutEventsA)),
     is_all_events_inflation(AllEventsA, AllEventsB) andalso
         (ordsets:intersection(RemovedA, DataStoreEventsB) == []).
 
@@ -293,9 +294,9 @@ join_oorset_ps({DataStoreA, FilteredOutEventsA, AllEventsA}=FstORSet,
                {DataStoreB, FilteredOutEventsB, AllEventsB}=SndORSet) ->
     UnionElems = ordsets:union(ordsets:from_list(orddict:fetch_keys(DataStoreA)),
                                ordsets:from_list(orddict:fetch_keys(DataStoreB))),
-    JoinedDataStore =
+    {JoinedDataStore, ElemEvents} =
         ordsets:fold(
-          fun(Elem, JoinedDataStore0) ->
+          fun(Elem, {JoinedDataStore0, ElemEvents0}) ->
                   {ok, ProvenanceA} = get_provenance(Elem, FstORSet),
                   {ok, ProvenanceB} = get_provenance(Elem, SndORSet),
                   JoinedProvenance =
@@ -303,13 +304,16 @@ join_oorset_ps({DataStoreA, FilteredOutEventsA, AllEventsA}=FstORSet,
                                       ProvenanceB, FilteredOutEventsB, AllEventsB),
                   case ordsets:size(JoinedProvenance) of
                       0 ->
-                          JoinedDataStore0;
+                          {JoinedDataStore0, ElemEvents0};
                       _ ->
-                          orddict:store(Elem, JoinedProvenance, JoinedDataStore0)
+                          {orddict:store(Elem, JoinedProvenance, JoinedDataStore0),
+                           ordsets:union(ElemEvents0,
+                                         get_events_from_provenance(JoinedProvenance))}
                   end
-          end, orddict:new(), UnionElems),
+          end, {orddict:new(), ordsets:new()}, UnionElems),
     {JoinedDataStore,
-     ordsets:union(FilteredOutEventsA, FilteredOutEventsB),
+     ordsets:subtract(ordsets:union(FilteredOutEventsA, FilteredOutEventsB),
+                      ElemEvents),
      join_all_events(AllEventsA, AllEventsB)}.
 
 %% @private
