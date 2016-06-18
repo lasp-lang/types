@@ -47,7 +47,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
 -export_type([state_gcounter/0, delta_state_gcounter/0, state_gcounter_op/0]).
@@ -133,6 +133,13 @@ merge({?TYPE, GCounter1}, {?TYPE, GCounter2}) ->
 equal({?TYPE, GCounter1}, {?TYPE, GCounter2}) ->
     Fun = fun(Value1, Value2) -> Value1 == Value2 end,
     orddict_ext:equal(GCounter1, GCounter2, Fun).
+
+%% @doc Check if a GCounter is bottom.
+-spec is_bottom(delta_or_state()) -> boolean().
+is_bottom({?TYPE, {delta, GCounter}}) ->
+    is_bottom({?TYPE, GCounter});
+is_bottom({?TYPE, GCounter}) ->
+    orddict:is_empty(GCounter).
 
 %% @doc Given two `state_gcounter()', check if the second is an inflation
 %%      of the first.
@@ -274,6 +281,12 @@ equal_test() ->
     ?assertNot(equal(Counter1, Counter2)),
     ?assertNot(equal(Counter1, Counter3)),
     ?assertNot(equal(Counter1, Counter4)).
+
+is_bottom_test() ->
+    Counter0 = new(),
+    Counter1 = {?TYPE, [{1, 2}]},
+    ?assert(is_bottom(Counter0)),
+    ?assertNot(is_bottom(Counter1)).
 
 is_inflation_test() ->
     Counter1 = {?TYPE, [{1, 2}, {2, 1}, {4, 1}]},

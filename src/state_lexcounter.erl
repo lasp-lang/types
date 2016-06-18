@@ -42,7 +42,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
 -export_type([state_lexcounter/0, delta_state_lexcounter/0, state_lexcounter_op/0]).
@@ -142,6 +142,13 @@ join({Left1, _Right1}, {Left2, _Right2}) ->
 equal({?TYPE, LexCounter1}, {?TYPE, LexCounter2}) ->
     Fun = fun({Left1, Right1}, {Left2, Right2}) -> Left1 == Left2 andalso Right1 == Right2 end,
     orddict_ext:equal(LexCounter1, LexCounter2, Fun).
+
+%% @doc Check if a LexCounter is bottom.
+-spec is_bottom(delta_or_state()) -> boolean().
+is_bottom({?TYPE, {delta, LexCounter}}) ->
+    is_bottom({?TYPE, LexCounter});
+is_bottom({?TYPE, LexCounter}) ->
+    orddict:is_empty(LexCounter).
 
 %% @doc Given two `state_lexcounter()', check if the second is and
 %%      inflation of the first.
@@ -260,6 +267,12 @@ equal_test() ->
     ?assertNot(equal(Counter1, Counter2)),
     ?assertNot(equal(Counter1, Counter3)),
     ?assertNot(equal(Counter1, Counter4)).
+
+is_bottom_test() ->
+    Counter0 = new(),
+    Counter1 = {?TYPE, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}]},
+    ?assert(is_bottom(Counter0)),
+    ?assertNot(is_bottom(Counter1)).
 
 is_inflation_test() ->
     Counter1 = {?TYPE, [{<<"1">>, {2, 0}}]},

@@ -35,7 +35,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
 -export_type([state_ivar/0, delta_state_ivar/0, state_ivar_op/0]).
@@ -93,6 +93,13 @@ merge({?TYPE, Value}, {?TYPE, Value}) ->
 -spec equal(state_ivar(), state_ivar()) -> boolean().
 equal({?TYPE, Value1}, {?TYPE, Value2}) ->
     Value1 == Value2.
+
+%% @doc Check if an IVar is bottom.
+-spec is_bottom(delta_or_state()) -> boolean().
+is_bottom({?TYPE, {delta, Value}}) ->
+    is_bottom({?TYPE, Value});
+is_bottom({?TYPE, Value}) ->
+    Value == undefined.
 
 %% @doc Given two `state_ivar()', check if the second is and inflation
 %%      of the first.
@@ -162,6 +169,12 @@ equal_test() ->
     ?assertNot(equal(Var0, Var1)),
     ?assert(equal(Var1, Var1)),
     ?assertNot(equal(Var1, Var2)).
+
+is_bottom_test() ->
+    Var0 = new(),
+    Var1 = {?TYPE, [<<"a">>]},
+    ?assert(is_bottom(Var0)),
+    ?assertNot(is_bottom(Var1)).
 
 is_inflation_test() ->
     Var0 = new(),
