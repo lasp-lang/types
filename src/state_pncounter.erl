@@ -49,7 +49,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 -export([extract_delta/1]).
 
@@ -152,6 +152,13 @@ merge({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
 equal({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
     Fun = fun({Inc1, Dec1}, {Inc2, Dec2}) -> Inc1 == Inc2 andalso Dec1 == Dec2 end,
     orddict_ext:equal(PNCounter1, PNCounter2, Fun).
+
+%% @doc Check if a PNCounter is bottom.
+-spec is_bottom(delta_or_state()) -> boolean().
+is_bottom({?TYPE, {delta, PNCounter}}) ->
+    is_bottom({?TYPE, PNCounter});
+is_bottom({?TYPE, PNCounter}) ->
+    orddict:is_empty(PNCounter).
 
 %% @doc Given two `state_pncounter()', check if the second is and inflation
 %%      of the first.
@@ -287,6 +294,12 @@ equal_test() ->
     ?assertNot(equal(Counter1, Counter2)),
     ?assertNot(equal(Counter1, Counter3)),
     ?assertNot(equal(Counter1, Counter4)).
+
+is_bottom_test() ->
+    Counter0 = new(),
+    Counter1 = {?TYPE, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}]},
+    ?assert(is_bottom(Counter0)),
+    ?assertNot(is_bottom(Counter1)).
 
 is_inflation_test() ->
     Counter1 = {?TYPE, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}]},

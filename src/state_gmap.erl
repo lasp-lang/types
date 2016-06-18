@@ -43,7 +43,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
 -export_type([state_gmap/0, delta_state_gmap/0, state_gmap_op/0]).
@@ -134,6 +134,13 @@ equal({?TYPE, {Type, GMap1}}, {?TYPE, {Type, GMap2}}) ->
         Type:equal(Value1, Value2)
     end,
     orddict_ext:equal(GMap1, GMap2, Fun).
+
+%% @doc Check if a GMap is bottom
+-spec is_bottom(delta_or_state()) -> boolean().
+is_bottom({?TYPE, {delta, GMap}}) ->
+    is_bottom({?TYPE, GMap});
+is_bottom({?TYPE, {_Type, GMap}}) ->
+    orddict:is_empty(GMap).
 
 %% @doc Given two `state_gmap()', check if the second is an inflation
 %%      of the first.
@@ -233,6 +240,12 @@ equal_test() ->
     ?assert(equal(Map1, Map1)),
     ?assertNot(equal(Map1, Map2)),
     ?assertNot(equal(Map1, Map3)).
+
+is_bottom_test() ->
+    Map0 = new(),
+    Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
+    ?assert(is_bottom(Map0)),
+    ?assertNot(is_bottom(Map1)).
 
 is_inflation_test() ->
     Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},

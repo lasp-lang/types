@@ -39,7 +39,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
 -export_type([state_orset/0, delta_state_orset/0, state_orset_op/0]).
@@ -200,6 +200,13 @@ merge({?TYPE, ORSet1}, {?TYPE, ORSet2}) ->
 -spec equal(state_orset(), state_orset()) -> boolean().
 equal({?TYPE, ORSet1}, {?TYPE, ORSet2}) ->
     ORSet1 == ORSet2.
+
+%% @doc Check if an ORSet is bottom.
+-spec is_bottom(delta_or_state()) -> boolean().
+is_bottom({?TYPE, {delta, ORSet}}) ->
+    is_bottom({?TYPE, ORSet});
+is_bottom({?TYPE, ORSet}) ->
+    orddict:is_empty(ORSet).
 
 %% @doc Given two `state_orset()', check if the second is and inflation
 %%      of the first.
@@ -392,6 +399,12 @@ equal_test() ->
     ?assertNot(equal(Set1, Set2)),
     ?assertNot(equal(Set1, Set3)),
     ?assertNot(equal(Set2, Set3)).
+
+is_bottom_test() ->
+    Set0 = new(),
+    Set1 = {?TYPE, [{<<"a">>, [{<<"token1">>, true}]}]},
+    ?assert(is_bottom(Set0)),
+    ?assertNot(is_bottom(Set1)).
 
 is_inflation_test() ->
     Set1 = {?TYPE, [{<<"a">>, [{<<"token1">>, true}]}]},

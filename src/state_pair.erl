@@ -45,7 +45,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
 -export_type([state_pair/0, delta_state_pair/0, state_pair_op/0]).
@@ -137,6 +137,14 @@ equal({?TYPE, {{FstType, _}=Fst1, {SndType, _}=Snd1}},
       {?TYPE, {{FstType, _}=Fst2, {SndType, _}=Snd2}}) ->
     FstType:equal(Fst1, Fst2) andalso
     SndType:equal(Snd1, Snd2).
+
+%% @doc Check if a Pair is bottom.
+-spec is_bottom(delta_or_state()) -> boolean().
+is_bottom({?TYPE, {delta, Pair}}) ->
+    is_bottom({?TYPE, Pair});
+is_bottom({?TYPE, {{FstType, _}=Fst, {SndType, _}=Snd}}) ->
+    FstType:is_bottom(Fst) andalso
+    SndType:is_bottom(Snd).
 
 %% @doc Check for `state_pair()' inflation.
 %%      We have an inflation when both of the components are inflations.
@@ -238,6 +246,15 @@ equal_test() ->
     ?assert(equal(Pair1, Pair1)),
     ?assertNot(equal(Pair1, Pair2)),
     ?assertNot(equal(Pair3, Pair4)).
+
+is_bottom_test() ->
+    GCounter0 = ?GCOUNTER_TYPE:new(),
+    GCounter1 = {?GCOUNTER_TYPE, [{1, 5}, {2, 10}]},
+    GSet0 = ?GSET_TYPE:new(),
+    Pair0 = {?TYPE, {GCounter0, GSet0}},
+    Pair1 = {?TYPE, {GCounter1, GSet0}},
+    ?assert(is_bottom(Pair0)),
+    ?assertNot(is_bottom(Pair1)).
 
 is_inflation_test() ->
     GCounter1 = {?GCOUNTER_TYPE, [{1, 5}, {2, 10}]},
