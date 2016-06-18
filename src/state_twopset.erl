@@ -46,7 +46,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
 -export_type([state_twopset/0, delta_state_twopset/0, state_twopset_op/0]).
@@ -127,6 +127,14 @@ merge({?TYPE, {Added1, Removed1}}, {?TYPE, {Added2, Removed2}}) ->
 equal({?TYPE, {Added1, Removed1}}, {?TYPE, {Added2, Removed2}}) ->
     ordsets_ext:equal(Added1, Added2) andalso
     ordsets_ext:equal(Removed1, Removed2).
+
+%% @doc Check if a TwoPSet is bottom.
+-spec is_bottom(delta_or_state()) -> boolean().
+is_bottom({?TYPE, {delta, Set}}) ->
+        is_bottom({?TYPE, Set});
+is_bottom({?TYPE, {Added, Removed}}) ->
+        orddict:is_empty(Added) andalso
+        orddict:is_empty(Removed).
 
 %% @doc Given two `state_twopset()', check if the second is an inflation
 %%      of the first.
@@ -233,6 +241,12 @@ equal_test() ->
     ?assert(equal(Set1, Set1)),
     ?assert(equal(Set2, Set2)),
     ?assertNot(equal(Set1, Set2)).
+
+is_bottom_test() ->
+    Set0 = new(),
+    Set1 = {?TYPE, {[<<"a">>], []}},
+    ?assert(is_bottom(Set0)),
+    ?assertNot(is_bottom(Set1)).
 
 is_inflation_test() ->
     Set1 = {?TYPE, {[<<"a">>], []}},

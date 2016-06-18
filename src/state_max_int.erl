@@ -38,7 +38,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
 -export_type([state_max_int/0, delta_state_max_int/0, state_max_int_op/0]).
@@ -96,6 +96,13 @@ merge({?TYPE, Value1}, {?TYPE, Value2}) ->
 -spec equal(state_max_int(), state_max_int()) -> boolean().
 equal({?TYPE, Value1}, {?TYPE, Value2}) ->
     Value1 == Value2.
+
+%% @doc Check if a Max Int is bottom.
+-spec is_bottom(delta_or_state()) -> boolean().
+is_bottom({?TYPE, {delta, Value}}) ->
+    is_bottom({?TYPE, Value});
+is_bottom({?TYPE, Value}) ->
+    Value == 0.
 
 %% @doc Given two `state_max_int()', check if the second is an inflation
 %%      of the first.
@@ -185,6 +192,12 @@ equal_test() ->
     MaxInt2 = {?TYPE, 23},
     ?assert(equal(MaxInt1, MaxInt1)),
     ?assertNot(equal(MaxInt1, MaxInt2)).
+
+is_bottom_test() ->
+    MaxInt0 = new(),
+    MaxInt1 = {?TYPE, 17},
+    ?assert(is_bottom(MaxInt0)),
+    ?assertNot(is_bottom(MaxInt1)).
 
 is_inflation_test() ->
     MaxInt1 = {?TYPE, 23},

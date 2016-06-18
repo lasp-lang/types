@@ -51,6 +51,9 @@
 %% If we merge two deltas, the result is a delta (delta group).
 -callback merge(delta_or_state(), delta_or_state()) -> delta_or_state().
 
+%% Check if a some state is bottom
+-callback is_bottom(delta_or_state()) -> boolean().
+
 %% Inflation testing.
 -callback is_inflation(delta_or_state(), crdt()) -> boolean().
 -callback is_strict_inflation(delta_or_state(), crdt()) -> boolean().

@@ -47,7 +47,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
 -export_type([state_bcounter/0, delta_state_bcounter/0, state_bcounter_op/0]).
@@ -185,6 +185,16 @@ merge({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) ->
 equal({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) ->
     ?PNCOUNTER_TYPE:equal(PNCounter1, PNCounter2) andalso
     ?GMAP_TYPE:equal(GMap1, GMap2).
+
+%% @doc Some BCounter state is bottom is both components
+%%      of the pair (the PNCounter and the GMap)
+%%      are bottom.
+-spec is_bottom(delta_or_state()) -> boolean().
+is_bottom({?TYPE, {delta, BCounter}}) ->
+    is_bottom({?TYPE, BCounter});
+is_bottom({?TYPE, {PNCounter, GMap}}) ->
+    ?PNCOUNTER_TYPE:is_bottom(PNCounter) andalso
+    ?GMAP_TYPE:is_bottom(GMap).
 
 %% @doc Given two `state_bcounter()', check if the second is an
 %%      inflation of the first.
