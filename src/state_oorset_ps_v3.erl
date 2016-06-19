@@ -292,6 +292,18 @@ is_all_events_inflation_private(AllEventsA, AllEventsB) ->
 -spec join_oorset_ps(payload(), payload()) -> payload().
 join_oorset_ps({DataStoreA, FilteredOutEventsA, AllEventsA}=FstORSet,
                {DataStoreB, FilteredOutEventsB, AllEventsB}=SndORSet) ->
+    DataStoreEventsA = orddict:fold(
+                         fun(_Elem, Provenance, DataStoreEventsA0) ->
+                                 ordsets:union(
+                                   DataStoreEventsA0,
+                                   get_events_from_provenance(Provenance))
+                         end, ordsets:new(), DataStoreA),
+    DataStoreEventsB = orddict:fold(
+                         fun(_Elem, Provenance, DataStoreEventsB0) ->
+                                 ordsets:union(
+                                   DataStoreEventsB0,
+                                   get_events_from_provenance(Provenance))
+                         end, ordsets:new(), DataStoreB),
     UnionElems = ordsets:union(ordsets:from_list(orddict:fetch_keys(DataStoreA)),
                                ordsets:from_list(orddict:fetch_keys(DataStoreB))),
     {JoinedDataStore, ElemEvents} =
@@ -300,8 +312,10 @@ join_oorset_ps({DataStoreA, FilteredOutEventsA, AllEventsA}=FstORSet,
                   {ok, ProvenanceA} = get_provenance(Elem, FstORSet),
                   {ok, ProvenanceB} = get_provenance(Elem, SndORSet),
                   JoinedProvenance =
-                      join_provenance(ProvenanceA, FilteredOutEventsA, AllEventsA,
-                                      ProvenanceB, FilteredOutEventsB, AllEventsB),
+                      join_provenance(ProvenanceA,
+                                      DataStoreEventsA, FilteredOutEventsA, AllEventsA,
+                                      ProvenanceB,
+                                      DataStoreEventsB, FilteredOutEventsB, AllEventsB),
                   case ordsets:size(JoinedProvenance) of
                       0 ->
                           {JoinedDataStore0, ElemEvents0};
@@ -359,16 +373,18 @@ join_all_events(AllEventsA, AllEventsB) ->
     ordsets:union(AllEventsA, AllEventsB).
 
 %% @private
--spec join_provenance(ps_provenance(), ps_filtered_out_events(), ps_all_events(),
-                      ps_provenance(), ps_filtered_out_events(), ps_all_events()) ->
+-spec join_provenance(ps_provenance(),
+                      ps_dot(), ps_filtered_out_events(), ps_all_events(),
+                      ps_provenance(),
+                      ps_dot(), ps_filtered_out_events(), ps_all_events()) ->
           ps_provenance().
-join_provenance(ProvenanceA, FilteredOutEventsA, AllEventsA,
-                ProvenanceB, FilteredOutEventsB, AllEventsB) ->
+join_provenance(ProvenanceA, DataStoreEventsA, FilteredOutEventsA, AllEventsA,
+                ProvenanceB, DataStoreEventsB, FilteredOutEventsB, AllEventsB) ->
     JoinedProvenance0 = ordsets:intersection(ProvenanceA, ProvenanceB),
     JoinedProvenance1 =
         ordsets:fold(fun(Dot0, Acc) ->
                              case is_valid_dot(Dot0, AllEventsB,
-                                               ProvenanceB, FilteredOutEventsB) of
+                                               DataStoreEventsB, FilteredOutEventsB) of
                                  false ->
                                      Acc;
                                  true ->
@@ -377,7 +393,7 @@ join_provenance(ProvenanceA, FilteredOutEventsA, AllEventsA,
                      end, JoinedProvenance0, ProvenanceA),
     ordsets:fold(fun(Dot0, Acc) ->
                          case is_valid_dot(Dot0, AllEventsA,
-                                           ProvenanceA, FilteredOutEventsA) of
+                                           DataStoreEventsA, FilteredOutEventsA) of
                              false ->
                                  Acc;
                              true ->
@@ -387,19 +403,17 @@ join_provenance(ProvenanceA, FilteredOutEventsA, AllEventsA,
 
 %% @private
 -spec is_valid_dot(ps_dot(), ps_all_events(),
-                   ps_provenance(), ps_filtered_out_events()) -> boolean().
-is_valid_dot(Dot, {vclock, AllEventsOther}, ProvenanceOther, FilteredOutOther) ->
-    ValidOtherSet = ordsets:union(get_events_from_provenance(ProvenanceOther),
-                                  FilteredOutOther),
+                   ps_dot(), ps_filtered_out_events()) -> boolean().
+is_valid_dot(Dot, {vclock, AllEventsOther}, DataStoreEventsOther, FilteredOutOther) ->
+    ValidOtherSet = ordsets:union(DataStoreEventsOther, FilteredOutOther),
     ordsets:fold(
       fun({EventId0, Counter0}=Event0, IsValid0) ->
               (ordsets:is_element(Event0, ValidOtherSet) orelse
                (Counter0 > get_counter(EventId0, {vclock, AllEventsOther}))) andalso
                   IsValid0
       end, true, Dot);
-is_valid_dot(Dot, AllEventsOther, ProvenanceOther, FilteredOutOther) ->
-    ValidOtherSet = ordsets:union(get_events_from_provenance(ProvenanceOther),
-                                  FilteredOutOther),
+is_valid_dot(Dot, AllEventsOther, DataStoreEventsOther, FilteredOutOther) ->
+    ValidOtherSet = ordsets:union(DataStoreEventsOther, FilteredOutOther),
     ordsets:fold(
       fun(Event0, IsValid0) ->
               (ordsets:is_element(Event0, ValidOtherSet) orelse
