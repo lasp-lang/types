@@ -405,19 +405,21 @@ join_provenance(ProvenanceA, DataStoreEventsA, FilteredOutEventsA, AllEventsA,
 -spec is_valid_dot(ps_dot(), ps_all_events(),
                    ps_dot(), ps_filtered_out_events()) -> boolean().
 is_valid_dot(Dot, {vclock, AllEventsOther}, DataStoreEventsOther, FilteredOutOther) ->
-    ValidOtherSet = ordsets:union(DataStoreEventsOther, FilteredOutOther),
     ordsets:fold(
       fun({EventId0, Counter0}=Event0, IsValid0) ->
-              (ordsets:is_element(Event0, ValidOtherSet) orelse
-               (Counter0 > get_counter(EventId0, {vclock, AllEventsOther}))) andalso
+              (ordsets:is_element(Event0, FilteredOutOther) orelse
+                   ordsets:is_element(Event0, DataStoreEventsOther) orelse
+                   (Counter0 > get_counter(EventId0,
+                                           {vclock, AllEventsOther}))) andalso
                   IsValid0
       end, true, Dot);
 is_valid_dot(Dot, AllEventsOther, DataStoreEventsOther, FilteredOutOther) ->
-    ValidOtherSet = ordsets:union(DataStoreEventsOther, FilteredOutOther),
     ordsets:fold(
       fun(Event0, IsValid0) ->
-              (ordsets:is_element(Event0, ValidOtherSet) orelse
-               (not ordsets:is_element(Event0, AllEventsOther))) andalso IsValid0
+              (ordsets:is_element(Event0, FilteredOutOther) orelse
+                   ordsets:is_element(Event0, DataStoreEventsOther) orelse
+                   (not ordsets:is_element(Event0, AllEventsOther))) andalso
+                  IsValid0
       end, true, Dot).
 
 %% @private
