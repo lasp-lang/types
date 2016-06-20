@@ -103,8 +103,8 @@ remove_redundant_polog({VV1, Op}, {?TYPE, {POLog0, Flag}}) ->
             {Add1, {?TYPE, {POLog1, Flag}}}
     end.
 
-%% @doc Removes redundant operations from POLog of `pure_ewflag()'
-%% Called upon updating (enable, disable) the `pure_ewflag()'
+%% @doc Removes redundant operations from crystal of `pure_ewflag()'
+%% No crystalisation for this one.
 -spec remove_redundant_crystal({pure_type:id(), pure_ewflag_op()}, pure_ewflag()) -> {boolean(), pure_ewflag()}.
 remove_redundant_crystal({_VV1, _X}, {?TYPE, {POLog0, EWFlag}}) ->
     {true, {?TYPE, {POLog0, EWFlag}}}.
