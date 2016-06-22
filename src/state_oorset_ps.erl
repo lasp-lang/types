@@ -106,21 +106,16 @@ delta_mutate({add, Elem},
 delta_mutate({add_all, Elems},
              EventId,
              {?TYPE, {_DataStore, _FilteredOutEvents, AllEvents}}) ->
-    {AccDelta, _AccAllEvents} =
+    {AccDeltaDataStore, AccDeltaAllEvents, _AccAllEvents} =
         lists:foldl(
-          fun(Elem, {AccDelta0, AccAllEvents0}) ->
+          fun(Elem, {AccDeltaDataStore0, AccDeltaAllEvents0, AccAllEvents0}) ->
                   {vclock, [NewEvent|Rest]} = get_next_event(EventId, AccAllEvents0),
-                  NewDot = ordsets:add_element(NewEvent, ordsets:new()),
-                  NewProvenance = ordsets:add_element(NewDot, ordsets:new()),
-                  DeltaDataStore = orddict:store(Elem, NewProvenance, orddict:new()),
-                  {merge(AccDelta0,
-                         {?TYPE, {delta, {DeltaDataStore, ordsets:new(), NewDot}}}),
+                  NewProvenance = [[NewEvent]],
+                  {orddict:store(Elem, NewProvenance, AccDeltaDataStore0),
+                   ordsets:add_element(NewEvent, AccDeltaAllEvents0),
                    {vclock, [NewEvent|Rest]}}
-          end,
-          {{?TYPE, {delta, {orddict:new(), ordsets:new(), ordsets:new()}}},
-           AllEvents},
-          Elems),
-    {ok, AccDelta};
+          end, {orddict:new(), ordsets:new(), AllEvents}, Elems),
+    {ok, {?TYPE, {delta, {AccDeltaDataStore, ordsets:new(), AccDeltaAllEvents}}}};
 
 %% Removes a single element in `state_oorset_ps()'.
 %% Delta: {[], (ElemEvents - OwnedElemEvents), ElemEvents}
@@ -163,7 +158,7 @@ merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
 merge({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
     merge({?TYPE, Delta}, {?TYPE, CRDT});
 merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
+    merge({?TYPE, CRDT}, {?TYPE, Delta});
 merge({?TYPE, ORSet1}, {?TYPE, ORSet2}) ->
     ORSet = join_oorset_ps(ORSet1, ORSet2),
     {?TYPE, ORSet}.
@@ -180,7 +175,7 @@ equal({?TYPE, {DataStoreA, FilteredOutEventsA, {vclock, AllEventsA}}},
 %% The inflation will be checked by the is_lattice_inflation() in the common library.
 -spec is_inflation(state_oorset_ps(), state_oorset_ps()) -> boolean().
 is_inflation({?TYPE, ORSet1}, {?TYPE, ORSet2}) ->
-    is_lattice_inflation_oorset_ps(ORSet1, ORSet2).
+    is_inflation_oorset_ps(ORSet1, ORSet2).
 
 %% @doc Check for strict inflation.
 -spec is_strict_inflation(state_oorset_ps(), state_oorset_ps()) -> boolean().
@@ -206,16 +201,6 @@ get_next_event(EventId, {vclock, AllEvents}) ->
     {vclock, [{EventId, NextCounter}|NewAllEvents]}.
 
 %% @private
--spec get_counter(ps_event_id(), ps_all_events()) -> non_neg_integer().
-get_counter(EventId, {vclock, AllEvents}) ->
-    case lists:keyfind(EventId, 1, AllEvents) of
-        {_, Counter} ->
-            Counter;
-        false ->
-            0
-    end.
-
-%% @private
 -spec get_events_from_provenance(ps_provenance()) -> ps_dot().
 get_events_from_provenance(Provenance) ->
     ordsets:fold(fun(Dot0, Acc0) ->
@@ -223,37 +208,27 @@ get_events_from_provenance(Provenance) ->
                  end, ordsets:new(), Provenance).
 
 %% @private
--spec is_lattice_inflation_oorset_ps(payload(), payload()) -> boolean().
-is_lattice_inflation_oorset_ps(Payload, Payload) ->
+is_inflation_all_events_private([], _) ->
+    % all AllEvents are the inflation of the empty AllEvents
     true;
-is_lattice_inflation_oorset_ps({DataStoreA, FilteredOutEventsA, AllEventsA},
-                               {DataStoreB, _FilteredOutEventsB, AllEventsB}) ->
-    DataStoreEventsA = orddict:fold(
-                         fun(_Elem, Provenance, DataStoreEventsA0) ->
-                                 ordsets:union(
-                                   DataStoreEventsA0,
-                                   get_events_from_provenance(Provenance))
-                         end, ordsets:new(), DataStoreA),
-    DataStoreEventsB = orddict:fold(
-                         fun(_Elem, Provenance, DataStoreEventsB0) ->
-                                 ordsets:union(
-                                   DataStoreEventsB0,
-                                   get_events_from_provenance(Provenance))
-                         end, ordsets:new(), DataStoreB),
-    RemovedA = subtract_all_events(AllEventsA, ordsets:union(DataStoreEventsA,
-                                                             FilteredOutEventsA)),
-    is_all_events_inflation(AllEventsA, AllEventsB) andalso
-        (ordsets:intersection(RemovedA, DataStoreEventsB) == []).
+is_inflation_all_events_private(AllEventsA, AllEventsB) ->
+    [{EventIdA, CounterA}|RestA] = AllEventsA,
+    case lists:keyfind(EventIdA, 1, AllEventsB) of
+        false ->
+            false;
+        {_, CounterB} ->
+            case CounterA == CounterB of
+                true ->
+                    is_inflation_all_events_private(RestA, AllEventsB);
+                false ->
+                    CounterA < CounterB
+            end
+    end.
 
 %% @private
--spec subtract_all_events(ps_all_events(), ps_dot()) -> ps_dot().
-subtract_all_events({vclock, AllEvents}, Events) ->
-    AllEventsSet = lists:foldl(
-                     fun({EventId0, Counter0}, AllEventsSet0) ->
-                             get_ordsets_from_vclock({EventId0, Counter0},
-                                                     AllEventsSet0)
-                     end, ordsets:new(), AllEvents),
-    ordsets:subtract(AllEventsSet, Events).
+-spec is_inflation_all_events(ps_all_events(), ps_all_events()) -> boolean().
+is_inflation_all_events({vclock, AllEventsA}, {vclock, AllEventsB}) ->
+    is_inflation_all_events_private(AllEventsA, AllEventsB).
 
 %% @private
 get_ordsets_from_vclock({EventId, Counter}, Ordset) ->
@@ -266,30 +241,61 @@ get_ordsets_from_vclock({EventId, Counter}, Ordset) ->
     end.
 
 %% @private
--spec is_all_events_inflation(ps_all_events(), ps_all_events()) -> boolean().
-is_all_events_inflation({vclock, AllEventsA}, {vclock, AllEventsB}) ->
-    is_all_events_inflation_private(AllEventsA, AllEventsB).
+-spec subtract_all_events(ps_all_events(), ps_dot()) -> ps_dot().
+subtract_all_events({vclock, AllEvents}, Events) ->
+    AllEventsSet = lists:foldl(
+                     fun({EventId0, Counter0}, AllEventsSet0) ->
+                             get_ordsets_from_vclock({EventId0, Counter0},
+                                                     AllEventsSet0)
+                     end, ordsets:new(), AllEvents),
+    ordsets:subtract(AllEventsSet, Events).
 
 %% @private
-is_all_events_inflation_private([], _) ->
-    % all AllEvents are the inflation of the empty AllEvents
+-spec is_inflation_oorset_ps(payload(), payload()) -> boolean().
+is_inflation_oorset_ps(Payload, Payload) ->
     true;
-is_all_events_inflation_private(AllEventsA, AllEventsB) ->
-    [{EventIdA, CounterA}|RestA] = AllEventsA,
-    case lists:keyfind(EventIdA, 1, AllEventsB) of
+is_inflation_oorset_ps({DataStoreA, FilteredOutEventsA, AllEventsA},
+                       {DataStoreB, _FilteredOutEventsB, AllEventsB}) ->
+    case is_inflation_all_events(AllEventsA, AllEventsB) of
         false ->
             false;
-        {_, CounterB} ->
-            case CounterA == CounterB of
-                true ->
-                    is_all_events_inflation_private(RestA, AllEventsB);
-                false ->
-                    CounterA < CounterB
-            end
+        true ->
+            DataStoreEventsA = orddict:fold(
+                                 fun(_Elem, Provenance, DataStoreEventsA0) ->
+                                         ordsets:union(
+                                           DataStoreEventsA0,
+                                           get_events_from_provenance(Provenance))
+                                 end, ordsets:new(), DataStoreA),
+            DataStoreEventsB = orddict:fold(
+                                 fun(_Elem, Provenance, DataStoreEventsB0) ->
+                                         ordsets:union(
+                                           DataStoreEventsB0,
+                                           get_events_from_provenance(Provenance))
+                                 end, ordsets:new(), DataStoreB),
+            RemovedA = subtract_all_events(AllEventsA,
+                                           ordsets:union(DataStoreEventsA,
+                                                         FilteredOutEventsA)),
+            ordsets:intersection(RemovedA, DataStoreEventsB) == []
+    end.
+
+%% @private
+-spec get_counter(ps_event_id(), ps_all_events()) -> non_neg_integer().
+get_counter(EventId, {vclock, AllEvents}) ->
+    case lists:keyfind(EventId, 1, AllEvents) of
+        {_, Counter} ->
+            Counter;
+        false ->
+            0
     end.
 
 %% @private
 -spec join_oorset_ps(payload(), payload()) -> payload().
+join_oorset_ps({[], [], {vclock, []}},
+               {DataStoreB, FilteredOutEventsB, AllEventsB}) ->
+    {DataStoreB, FilteredOutEventsB, join_all_events({vclock, []}, AllEventsB)};
+join_oorset_ps({DataStoreA, FilteredOutEventsA, AllEventsA},
+               {[], [], {vclock, []}}) ->
+    {DataStoreA, FilteredOutEventsA, join_all_events(AllEventsA, {vclock, []})};
 join_oorset_ps({DataStoreA, FilteredOutEventsA, AllEventsA}=FstORSet,
                {DataStoreB, FilteredOutEventsB, AllEventsB}=SndORSet) ->
     DataStoreEventsA = orddict:fold(
@@ -378,10 +384,12 @@ join_all_events(AllEventsA, AllEventsB) ->
                       ps_provenance(),
                       ps_dot(), ps_filtered_out_events(), ps_all_events()) ->
           ps_provenance().
+join_provenance(Provenance, _DataStoreEventsA, _FilteredOutEventsA, _AllEventsA,
+                Provenance, _DataStoreEventsB, _FilteredOutEventsB, _AllEventsB) ->
+    Provenance;
 join_provenance(ProvenanceA, DataStoreEventsA, FilteredOutEventsA, AllEventsA,
                 ProvenanceB, DataStoreEventsB, FilteredOutEventsB, AllEventsB) ->
-    JoinedProvenance0 = ordsets:intersection(ProvenanceA, ProvenanceB),
-    JoinedProvenance1 =
+    JoinedProvenance0 =
         ordsets:fold(fun(Dot0, Acc) ->
                              case is_valid_dot(Dot0, AllEventsB,
                                                DataStoreEventsB, FilteredOutEventsB) of
@@ -390,7 +398,7 @@ join_provenance(ProvenanceA, DataStoreEventsA, FilteredOutEventsA, AllEventsA,
                                  true ->
                                      ordsets:add_element(Dot0, Acc)
                              end
-                     end, JoinedProvenance0, ProvenanceA),
+                     end, ordsets:new(), ProvenanceA),
     ordsets:fold(fun(Dot0, Acc) ->
                          case is_valid_dot(Dot0, AllEventsA,
                                            DataStoreEventsA, FilteredOutEventsA) of
@@ -399,7 +407,7 @@ join_provenance(ProvenanceA, DataStoreEventsA, FilteredOutEventsA, AllEventsA,
                              true ->
                                  ordsets:add_element(Dot0, Acc)
                          end
-                 end, JoinedProvenance1, ProvenanceB).
+                 end, JoinedProvenance0, ProvenanceB).
 
 %% @private
 -spec is_valid_dot(ps_dot(), ps_all_events(),
