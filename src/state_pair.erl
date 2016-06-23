@@ -53,7 +53,7 @@
 -opaque state_pair() :: {?TYPE, payload()}.
 -opaque delta_state_pair() :: {?TYPE, {delta, payload()}}.
 -type delta_or_state() :: state_pair() | delta_state_pair().
--type component() :: {type:state_type(), type:crdt()}. %% @todo
+-type component() :: {state_type:state_type(), type:crdt()}. %% @todo
 -type payload() :: {component(), component()}.
 -type state_pair_op() :: {fst, term()} | {snd, term()}.
 
@@ -64,7 +64,7 @@ new() ->
     new([?IVAR_TYPE, ?IVAR_TYPE]).
 
 %% @doc Create a new, empty `state_pair()'
--spec new([type:state_type()]) -> state_pair().
+-spec new([state_type:state_type()]) -> state_pair().
 new([Fst, Snd]) ->
     {?TYPE, {Fst:new(), Snd:new()}}.
 
