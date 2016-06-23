@@ -1,12 +1,1 @@
-[{<<"goldrush">>,
-  {git,"https://github.com/DeadZen/goldrush.git",
-       {ref,"212299233c7e7eb63a97be2777e1c05ebaa58dbe"}},
-  1},
- {<<"lager">>,
-  {git,"https://github.com/basho/lager",
-       {ref,"b2cb2735713e3021e0761623ff595d53a545438e"}},
-  0},
- {<<"time_compat">>,
-  {git,"https://github.com/lasp-lang/time_compat.git",
-       {ref,"6007f68892104ebb6fa2366cebf9d928d8856273"}},
-  0}].
+[].

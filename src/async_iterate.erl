@@ -94,14 +94,12 @@ handle_call(iterator, _From, #state{tid=Tid}=State) ->
 handle_call({next, Continuation}, From, #state{finished=Finished}=State) ->
     read(From, Finished, Continuation),
     {noreply, State};
-handle_call(Msg, _From, State) ->
-    lager:warning("Unhandled messages: ~p", [Msg]),
+handle_call(_Msg, _From, State) ->
     {reply, ok, State}.
 
 %% @private
 -spec handle_cast(term(), #state{}) -> {noreply, #state{}}.
-handle_cast(Msg, State) ->
-    lager:warning("Unhandled messages: ~p", [Msg]),
+handle_cast(_Msg, State) ->
     {noreply, State}.
 
 %% @private
@@ -121,8 +119,7 @@ handle_info({value, Value}, #state{tid=Tid, next_position=NextPosition}=State) -
     %% ets table.
     true = ets:insert(Tid, [{NextPosition, Value}]),
     {noreply, State#state{next_position=NextPosition+1}};
-handle_info(Msg, State) ->
-    lager:warning("Unhandled messages: ~p", [Msg]),
+handle_info(_Msg, State) ->
     {noreply, State}.
 
 %% @private
