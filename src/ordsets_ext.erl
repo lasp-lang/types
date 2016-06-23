@@ -24,7 +24,7 @@
 
 -export([equal/2]).
 
--spec equal(ordsets:ordset(), ordsets:ordset()) ->
+-spec equal(ordsets:ordset(any()), ordsets:ordset(any())) ->
     boolean().
 %% @doc Two sets s1 and s2 are equal if:
 %%      - s1 is subset of s2

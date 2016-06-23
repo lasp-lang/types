@@ -50,7 +50,7 @@
 -opaque state_gset() :: {?TYPE, payload()}.
 -opaque delta_state_gset() :: {?TYPE, {delta, payload()}}.
 -type delta_or_state() :: state_gset() | delta_state_gset().
--type payload() :: ordsets:ordset().
+-type payload() :: ordsets:ordset(any()).
 -type element() :: term().
 -type state_gset_op() :: {add, element()}.
 

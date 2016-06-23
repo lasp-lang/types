@@ -54,7 +54,7 @@
 -opaque state_twopset() :: {?TYPE, payload()}.
 -opaque delta_state_twopset() :: {?TYPE, {delta, payload()}}.
 -type delta_or_state() :: state_twopset() | delta_state_twopset().
--type payload() :: {ordsets:ordset(), ordsets:ordset()}.
+-type payload() :: {ordsets:ordset(any()), ordsets:ordset(any())}.
 -type element() :: term().
 -type state_twopset_op() :: {add, element()} |
                             {rmv, element()}.
