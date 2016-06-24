@@ -24,6 +24,8 @@
 
 -export([mutate/3, is_inflation/2, is_strict_inflation/2]).
 
+-export_type([state_type/0]).
+
 %% Define some initial types.
 -type state_type() :: state_bcounter |
                       state_gcounter |

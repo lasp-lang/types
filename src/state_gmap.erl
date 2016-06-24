@@ -51,7 +51,7 @@
 -opaque state_gmap() :: {?TYPE, payload()}.
 -opaque delta_state_gmap() :: {?TYPE, {delta, payload()}}.
 -type delta_or_state() :: state_gmap() | delta_state_gmap().
--type payload() :: {type:state_type(), orddict:orddict()}.
+-type payload() :: {state_type:state_type(), orddict:orddict()}.
 -type state_gmap_op() :: term().
 
 %% @doc Create a new, empty `state_gmap()'.
