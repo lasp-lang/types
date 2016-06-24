@@ -262,42 +262,57 @@ get_counter(EventId, {vclock, AllEvents}) ->
     end.
 
 %% @private
-subtract_events(Events, {vclock, AllEvents}) ->
+subtract_events(Events, {vclock, AllEvents}, FilteredOutEvents) ->
     ordsets:fold(
       fun({EventId, Counter}, NewEvents0) ->
               case Counter =< get_counter(EventId, {vclock, AllEvents}) of
                   true ->
-                      NewEvents0;
+                      case ordsets:is_element({EventId, Counter},
+                                              FilteredOutEvents) of
+                          true ->
+                              ordsets:add_element({EventId, Counter}, NewEvents0);
+                          false ->
+                              NewEvents0
+                      end;
                   false ->
                       ordsets:add_element({EventId, Counter}, NewEvents0)
               end
       end, ordsets:new(), Events);
-subtract_events(Events, AllEvents) ->
-    ordsets:subtract(Events, AllEvents).
+subtract_events(Events, AllEvents, FilteredOutEvents) ->
+    ordsets:subtract(Events, ordsets:subtract(AllEvents, FilteredOutEvents)).
 
 %% @private
 -spec join_provenance(ps_provenance(), ps_provenance(),
-                      ps_all_events(), ps_all_events()) -> ps_provenance().
-join_provenance(Provenance, Provenance, _AllEventsA, _AllEventsB) ->
+                      ps_all_events(), ps_all_events(),
+                      ps_filtered_out_events(), ps_filtered_out_events()) ->
+          ps_provenance().
+join_provenance(Provenance, Provenance, _AllEventsA, _AllEventsB,
+                _FilteredOutEventsA, _FilteredOutEventsB) ->
     Provenance;
-join_provenance(ProvenanceA, [], _AllEventsA, AllEventsB) ->
+join_provenance(ProvenanceA, [], _AllEventsA, AllEventsB,
+                FilteredOutEventsA, _FilteredOutEventsB) ->
     ordsets:fold(
       fun(Dot, NewProvenance0) ->
-              case subtract_events(Dot, AllEventsB) of
+              case subtract_events(Dot, AllEventsB, FilteredOutEventsA) of
                   Dot ->
                       ordsets:add_element(Dot, NewProvenance0);
                   _ ->
                       NewProvenance0
               end
       end, ordsets:new(), ProvenanceA);
-join_provenance([], ProvenanceB, AllEventsA, AllEventsB) ->
-    join_provenance(ProvenanceB, [], AllEventsB, AllEventsA);
-join_provenance(ProvenanceA, ProvenanceB, AllEventsA, AllEventsB) ->
+join_provenance([], ProvenanceB, AllEventsA, AllEventsB,
+                FilteredOutEventsA, FilteredOutEventsB) ->
+    join_provenance(ProvenanceB, [], AllEventsB, AllEventsA,
+                    FilteredOutEventsB, FilteredOutEventsA);
+join_provenance(ProvenanceA, ProvenanceB, AllEventsA, AllEventsB,
+                FilteredOutEventsA, FilteredOutEventsB) ->
     EventsA = get_events_from_provenance(ProvenanceA),
     EventsB = get_events_from_provenance(ProvenanceB),
     ValidEvents = ordsets:union([ordsets:intersection(EventsA, EventsB)] ++
-                                    [subtract_events(EventsA, AllEventsB)] ++
-                                    [subtract_events(EventsB, AllEventsA)]),
+                                    [subtract_events(EventsA, AllEventsB,
+                                                     FilteredOutEventsA)] ++
+                                    [subtract_events(EventsB, AllEventsA,
+                                                     FilteredOutEventsB)]),
     ordsets:fold(
       fun(Dot, NewProvenance0) ->
               case ordsets:subtract(Dot, ValidEvents) of
@@ -327,7 +342,8 @@ join_oorset_ps({DataStoreA, FilteredOutEventsA, AllEventsA}=FstORSet,
                   {ok, ProvenanceB} = get_provenance(Elem, SndORSet),
                   JoinedProvenance =
                       join_provenance(ProvenanceA, ProvenanceB,
-                                      AllEventsA, AllEventsB),
+                                      AllEventsA, AllEventsB,
+                                      FilteredOutEventsA, FilteredOutEventsB),
                   case ordsets:size(JoinedProvenance) of
                       0 ->
                           {JoinedDataStore0, ElemEvents0};
