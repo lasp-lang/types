@@ -290,10 +290,10 @@ join_provenance(Provenance, Provenance, _AllEventsA, _AllEventsB,
                 _FilteredOutEventsA, _FilteredOutEventsB) ->
     Provenance;
 join_provenance(ProvenanceA, [], _AllEventsA, AllEventsB,
-                FilteredOutEventsA, _FilteredOutEventsB) ->
+                _FilteredOutEventsA, FilteredOutEventsB) ->
     ordsets:fold(
       fun(Dot, NewProvenance0) ->
-              case subtract_events(Dot, AllEventsB, FilteredOutEventsA) of
+              case subtract_events(Dot, AllEventsB, FilteredOutEventsB) of
                   Dot ->
                       ordsets:add_element(Dot, NewProvenance0);
                   _ ->
@@ -310,9 +310,9 @@ join_provenance(ProvenanceA, ProvenanceB, AllEventsA, AllEventsB,
     EventsB = get_events_from_provenance(ProvenanceB),
     ValidEvents = ordsets:union([ordsets:intersection(EventsA, EventsB)] ++
                                     [subtract_events(EventsA, AllEventsB,
-                                                     FilteredOutEventsA)] ++
+                                                     FilteredOutEventsB)] ++
                                     [subtract_events(EventsB, AllEventsA,
-                                                     FilteredOutEventsB)]),
+                                                     FilteredOutEventsA)]),
     ordsets:fold(
       fun(Dot, NewProvenance0) ->
               case ordsets:subtract(Dot, ValidEvents) of
