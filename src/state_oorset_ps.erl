@@ -35,7 +35,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_inflation/2, is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
 -export_type([state_oorset_ps/0,
@@ -170,6 +170,13 @@ equal({?TYPE, {DataStoreA, FilteredOutEventsA, {vclock, AllEventsA}}},
     DataStoreA == DataStoreB andalso
         FilteredOutEventsA == FilteredOutEventsB andalso
         lists:sort(AllEventsA) == lists:sort(AllEventsB).
+
+%% @doc Check if an ORSet is bottom.
+-spec is_bottom(delta_or_state()) -> boolean().
+is_bottom({?TYPE, {delta, ORSet}}) ->
+    ORSet == {[], [], []};
+is_bottom({?TYPE, _ORSet}=FullORSet) ->
+    FullORSet == new().
 
 %% @doc Given two `state_oorset_ps()', check if the second is and inflation of the first.
 %% The inflation will be checked by the is_lattice_inflation() in the common library.
