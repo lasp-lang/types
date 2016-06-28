@@ -411,7 +411,7 @@ remove_event(Event, {ElemDataStore, EventDataStore}) ->
 %% @private
 %% join(larger state, smaller state)
 join_data_store({{_ElemDataStoreA, EventDataStoreA}=DataStoreA,
-                 _FilteredOutEventsA, AllEventsAnyA},
+                 FilteredOutEventsA, AllEventsAnyA},
                 {{ElemDataStoreB, EventDataStoreB}=_DataStoreB,
                  FilteredOutEventsB, AllEventsAnyB}) ->
     ValidEventsA = ordsets:from_list(orddict:fetch_keys(EventDataStoreA)),
@@ -438,7 +438,9 @@ join_data_store({{_ElemDataStoreA, EventDataStoreA}=DataStoreA,
                   end
           end, DataStoreA, RemovedEventsB),
     %% Find new added ones in B.
-    NewValidEventsA = ordsets:from_list(orddict:fetch_keys(NewEventDataStoreA)),
+    NewValidEventsA = ordsets:union(
+                        ordsets:from_list(orddict:fetch_keys(NewEventDataStoreA)),
+                        FilteredOutEventsA),
     NewAddedList =
         orddict:fold(
           fun(Elem, Provenance, NewAddedList0) ->
