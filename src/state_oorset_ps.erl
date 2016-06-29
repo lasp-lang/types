@@ -21,7 +21,7 @@
 %% @doc Optimised ORSet CRDT with provenance semirings:
 %%      observed-remove set without tombstones
 
--module(state_oorset_ps_v2).
+-module(state_oorset_ps).
 -author("Junghun Yoo <junghun.yoo@cs.ox.ac.uk>").
 
 -behaviour(type).
@@ -38,16 +38,16 @@
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
--export_type([state_oorset_ps_v2/0,
-              delta_state_oorset_ps_v2/0,
-              state_oorset_ps_v2_op/0]).
+-export_type([state_oorset_ps/0,
+              delta_state_oorset_ps/0,
+              state_oorset_ps_op/0]).
 
--opaque state_oorset_ps_v2() :: {?TYPE, payload()}.
--opaque delta_state_oorset_ps_v2() :: {?TYPE, {delta, payload()}}.
--type delta_or_state() :: state_oorset_ps_v2() | delta_state_oorset_ps_v2().
+-opaque state_oorset_ps() :: {?TYPE, payload()}.
+-opaque delta_state_oorset_ps() :: {?TYPE, {delta, payload()}}.
+-type delta_or_state() :: state_oorset_ps() | delta_state_oorset_ps().
 -type payload() :: {ps_data_store(), ps_filtered_out_events(), ps_all_events()}.
 -type element() :: term().
--type state_oorset_ps_v2_op() :: {add, element()}
+-type state_oorset_ps_op() :: {add, element()}
                                | {add_all, [element()]}
                                | {rmv, element()}
                                | {rmv_all, [element()]}.
@@ -67,32 +67,32 @@
 -type ps_all_events() :: ps_dot()                %% for delta state
                        | {vclock, [ps_event()]}. %% for full state
 
-%% @doc Create a new, empty `state_oorset_ps_v2()'
--spec new() -> state_oorset_ps_v2().
+%% @doc Create a new, empty `state_oorset_ps()'
+-spec new() -> state_oorset_ps().
 new() ->
     {?TYPE, {{orddict:new(), orddict:new()}, ordsets:new(), {vclock, []}}}.
 
-%% @doc Create a new, empty `state_oorset_ps_v2()'
--spec new([term()]) -> state_oorset_ps_v2().
+%% @doc Create a new, empty `state_oorset_ps()'
+-spec new([term()]) -> state_oorset_ps().
 new([]) ->
     new().
 
-%% @doc Mutate a `state_oorset_ps_v2()'.
--spec mutate(state_oorset_ps_v2_op(), type:id(), state_oorset_ps_v2()) ->
-    {ok, state_oorset_ps_v2()} | {error, {precondition, {not_present, [element()]}}}.
+%% @doc Mutate a `state_oorset_ps()'.
+-spec mutate(state_oorset_ps_op(), type:id(), state_oorset_ps()) ->
+    {ok, state_oorset_ps()} | {error, {precondition, {not_present, [element()]}}}.
 mutate(Op, Actor, {?TYPE, _ORSet}=CRDT) ->
     state_type:mutate(Op, Actor, CRDT).
 
-%% @doc Delta-mutate a `state_oorset_ps_v2()'.
+%% @doc Delta-mutate a `state_oorset_ps()'.
 %%      The first argument can be:
 %%          - `{add, element()}'
 %%          - `{add_all, [element()]}'
 %%          - `{rmv, element()}'
 %%      The second argument is the event id ({object_id, replica_id}).
-%%      The third argument is the `state_oorset_ps_v2()' to be inflated.
--spec delta_mutate(state_oorset_ps_v2_op(), type:id(), state_oorset_ps_v2()) ->
-    {ok, delta_state_oorset_ps_v2()} | {error, {precondition, {not_present, element()}}}.
-%% Adds a single element to `state_oorset_ps_v2()'.
+%%      The third argument is the `state_oorset_ps()' to be inflated.
+-spec delta_mutate(state_oorset_ps_op(), type:id(), state_oorset_ps()) ->
+    {ok, delta_state_oorset_ps()} | {error, {precondition, {not_present, element()}}}.
+%% Adds a single element to `state_oorset_ps()'.
 %% Delta: {{[{Elem, {{NewEvent}}}], [{NewEvent, Elem}]}, [], [NewEvent]}
 delta_mutate({add, Elem},
              EventId,
@@ -105,7 +105,7 @@ delta_mutate({add, Elem},
                           ordsets:new(),
                           ordsets:add_element(NewEvent, ordsets:new())}}}};
 
-%% Adds a list of elemenets to `state_oorset_ps_v2()'.
+%% Adds a list of elemenets to `state_oorset_ps()'.
 delta_mutate({add_all, Elems},
              EventId,
              {?TYPE, {_DataStore, _FilteredOutEvents, AllEvents}}) ->
@@ -125,7 +125,7 @@ delta_mutate({add_all, Elems},
                           ordsets:from_list(
                             orddict:fetch_keys(AccDeltaEventDataStore))}}}};
 
-%% Removes a single element in `state_oorset_ps_v2()'.
+%% Removes a single element in `state_oorset_ps()'.
 %% Delta: {[], [], ElemEvents}
 delta_mutate({rmv, Elem},
              _EventId,
@@ -143,18 +143,18 @@ delta_mutate({rmv, Elem},
     end;
 
 %% @todo
-%% Removes a list of elemenets in `state_oorset_ps_v2()'.
+%% Removes a list of elemenets in `state_oorset_ps()'.
 delta_mutate({rmv_all, _Elems}, _Actor, {?TYPE, ORSet}) ->
     {ok, {?TYPE, {delta, ORSet}}}.
 
-%% @doc Returns the value of the `state_oorset_ps_v2()'.
+%% @doc Returns the value of the `state_oorset_ps()'.
 %% This value is a set with all the keys (elements) in the data store.
--spec query(state_oorset_ps_v2()) -> sets:set(element()).
+-spec query(state_oorset_ps()) -> sets:set(element()).
 query({?TYPE, {{ElemDataStore, _EventDataStore}, _FilteredOutEvents, _AllEvents}}) ->
     Result = orddict:fetch_keys(ElemDataStore),
     sets:from_list(Result).
 
-%% @doc Merge two `state_oorset_ps_v2()'.
+%% @doc Merge two `state_oorset_ps()'.
 %% Merging will be handled by the join_oorset_ps().
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
 merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
@@ -168,8 +168,8 @@ merge({?TYPE, ORSet1}, {?TYPE, ORSet2}) ->
     ORSet = join_oorset_ps(ORSet1, ORSet2),
     {?TYPE, ORSet}.
 
-%% @doc Equality for `state_oorset_ps_v2()'.
--spec equal(state_oorset_ps_v2(), state_oorset_ps_v2()) -> boolean().
+%% @doc Equality for `state_oorset_ps()'.
+-spec equal(state_oorset_ps(), state_oorset_ps()) -> boolean().
 equal({?TYPE, {DataStoreA, FilteredOutEventsA, {vclock, AllEventsA}}},
       {?TYPE, {DataStoreB, FilteredOutEventsB, {vclock, AllEventsB}}}) ->
     DataStoreA == DataStoreB andalso
@@ -183,20 +183,20 @@ is_bottom({?TYPE, {delta, ORSet}}) ->
 is_bottom({?TYPE, _ORSet}=FullORSet) ->
     FullORSet == new().
 
-%% @doc Given two `state_oorset_ps_v2()', check if the second is and inflation of the first.
+%% @doc Given two `state_oorset_ps()', check if the second is and inflation of the first.
 %% The inflation will be checked by the is_lattice_inflation() in the common library.
--spec is_inflation(state_oorset_ps_v2(), state_oorset_ps_v2()) -> boolean().
+-spec is_inflation(state_oorset_ps(), state_oorset_ps()) -> boolean().
 is_inflation({?TYPE, ORSet1}, {?TYPE, ORSet2}) ->
     is_inflation_oorset_ps(ORSet1, ORSet2).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(state_oorset_ps_v2(), state_oorset_ps_v2()) -> boolean().
+-spec is_strict_inflation(state_oorset_ps(), state_oorset_ps()) -> boolean().
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
 %% @todo
-%% @doc Join decomposition for `state_oorset_ps_v2()'.
--spec join_decomposition(state_oorset_ps_v2()) -> [state_oorset_ps_v2()].
+%% @doc Join decomposition for `state_oorset_ps()'.
+-spec join_decomposition(state_oorset_ps()) -> [state_oorset_ps()].
 join_decomposition({?TYPE, ORSet}) ->
     [ORSet].
 
