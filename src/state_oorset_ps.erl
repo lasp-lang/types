@@ -38,6 +38,10 @@
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
 
+-export([subtract_all_events/2,
+         add_elem_with_dot/3,
+         get_events_from_provenance/1]).
+
 -export_type([state_oorset_ps/0,
               delta_state_oorset_ps/0,
               state_oorset_ps_op/0]).
@@ -200,6 +204,37 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 join_decomposition({?TYPE, ORSet}) ->
     [ORSet].
 
+%% @doc @todo
+-spec subtract_all_events(ps_all_events(), ps_dot()) -> ps_dot().
+subtract_all_events({vclock, AllEvents}, Events) ->
+    AllEventsSet = lists:foldl(
+                     fun({EventId0, Counter0}, AllEventsSet0) ->
+                             get_ordsets_from_vclock({EventId0, Counter0},
+                                                     AllEventsSet0)
+                     end, ordsets:new(), AllEvents),
+    ordsets:subtract(AllEventsSet, Events);
+subtract_all_events(AllEvents, Events) ->
+    ordsets:subtract(AllEvents, Events).
+
+%% @doc @todo
+-spec add_elem_with_dot(element(), ps_dot(), ps_data_store()) -> ps_data_store().
+add_elem_with_dot(Elem, Dot, {ElemDataStore, EventDataStore}) ->
+    NewElemDataStore = add_elem_with_dot_private(Elem, Dot, ElemDataStore),
+    NewEventDataStore =
+        ordsets:fold(
+          fun(Event, NewEventDataStore0) ->
+                  add_elem_with_dot_private(Event, Elem, NewEventDataStore0)
+          end, EventDataStore, Dot),
+    {NewElemDataStore, NewEventDataStore}.
+
+%% @doc @todo
+-spec get_events_from_provenance(ps_provenance()) -> ps_dot().
+get_events_from_provenance(Provenance) ->
+    ordsets:fold(
+      fun(Dot0, Acc0) ->
+              ordsets:union(Acc0, Dot0)
+      end, ordsets:new(), Provenance).
+
 %% @private
 %% @doc Calculate the next event from the AllEvents and add it to the return value.
 %% The next event is the head of the return value. The second parameter should be
@@ -224,24 +259,6 @@ add_elem_with_dot_private(Key, Value, DataStore) ->
                    end,
                    ordsets:add_element(Value, ordsets:new()),
                    DataStore).
-%% @private
--spec add_elem_with_dot(element(), ps_dot(), ps_data_store()) -> ps_data_store().
-add_elem_with_dot(Elem, Dot, {ElemDataStore, EventDataStore}) ->
-    NewElemDataStore = add_elem_with_dot_private(Elem, Dot, ElemDataStore),
-    NewEventDataStore =
-        ordsets:fold(
-          fun(Event, NewEventDataStore0) ->
-                  add_elem_with_dot_private(Event, Elem, NewEventDataStore0)
-          end, EventDataStore, Dot),
-    {NewElemDataStore, NewEventDataStore}.
-
-%% @private
--spec get_events_from_provenance(ps_provenance()) -> ps_dot().
-get_events_from_provenance(Provenance) ->
-    ordsets:fold(
-      fun(Dot0, Acc0) ->
-              ordsets:union(Acc0, Dot0)
-      end, ordsets:new(), Provenance).
 
 %% @private
 -spec join_all_events(ps_all_events(), ps_all_events()) -> ps_all_events().
@@ -332,18 +349,6 @@ get_ordsets_from_vclock({EventId, Counter}, Ordset) ->
             Ordset1 = ordsets:add_element({EventId, Counter}, Ordset),
             get_ordsets_from_vclock({EventId, Counter - 1}, Ordset1)
     end.
-
-%% @private
--spec subtract_all_events(ps_all_events(), ps_dot()) -> ps_dot().
-subtract_all_events({vclock, AllEvents}, Events) ->
-    AllEventsSet = lists:foldl(
-                     fun({EventId0, Counter0}, AllEventsSet0) ->
-                             get_ordsets_from_vclock({EventId0, Counter0},
-                                                     AllEventsSet0)
-                     end, ordsets:new(), AllEvents),
-    ordsets:subtract(AllEventsSet, Events);
-subtract_all_events(AllEvents, Events) ->
-    ordsets:subtract(AllEvents, Events).
 
 %% @private
 remove_elem_with_event(Elem, Event, {ElemDataStore, EventDataStore}) ->
