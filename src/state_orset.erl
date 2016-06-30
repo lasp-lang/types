@@ -345,7 +345,7 @@ remove_all_test() ->
     ?assertEqual(sets:from_list([<<"b">>]), query(Set2)),
     ?assertEqual(sets:new(), query(Set3)).
 
-merge_idempontent_test() ->
+merge_idempotent_test() ->
     Set1 = {?TYPE, [{<<"a">>, [{<<"token1">>, false}]}]},
     Set2 = {?TYPE, [{<<"b">>, [{<<"token2">>, true}]}]},
     Set3 = {?TYPE, [{<<"a">>, [{<<"token1">>, true}]}, {<<"b">>, [{<<"token2">>, false}]}]},
