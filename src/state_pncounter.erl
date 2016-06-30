@@ -252,7 +252,7 @@ increment_test() ->
     ?assertEqual({?TYPE, [{1, {1, 0}}, {2, {0, 1}}]}, Counter2),
     ?assertEqual({?TYPE, [{1, {2, 0}}, {2, {0, 1}}]}, Counter3).
 
-merge_idempontent_test() ->
+merge_idempotent_test() ->
     Counter1 = {?TYPE, [{<<"5">>, {5, 2}}]},
     Counter2 = {?TYPE, [{<<"6">>, {6, 3}}, {<<"7">>, {7, 4}}]},
     Counter3 = merge(Counter1, Counter1),

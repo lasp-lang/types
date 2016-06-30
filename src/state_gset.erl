@@ -191,7 +191,7 @@ add_test() ->
     ?assertEqual({?TYPE, [<<"a">>]}, Set1),
     ?assertEqual({?TYPE, [<<"a">>, <<"b">>]}, Set2).
 
-merge_idempontent_test() ->
+merge_idempotent_test() ->
     Set1 = {?TYPE, [<<"a">>]},
     Set2 = {?TYPE, [<<"a">>, <<"b">>]},
     Set3 = merge(Set1, Set1),

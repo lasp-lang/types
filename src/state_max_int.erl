@@ -49,12 +49,12 @@
 -type payload() :: non_neg_integer().
 -type state_max_int_op() :: increment.
 
-%% @doc Create a new, empty `state_max_int()'
+%% @doc Create a new `state_max_int()'
 -spec new() -> state_max_int().
 new() ->
     {?TYPE, 0}.
 
-%% @doc Create a new, empty `state_max_int()'
+%% @doc Create a new `state_max_int()'
 -spec new([term()]) -> state_max_int().
 new([]) ->
     new().
@@ -80,7 +80,7 @@ query({?TYPE, Value}) ->
     Value.
 
 %% @doc Merge two `state_max_int()'.
-%%      Uses max function.
+%%      Join is the max function.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
 merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
     {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
@@ -160,7 +160,7 @@ increment_test() ->
     ?assertEqual({?TYPE, 16}, MaxInt1),
     ?assertEqual({?TYPE, 17}, MaxInt2).
 
-merge_idempontent_test() ->
+merge_idempotent_test() ->
     MaxInt1 = {?TYPE, 1},
     MaxInt2 = {?TYPE, 17},
     MaxInt3 = merge(MaxInt1, MaxInt1),
