@@ -28,6 +28,7 @@
 
 %% Define some initial types.
 -type state_type() :: state_bcounter |
+                      state_boolean |
                       state_gcounter |
                       state_gmap |
                       state_gset |
