@@ -22,7 +22,7 @@
 -module(state_type).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
--export([mutate/3, is_inflation/2, is_strict_inflation/2]).
+-export([new/1, mutate/3, is_inflation/2, is_strict_inflation/2]).
 
 -export_type([state_type/0]).
 
@@ -69,6 +69,33 @@
 %% -callback join_decomposition(crdt()) -> decomposition().
 %% -callback join_decomposition(iterator(), crdt()) -> decomposition().
 
+%% @doc Builds a new CRDT from a given CRDT
+-spec new(crdt()) -> any(). %% @todo Fix this any()
+new({state_bcounter, _Payload}) ->
+    state_bcounter:new();
+new({state_boolean, _Payload}) ->
+    state_boolean:new();
+new({state_gcounter, _Payload}) ->
+    state_gcounter:new();
+new({state_gmap, {ValuesType, _Payload}}) ->
+    state_gmap:new([ValuesType]);
+new({state_gset, _Payload}) ->
+    state_gset:new();
+new({state_ivar, _Payload}) ->
+    state_ivar:new();
+new({state_lexcounter, _Payload}) ->
+    state_lexcounter:new();
+new({state_max_int, _Payload}) ->
+    state_max_int:new();
+new({state_orset, _Payload}) ->
+    state_orset:new();
+new({state_pair, {{FstType, _}, {SndType, _}}}) ->
+    state_pair:new([FstType, SndType]);
+new({state_pncounter, _Payload}) ->
+    state_pncounter:new();
+new({state_twopset, _Payload}) ->
+    state_twopset:new().
+
 %% @doc Generic Join composition.
 -spec mutate(type:operation(), type:id(), crdt()) ->
     {ok, crdt()} | {error, type:error()}.
@@ -93,4 +120,3 @@ is_inflation({Type, _}=CRDT1, {Type, _}=CRDT2) ->
 is_strict_inflation({Type, _}=CRDT1, {Type, _}=CRDT2) ->
     Type:is_inflation(CRDT1, CRDT2) andalso
     not Type:equal(CRDT1, CRDT2).
-
