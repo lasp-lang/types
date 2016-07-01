@@ -86,7 +86,7 @@ mutate(Op, Actor, {?TYPE, _BCounter}=CRDT) ->
 %%          other replicas
 -spec delta_mutate(state_bcounter_op(), type:id(), state_bcounter()) ->
     {ok, delta_state_bcounter()} | {error, {precondition, non_enough_permissions}}.
-delta_mutate({move, Count, To}, Actor, {?TYPE, {_PNCounter, GMap}}=BCounter) ->
+delta_mutate({move, Count, To}, Actor, {?TYPE, {PNCounter, GMap}}=BCounter) ->
     {?GMAP_TYPE, {?MAX_INT_TYPE, Map0}} = GMap,
     case Count =< permissions(BCounter, Actor) of
         true ->
@@ -97,24 +97,24 @@ delta_mutate({move, Count, To}, Actor, {?TYPE, {_PNCounter, GMap}}=BCounter) ->
                     0
             end,
             Map1 = orddict:store({Actor, To}, Current + Count, orddict:new()),
-            Delta = {?PNCOUNTER_TYPE:new(), {?GMAP_TYPE, {?MAX_INT_TYPE, Map1}}},
+            Delta = {state_type:new(PNCounter), {?GMAP_TYPE, {?MAX_INT_TYPE, Map1}}},
             {ok, {?TYPE, {delta, Delta}}};
         false ->
             {error, {precondition, non_enough_permissions}}
     end;
 
-delta_mutate(increment, Actor, {?TYPE, {PNCounter, _GMap}}) ->
+delta_mutate(increment, Actor, {?TYPE, {PNCounter, GMap}}) ->
     {ok, DM} = ?PNCOUNTER_TYPE:delta_mutate(increment, Actor, PNCounter),
     IncDelta = ?PNCOUNTER_TYPE:extract_delta(DM),
-    Delta = {{?PNCOUNTER_TYPE, IncDelta}, ?GMAP_TYPE:new()},
+    Delta = {{?PNCOUNTER_TYPE, IncDelta}, state_type:new(GMap)},
     {ok, {?TYPE, {delta, Delta}}};
 
-delta_mutate(decrement, Actor, {?TYPE, {PNCounter, _GMap}}=BCounter) ->
+delta_mutate(decrement, Actor, {?TYPE, {PNCounter, GMap}}=BCounter) ->
     case 0 < permissions(BCounter, Actor) of
         true ->
             {ok, DM} = ?PNCOUNTER_TYPE:delta_mutate(decrement, Actor, PNCounter),
             DecDelta = ?PNCOUNTER_TYPE:extract_delta(DM),
-            Delta = {{?PNCOUNTER_TYPE, DecDelta}, ?GMAP_TYPE:new()},
+            Delta = {{?PNCOUNTER_TYPE, DecDelta}, state_type:new(GMap)},
             {ok, {?TYPE, {delta, Delta}}};
         false ->
             {error, {precondition, non_enough_permissions}}
@@ -237,7 +237,7 @@ join_decomposition({?TYPE, _}) -> [].
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, {?PNCOUNTER_TYPE:new(), ?GMAP_TYPE:new()}}, new()).
+    ?assertEqual({?TYPE, {?PNCOUNTER_TYPE:new(), ?GMAP_TYPE:new([?MAX_INT_TYPE])}}, new()).
 
 query_test() ->
     BCounter0 = new(),

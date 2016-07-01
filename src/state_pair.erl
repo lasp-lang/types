@@ -76,20 +76,8 @@ new([Fst, Snd]) ->
 %% @doc Mutate a `state_pair()'.
 -spec mutate(state_pair_op(), type:id(), state_pair()) ->
     {ok, state_pair()} | {error, term()}.
-mutate({fst, _}=Op, Actor, {?TYPE, {{FstType, _}=Fst, {_SndType, _}=Snd}}=Pair) ->
-    case delta_mutate(Op, Actor, Pair) of
-        {ok, {?TYPE, {delta, {Delta, _}}}} ->
-            {ok, {?TYPE, {FstType:merge({FstType, Delta}, Fst), Snd}}};
-        Error ->
-            Error
-    end;
-mutate({snd, _}=Op, Actor, {?TYPE, {{_FstType, _}=Fst, {SndType, _}=Snd}}=Pair) ->
-    case delta_mutate(Op, Actor, Pair) of
-        {ok, {?TYPE, {delta, {_, Delta}}}} ->
-            {ok, {?TYPE, {Fst, SndType:merge({SndType, Delta}, Snd)}}};
-        Error ->
-            Error
-    end.
+mutate(Op, Actor, {?TYPE, _Pair}=CRDT) ->
+        state_type:mutate(Op, Actor, CRDT).
 
 %% @doc Delta-mutate a `state_pair()'.
 %%      Depending on the atom passed, `fst' or `snd', this function
@@ -97,18 +85,18 @@ mutate({snd, _}=Op, Actor, {?TYPE, {{_FstType, _}=Fst, {SndType, _}=Snd}}=Pair) 
 %%      respectively.
 -spec delta_mutate(state_pair_op(), type:id(), state_pair()) ->
     {ok, delta_state_pair()} | {error, term()}.
-delta_mutate({fst, Op}, Actor, {?TYPE, {{FstType, _}=Fst, {SndType, _}}}) ->
+delta_mutate({fst, Op}, Actor, {?TYPE, {{FstType, _}=Fst, Snd}}) ->
     case FstType:delta_mutate(Op, Actor, Fst) of
         {ok, {FstType, {delta, Delta}}} ->
-            DeltaPair = {Delta, {SndType, SndType:new()}},
+            DeltaPair = {{FstType, Delta}, state_type:new(Snd)},
             {ok, {?TYPE, {delta, DeltaPair}}};
         Error ->
             Error
     end;
-delta_mutate({snd, Op}, Actor, {?TYPE, {{FstType, _}, {SndType, _}=Snd}}) ->
+delta_mutate({snd, Op}, Actor, {?TYPE, {Fst, {SndType, _}=Snd}}) ->
     case SndType:delta_mutate(Op, Actor, Snd) of
         {ok, {SndType, {delta, Delta}}} ->
-            DeltaPair = {{FstType, FstType:new()}, Delta},
+            DeltaPair = {state_type:new(Fst), {SndType, Delta}},
             {ok, {?TYPE, {delta, DeltaPair}}};
         Error ->
             Error
