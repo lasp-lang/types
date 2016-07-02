@@ -26,6 +26,8 @@
 
 -export_type([state_type/0]).
 
+-export_type([state_type/0]).
+
 %% Define some initial types.
 -type state_type() :: state_bcounter |
                       state_boolean |
@@ -38,7 +40,9 @@
                       state_orset |
                       state_pair |
                       state_pncounter |
-                      state_twopset.
+                      state_twopset |
+                      state_oorset |
+                      state_oorset_ps.
 -type crdt() :: {state_type(), type:payload()}.
 -type delta_crdt() :: {state_type(), {delta, type:payload()}}.
 -type delta_or_state() :: crdt() | delta_crdt().
