@@ -40,7 +40,9 @@
 
 -export([subtract_all_events/2,
          add_elem_with_dot/3,
-         get_events_from_provenance/1]).
+         get_events_from_provenance/1,
+         cross_provenance/2,
+         subtract_removed/2]).
 
 -export_type([state_oorset_ps/0,
               delta_state_oorset_ps/0,
@@ -257,6 +259,31 @@ get_events_from_provenance(Provenance) ->
     ordsets:fold(
       fun(Dot0, Acc0) ->
               ordsets:union(Acc0, Dot0)
+      end, ordsets:new(), Provenance).
+
+%% @doc @todo
+-spec cross_provenance(ps_provenance(), ps_provenance()) -> ps_provenance().
+cross_provenance(ProvenanceL, ProvenanceR) ->
+    ordsets:fold(
+      fun(DotL, AccCrossProvenance0) ->
+              ordsets:fold(
+                fun(DotR, AccCrossProvenance1) ->
+                        CrossDot = ordsets:union(DotL, DotR),
+                        ordsets:add_element(CrossDot, AccCrossProvenance1)
+                end, AccCrossProvenance0, ProvenanceR)
+      end, ordsets:new(), ProvenanceL).
+
+%% @doc @todo
+-spec subtract_removed(ps_provenance(), ps_dot()) -> ps_provenance().
+subtract_removed(Provenance, ValidEvents) ->
+    ordsets:fold(
+      fun(Dot, AccNewProvenance0) ->
+              case ordsets:intersection(Dot, ValidEvents) of
+                  Dot ->
+                      ordsets:add_element(Dot, AccNewProvenance0);
+                  _ ->
+                      AccNewProvenance0
+              end
       end, ordsets:new(), Provenance).
 
 %% @private
