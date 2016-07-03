@@ -146,10 +146,20 @@ delta_mutate({rmv, Elem},
             {error, {precondition, {not_present, Elem}}}
     end;
 
-%% @todo
 %% Removes a list of elemenets in `state_oorset_ps()'.
-delta_mutate({rmv_all, _Elems}, _Actor, {?TYPE, ORSet}) ->
-    {ok, {?TYPE, {delta, ORSet}}}.
+delta_mutate({rmv_all, Elems},
+             _EventId,
+             {?TYPE, {{ElemDataStore, _EventDataStore},
+                      _FilteredOutEvents,
+                      _AllEvents}}) ->
+    case remove_all_private(Elems, ElemDataStore, ordsets:new()) of
+        {error, Error} ->
+            {error, Error};
+        ElemEventsAll ->
+            {ok, {?TYPE, {delta, {{orddict:new(), orddict:new()},
+                                  ordsets:new(),
+                                  ElemEventsAll}}}}
+    end.
 
 %% @doc Returns the value of the `state_oorset_ps()'.
 %% This value is a set with all the keys (elements) in the data store.
@@ -203,6 +213,20 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 -spec join_decomposition(state_oorset_ps()) -> [state_oorset_ps()].
 join_decomposition({?TYPE, ORSet}) ->
     [ORSet].
+
+%% @private
+remove_all_private([], _ElemDataStore, ResultEvents) ->
+    ResultEvents;
+remove_all_private([Elem|RestElems], ElemDataStore, ResultEvents) ->
+    case orddict:find(Elem, ElemDataStore) of
+        {ok, Provenance} ->
+            ElemEvents = get_events_from_provenance(Provenance),
+            remove_all_private(RestElems,
+                               ElemDataStore,
+                               ordsets:union(ResultEvents, ElemEvents));
+        error ->
+            {error, {precondition, {not_present, Elem}}}
+    end.
 
 %% @doc @todo
 -spec subtract_all_events(ps_all_events(), ps_dot()) -> ps_dot().
@@ -637,8 +661,15 @@ add_all_test() ->
     ?assertEqual(sets:from_list([<<"a">>, <<"b">>]), query(Set2)),
     ?assertEqual(sets:from_list([<<"a">>, <<"b">>, <<"c">>]), query(Set3)).
 
-%% @todo
-%%remove_all_test() ->
+remove_all_test() ->
+    EventId = {<<"object1">>, a},
+    Set0 = new(),
+    {ok, Set1} = mutate({add_all, [<<"a">>, <<"b">>, <<"c">>]}, EventId, Set0),
+    {ok, Set2} = mutate({rmv_all, [<<"a">>, <<"c">>]}, EventId, Set1),
+    {error, _} = mutate({rmv_all, [<<"b">>, <<"d">>]}, EventId, Set2),
+    {ok, Set3} = mutate({rmv_all, [<<"b">>]}, EventId, Set2),
+    ?assertEqual(sets:from_list([<<"b">>]), query(Set2)),
+    ?assertEqual(sets:new(), query(Set3)).
 
 merge_idempontent_test() ->
     EventId1 = {<<"object1">>, a},
