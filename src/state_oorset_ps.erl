@@ -18,8 +18,8 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Optimised ORSet CRDT with provenance semirings:
-%%      observed-remove set without tombstones
+%% @doc Optimised ORSet CRDT with the provenance semiring:
+%% observed-remove set without tombstones.
 
 -module(state_oorset_ps).
 -author("Junghun Yoo <junghun.yoo@cs.ox.ac.uk>").
@@ -58,18 +58,36 @@
                                | {rmv, element()}
                                | {rmv_all, [element()]}.
 
-%% Provenanve semiring related.
+%% Provenance semiring related.
 -export_type([ps_event_id/0]).
 
 -type ps_object_id() :: binary().
 -type ps_replica_id() :: term().
 -type ps_event_id() :: {ps_object_id(), ps_replica_id()}.
+%% @doc A Event represents a single update for the addition of the set.
 -type ps_event() :: {ps_event_id(), pos_integer()}.
+%% @doc Generally a Dot contains a single Event, but it could have multiple Events
+%% after set-related binary operations (such as intersection()/product()).
+%% This type can also be used to represent a set of Events.
 -type ps_dot() :: ordsets:ordsets(ps_event()).
+%% @doc A set of Dots.
 -type ps_provenance() :: ordsets:ordsets(ps_dot()).
--type ps_data_store() :: {orddict:orddict(element(), ps_provenance()),
-                          orddict:orddict(ps_event(), element())}.
+%% @doc A DataStore for 'Element -> Provenance' pairs.
+-type ps_data_store_elem() :: orddict:orddict(element(), ps_provenance()).
+%% @doc A DataStore for 'Event -> a set of Elements (which contains the Event
+%% in the Provenance)' pairs.
+%% This is for making merge()/is_inflation() faster. 
+-type ps_data_store_event() :: orddict:orddict(ps_event(),
+                                               ordsets:ordsets(element())).
+%% @doc DataStore section.
+-type ps_data_store() :: {ps_data_store_elem(), ps_data_store_event()}.
+%% @doc FilteredOutEvents section.
+%% When elements are filtered-out by operations, every events in the provenance
+%% will be moved to this section (filtered-out elements of the filter() or
+%% uncommon elements of the intersection()).
 -type ps_filtered_out_events() :: ps_dot().
+%% @doc AllEvents section.
+%% This section stores the causal context of the set.
 -type ps_all_events() :: ps_dot()                %% for delta state
                        | {vclock, [ps_event()]}. %% for full state
 
@@ -90,12 +108,13 @@ mutate(Op, Actor, {?TYPE, _ORSet}=CRDT) ->
     state_type:mutate(Op, Actor, CRDT).
 
 %% @doc Delta-mutate a `state_oorset_ps()'.
-%%      The first argument can be:
-%%          - `{add, element()}'
-%%          - `{add_all, [element()]}'
-%%          - `{rmv, element()}'
-%%      The second argument is the event id ({object_id, replica_id}).
-%%      The third argument is the `state_oorset_ps()' to be inflated.
+%% The first argument can be:
+%%     - `{add, element()}'
+%%     - `{add_all, [element()]}'
+%%     - `{rmv, element()}'
+%%     - `{rmv_all, [element()]}'
+%% The second argument is the event id ({object_id, replica_id}).
+%% The third argument is the `state_oorset_ps()' to be inflated.
 -spec delta_mutate(state_oorset_ps_op(), type:id(), state_oorset_ps()) ->
     {ok, delta_state_oorset_ps()} | {error, {precondition, {not_present, element()}}}.
 %% Adds a single element to `state_oorset_ps()'.
@@ -164,7 +183,7 @@ delta_mutate({rmv_all, Elems},
     end.
 
 %% @doc Returns the value of the `state_oorset_ps()'.
-%% This value is a set with all the keys (elements) in the data store.
+%% This value is a set with all the keys (elements) in the ElemDataStore.
 -spec query(state_oorset_ps()) -> sets:set(element()).
 query({?TYPE, {{ElemDataStore, _EventDataStore}, _FilteredOutEvents, _AllEvents}}) ->
     Result = orddict:fetch_keys(ElemDataStore),
@@ -230,9 +249,10 @@ remove_all_private([Elem|RestElems], ElemDataStore, ResultEvents) ->
             {error, {precondition, {not_present, Elem}}}
     end.
 
-%% @doc @todo
+%% @doc Subtract a set of events from AllEvents.
 -spec subtract_all_events(ps_all_events(), ps_dot()) -> ps_dot().
 subtract_all_events({vclock, AllEvents}, Events) ->
+    %% Convert encoded AllEvents to a set of Events.
     AllEventsSet = lists:foldl(
                      fun({EventId0, Counter0}, AllEventsSet0) ->
                              get_ordsets_from_vclock({EventId0, Counter0},
@@ -242,10 +262,12 @@ subtract_all_events({vclock, AllEvents}, Events) ->
 subtract_all_events(AllEvents, Events) ->
     ordsets:subtract(AllEvents, Events).
 
-%% @doc @todo
+%% @doc Add a pair of an Elem and a Dot to DataStore.
 -spec add_elem_with_dot(element(), ps_dot(), ps_data_store()) -> ps_data_store().
 add_elem_with_dot(Elem, Dot, {ElemDataStore, EventDataStore}) ->
+    %% Add a Dot to Elem's provenance in ElemDataStore.
     NewElemDataStore = add_elem_with_dot_private(Elem, Dot, ElemDataStore),
+    %% Add {Event in Dot, Elem} pairs in EventDataStore.
     NewEventDataStore =
         ordsets:fold(
           fun(Event, NewEventDataStore0) ->
@@ -253,7 +275,7 @@ add_elem_with_dot(Elem, Dot, {ElemDataStore, EventDataStore}) ->
           end, EventDataStore, Dot),
     {NewElemDataStore, NewEventDataStore}.
 
-%% @doc @todo
+%% @doc Return all events in a provenance.
 -spec get_events_from_provenance(ps_provenance()) -> ps_dot().
 get_events_from_provenance(Provenance) ->
     ordsets:fold(
@@ -261,7 +283,9 @@ get_events_from_provenance(Provenance) ->
               ordsets:union(Acc0, Dot0)
       end, ordsets:new(), Provenance).
 
-%% @doc @todo
+%% @doc Calculate the cross product provenance of two provenances, which
+%% is a set of cross product dots in both provenances.
+%% A cross product of two dots is an union set of two dots.
 -spec cross_provenance(ps_provenance(), ps_provenance()) -> ps_provenance().
 cross_provenance(ProvenanceL, ProvenanceR) ->
     ordsets:fold(
@@ -273,7 +297,8 @@ cross_provenance(ProvenanceL, ProvenanceR) ->
                 end, AccCrossProvenance0, ProvenanceR)
       end, ordsets:new(), ProvenanceL).
 
-%% @doc @todo
+%% @doc Filter out the dots in Provenance which contains invalid (typically,
+%% removed) events.
 -spec subtract_removed(ps_provenance(), ps_dot()) -> ps_provenance().
 subtract_removed(Provenance, ValidEvents) ->
     ordsets:fold(
@@ -288,8 +313,8 @@ subtract_removed(Provenance, ValidEvents) ->
 
 %% @private
 %% @doc Calculate the next event from the AllEvents and add it to the return value.
-%% The next event is the head of the return value. The second parameter should be
-%% the AllEvents of the full state version ({vclock, _}).
+%% The next event is located on the head of the return value. The second parameter
+%% should be the AllEvents of the full state version ({vclock, _}).
 %% The return value: {vclock, [NextEvent|RestAllEvents]}.
 -spec get_next_event(ps_event_id(), ps_all_events()) -> ps_all_events().
 get_next_event(EventId, {vclock, AllEvents}) ->
@@ -312,6 +337,9 @@ add_elem_with_dot_private(Key, Value, DataStore) ->
                    DataStore).
 
 %% @private
+%% @doc Merge two AllEvents sections. The AllEvents can be a set of Events or
+%% a vclock-like representation. Except merging two sets (delta + delta), this
+%% function will return the vclock-like representation.
 -spec join_all_events(ps_all_events(), ps_all_events()) -> ps_all_events().
 join_all_events({vclock, AllEventsA}, {vclock, AllEventsB}) ->
     {JoinedAllEvents, RestB} =
@@ -364,6 +392,7 @@ get_counter(EventId, {vclock, AllEvents}) ->
     end.
 
 %% @private
+%% @doc Check whether an Event is a part of the second parameter (vclock or set).
 is_valid_event({EventId, Counter}=_Event, {vclock, AllEvents}) ->
     Counter =< get_counter(EventId, {vclock, AllEvents});
 is_valid_event(Event, EventsSet) ->
@@ -388,6 +417,9 @@ is_addable_dot_private([Event|RestEvents], ValidEventsOther, AllEventsAnyOther) 
     end.
 
 %% @private
+%% @doc Check whether a Dot is addable.
+%% The addable dots consist of the evnets which are newly added (the Counter is
+%% bigger than the one in the AllEventsAnyOther) or members of the ValidEventsOther.
 is_addable_dot(Dot, ValidEventsOther, AllEventsAnyOther) ->
     is_addable_dot_private(Dot, ValidEventsOther, AllEventsAnyOther).
 
@@ -453,6 +485,10 @@ remove_elem_with_event(Elem, Event, {ElemDataStore, EventDataStore}) ->
     end.
 
 %% @private
+%% @doc Remove an event from the DataStore.
+%% Dots which contain the will-be-removed event will also be removed and this
+%% can cause the deletion of some elements as well.
+-spec remove_event(ps_event(), ps_data_store()) -> ps_data_store().
 remove_event(Event, {ElemDataStore, EventDataStore}) ->
     case orddict:find(Event, EventDataStore) of
         error ->
@@ -465,7 +501,10 @@ remove_event(Event, {ElemDataStore, EventDataStore}) ->
     end.
 
 %% @private
-%% join(larger state, smaller state)
+%% @doc Join two DataStores.
+%% This join algorithm will be very fast when the second parameter is smaller than
+%% the first one (e.g., join the full state and the delta state).
+-spec join_data_store(payload(), payload()) -> ps_data_store().
 join_data_store({{_ElemDataStoreA, EventDataStoreA}=DataStoreA,
                  FilteredOutEventsA, AllEventsAnyA},
                 {{ElemDataStoreB, EventDataStoreB}=_DataStoreB,
@@ -519,6 +558,9 @@ join_data_store({{_ElemDataStoreA, EventDataStoreA}=DataStoreA,
       end, {NewElemDataStoreA, NewEventDataStoreA}, NewAddedList).
 
 %% @private
+%% @doc Join two payloads of the oorset_ps.
+%% For the better performance, the second parameter of the join_data_store()
+%% needs to be smaller that the first one. 
 -spec join_oorset_ps(payload(), payload()) -> payload().
 join_oorset_ps(ORSet, ORSet) ->
     ORSet;
@@ -561,11 +603,17 @@ is_inflation_all_events_private(AllEventsA, AllEventsB) ->
     end.
 
 %% @private
+%% @doc Check the inflation through the AllEvents section.
 -spec is_inflation_all_events(ps_all_events(), ps_all_events()) -> boolean().
 is_inflation_all_events({vclock, AllEventsA}, {vclock, AllEventsB}) ->
     is_inflation_all_events_private(AllEventsA, AllEventsB).
 
 %% @private
+%% @doc Check the inflation (whether B is an inflation of A).
+%% If the comparison of the AllEvents sections is not an inflation, no need for
+%% further checking.
+%% If the AllEvents section is an inflation, need to check whether removed events
+%% of A exist in B.
 -spec is_inflation_oorset_ps(payload(), payload()) -> boolean().
 is_inflation_oorset_ps(Payload, Payload) ->
     true;
