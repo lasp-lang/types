@@ -76,7 +76,7 @@
 -type ps_data_store_elem() :: orddict:orddict(element(), ps_provenance()).
 %% @doc A DataStore for 'Event -> a set of Elements (which contains the Event
 %% in the Provenance)' pairs.
-%% This is for making merge()/is_inflation() faster. 
+%% This is for making merge()/is_inflation() faster.
 -type ps_data_store_event() :: orddict:orddict(ps_event(),
                                                ordsets:ordsets(element())).
 %% @doc DataStore section.
@@ -560,7 +560,7 @@ join_data_store({{_ElemDataStoreA, EventDataStoreA}=DataStoreA,
 %% @private
 %% @doc Join two payloads of the oorset_ps.
 %% For the better performance, the second parameter of the join_data_store()
-%% needs to be smaller that the first one. 
+%% needs to be smaller that the first one.
 -spec join_oorset_ps(payload(), payload()) -> payload().
 join_oorset_ps(ORSet, ORSet) ->
     ORSet;
