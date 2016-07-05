@@ -36,6 +36,7 @@
                       state_lexcounter |
                       state_max_int |
                       state_orset |
+                      state_oorset_ps |
                       state_pair |
                       state_pncounter |
                       state_twopset.
