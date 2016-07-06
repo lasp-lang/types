@@ -27,7 +27,8 @@
 -export_type([state_type/0]).
 
 %% Define some initial types.
--type state_type() :: state_awset_ps |
+-type state_type() :: state_awset |
+                      state_awset_ps |
                       state_bcounter |
                       state_boolean |
                       state_gcounter |
@@ -72,6 +73,8 @@
 
 %% @doc Builds a new CRDT from a given CRDT
 -spec new(crdt()) -> any(). %% @todo Fix this any()
+new({state_awset, _Payload}) ->
+    state_awset:new();
 new({state_awset_ps, _Payload}) ->
     state_awset_ps:new();
 new({state_bcounter, _Payload}) ->
