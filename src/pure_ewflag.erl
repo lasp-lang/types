@@ -113,25 +113,8 @@ remove_redundant_crystal({_VV1, _X}, {?TYPE, {POLog0, EWFlag}}) ->
 
 %% @doc Checks stable operations and remove them from POLog of `pure_ewflag()'
 -spec check_stability(pure_type:id(), pure_ewflag()) -> pure_ewflag().
-check_stability(StableVV, {?TYPE, {POLog0, EWFlag0}}) ->
-    {POLog1, EWFlag1} = orddict:fold(
-        fun(Key, Value, {AccPOLog, AccFlag}) ->
-            case pure_trcb:happened_before(Key, StableVV) of
-                true ->
-                    case Value of
-                        enable ->
-                            {AccPOLog, true};
-                        disable ->
-                            {AccPOLog, false}
-                    end;
-                false ->
-                    {orddict:store(Key, Value, AccPOLog), AccFlag}
-            end
-        end,
-        {orddict:new(), EWFlag0},
-        POLog0
-    ),
-    {?TYPE, {POLog1, EWFlag1}}.
+check_stability(_StableVV, {?TYPE, {POLog, EWFlag}}) ->
+    {?TYPE, {POLog, EWFlag}}.
 
 %% @doc Update a `pure_ewflag()'.
 -spec mutate(pure_ewflag_op(), pure_type:id(), pure_ewflag()) ->
@@ -148,20 +131,8 @@ mutate(Op, VV, {?TYPE, {POLog, PureEWFlag}}) ->
 %% @doc Returns the value of the `pure_ewflag()'.
 %%      This value is a a boolean value in the `pure_ewflag()'.
 -spec query(pure_ewflag()) -> boolean().
-query({?TYPE, {POLog0, PureEWFlag0}}) ->
-    case orddict:is_empty(POLog0) of
-        true ->
-            PureEWFlag0;
-        false ->
-            Op1 = lists:last([Op || {_Key, Op} <- orddict:to_list(POLog0)]),
-            case Op1 of
-                enable ->
-                    true;
-                disable ->
-                    false
-            end
-    end.
-
+query({?TYPE, {POLog0, _PureEWFlag0}}) ->
+    not (orddict:is_empty(POLog0) orelse lists:member(disable, [Op || {_Key, Op} <- orddict:to_list(POLog0)])).
 
 %% @doc Equality for `pure_ewflag()'.
 -spec equal(pure_ewflag(), pure_ewflag()) -> boolean().
@@ -191,12 +162,10 @@ redundant_test() ->
 query_test() ->
     Flag0 = new(),
     Flag1 = {?TYPE, {[], false}},
-    Flag2 = {?TYPE, {[], true}},
     Flag3 = {?TYPE, {[{[{1, 2}], enable}], false}},
     Flag4 = {?TYPE, {[{[{1, 3}], disable}], true}},
     ?assertEqual(false, query(Flag0)),
     ?assertEqual(false, query(Flag1)),
-    ?assertEqual(true, query(Flag2)),
     ?assertEqual(true, query(Flag3)),
     ?assertEqual(false, query(Flag4)).
 
