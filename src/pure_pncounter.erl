@@ -43,7 +43,7 @@
 
 -opaque pure_pncounter() :: {?TYPE, payload()}.
 -type payload() :: {pure_type:polog(), integer()}.
--type pure_pncounter_op() :: increment | decrement.
+-type pure_pncounter_op() :: increment | decrement | {increment, integer()} | {decrement, integer()}.
 
 %% @doc Create a new, empty `pure_pncounter()'
 -spec new() -> pure_pncounter().
@@ -61,8 +61,14 @@ new([]) ->
 mutate(increment, _VV, {?TYPE, {POLog, PurePNCounter}}) ->
     PurePNCounter1 = {?TYPE, {POLog, PurePNCounter + 1}},
     {ok, PurePNCounter1};
+mutate({increment, Val}, _VV, {?TYPE, {POLog, PurePNCounter}}) ->
+    PurePNCounter1 = {?TYPE, {POLog, PurePNCounter + Val}},
+    {ok, PurePNCounter1};
 mutate(decrement, _VV, {?TYPE, {POLog, PurePNCounter}}) ->
     PurePNCounter1 = {?TYPE, {POLog, PurePNCounter - 1}},
+    {ok, PurePNCounter1};
+mutate({decrement, Val}, _VV, {?TYPE, {POLog, PurePNCounter}}) ->
+    PurePNCounter1 = {?TYPE, {POLog, PurePNCounter - Val}},
     {ok, PurePNCounter1}.
 
 %% @doc Return the value of the `pure_pncounter()'.
@@ -93,15 +99,21 @@ increment_test() ->
     PurePNCounter0 = new(),
     {ok, PurePNCounter1} = mutate(increment, [], PurePNCounter0),
     {ok, PurePNCounter2} = mutate(increment, [], PurePNCounter1),
+    {ok, PurePNCounter3} = mutate({increment, 5}, [], PurePNCounter2),
     ?assertEqual({?TYPE, {[], 1}}, PurePNCounter1),
-    ?assertEqual({?TYPE, {[], 2}}, PurePNCounter2).
+    ?assertEqual({?TYPE, {[], 2}}, PurePNCounter2),
+    ?assertEqual({?TYPE, {[], 7}}, PurePNCounter3).
 
 decrement_test() ->
     PurePNCounter0 = {?TYPE, {[], 1}},
     {ok, PurePNCounter1} = mutate(decrement, [], PurePNCounter0),
     {ok, PurePNCounter2} = mutate(decrement, [], PurePNCounter1),
+    {ok, PurePNCounter3} = mutate({decrement, 5}, [], PurePNCounter2),
+    {ok, PurePNCounter4} = mutate({decrement, -8}, [], PurePNCounter3),
     ?assertEqual({?TYPE, {[], 0}}, PurePNCounter1),
-    ?assertEqual({?TYPE, {[], -1}}, PurePNCounter2).
+    ?assertEqual({?TYPE, {[], -1}}, PurePNCounter2),
+    ?assertEqual({?TYPE, {[], -6}}, PurePNCounter3),
+    ?assertEqual({?TYPE, {[], 2}}, PurePNCounter4).
 
 equal_test() ->
     PurePNCounter1 = {?TYPE, {[], 1}},

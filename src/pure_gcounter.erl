@@ -43,7 +43,7 @@
 
 -opaque pure_gcounter() :: {?TYPE, payload()}.
 -type payload() :: {pure_type:polog(), integer()}.
--type pure_gcounter_op() :: increment.
+-type pure_gcounter_op() :: increment | {increment, non_neg_integer()}.
 
 %% @doc Create a new, empty `pure_gcounter()'
 -spec new() -> pure_gcounter().
@@ -60,6 +60,9 @@ new([]) ->
     {ok, pure_gcounter()}.
 mutate(increment, _VV, {?TYPE, {POLog, PureGCounter}}) ->
     PureGCounter1 = {?TYPE, {POLog, PureGCounter + 1}},
+    {ok, PureGCounter1};
+mutate({increment, Val}, _VV, {?TYPE, {POLog, PureGCounter}}) ->
+    PureGCounter1 = {?TYPE, {POLog, PureGCounter + Val}},
     {ok, PureGCounter1}.
 
 %% @doc Return the value of the `pure_gcounter()'.
@@ -90,8 +93,10 @@ increment_test() ->
     PureGCounter0 = new(),
     {ok, PureGCounter1} = mutate(increment, [], PureGCounter0),
     {ok, PureGCounter2} = mutate(increment, [], PureGCounter1),
+    {ok, PureGCounter3} = mutate({increment, 5}, [], PureGCounter2),
     ?assertEqual({?TYPE, {[], 1}}, PureGCounter1),
-    ?assertEqual({?TYPE, {[], 2}}, PureGCounter2).
+    ?assertEqual({?TYPE, {[], 2}}, PureGCounter2),
+    ?assertEqual({?TYPE, {[], 7}}, PureGCounter3).
 
 equal_test() ->
     PureGCounter1 = {?TYPE, {[], 1}},
