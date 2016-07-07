@@ -47,6 +47,7 @@
 -type pure_dwflag_op() :: enable | disable.
 
 %% @doc Create a new, empty `pure_dwflag()'
+%% @doc Disable-wins flags start at True state
 -spec new() -> pure_dwflag().
 new() ->
     {?TYPE, {orddict:new(), true}}.
