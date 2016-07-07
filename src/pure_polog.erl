@@ -32,7 +32,7 @@
 
 %% @doc Check redundant operations.
 -callback redundant({pure_type:id(), type:operation()}, {pure_type:id(), type:operation()}) ->
-    integer().
+    atom().
 
 %% @doc Remove redundant operations from the crystal.
 -callback remove_redundant_crystal({pure_type:id(), type:operation()}, type:crdt()) -> {boolean(), type:crdt()}.

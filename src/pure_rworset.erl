@@ -32,6 +32,8 @@
 
 -define(TYPE, ?MODULE).
 
+-include("pure_type.hrl").
+
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
@@ -57,46 +59,46 @@ new([]) ->
     new().
 
 -spec redundant({pure_type:id(), pure_rworset_op()}, {pure_type:id(), pure_rworset_op()}) ->
-    integer().
+    atom().
 redundant({VV1, {add, Elem1}}, {VV2, {X, Elem2}}) ->
     case Elem1 =:= Elem2 of
         true ->
             case pure_trcb:happened_before(VV1, VV2) of
                 true ->
-                    1;
+                    ?RA;
                 false ->
                     % Elem1 == Elem2 and VV1 and VV2 concurrent
                     % because happened_before(VV1, VV2) false
                     % and happened_before(VV2, VV1) is always false because causal delivery.
                     case X == rmv of
                         true ->
-                            1;
+                            ?RA;
                         false ->
-                            0
+                            ?AA
                     end
             end;
         false ->
-            0
+            ?AA
     end;
 redundant({VV1, {rmv, Elem1}}, {VV2, {X, Elem2}}) ->
     case Elem1 =:= Elem2 of
         true ->
             case pure_trcb:happened_before(VV1, VV2) of
                 true ->
-                    1;
+                    ?RA;
                 false ->
                     % Elem1 == Elem2 and VV1 and VV2 concurrent
                     % because happened_before(VV1, VV2) false
                     % and happened_before(VV2, VV1) is always false because causal delivery.
                     case X == add of
                         true ->
-                            2;
+                            ?AR;
                         false ->
-                            0
+                            ?AA
                     end
             end;
         false ->
-            0
+            ?AA
     end.
 
 %% @doc Removes redundant operations from POLog of `pure_rworset()'
@@ -110,11 +112,11 @@ remove_redundant_polog({VV1, Op}, {?TYPE, {POLog0, ORSet}}) ->
             {POLog1, Add1} = orddict:fold(
                 fun(Key, Value, {Acc, Add}) ->
                     case redundant({Key, Value}, {VV1, Op}) of
-                        0 ->
+                        ?AA ->
                             {orddict:store(Key, Value, Acc), Add};
-                        1 ->
+                        ?RA ->
                             {Acc, Add};
-                        2 ->
+                        ?AR ->
                             {orddict:store(Key, Value, Acc), Add andalso false}
                     end
                 end,
@@ -197,9 +199,9 @@ new_test() ->
     ?assertEqual({?TYPE, {orddict:new(), ordsets:new()}}, new()).
 
 redundant_test() ->
-    ?assertEqual(0, redundant({[{0, 0}, {1, 0}], {add, <<"a">>}}, {[{0, 1}, {1, 1}], {add, <<"b">>}})),
-    ?assertEqual(1, redundant({[{0, 0}, {1, 0}], {add, <<"a">>}}, {[{0, 1}, {1, 1}], {add, <<"a">>}})),
-    ?assertEqual(0, redundant({[{0, 0}, {1, 0}], {add, <<"a">>}}, {[{0, 0}, {1, 0}], {add, <<"a">>}})).
+    ?assertEqual(?AA, redundant({[{0, 0}, {1, 0}], {add, <<"a">>}}, {[{0, 1}, {1, 1}], {add, <<"b">>}})),
+    ?assertEqual(?RA, redundant({[{0, 0}, {1, 0}], {add, <<"a">>}}, {[{0, 1}, {1, 1}], {add, <<"a">>}})),
+    ?assertEqual(?AA, redundant({[{0, 0}, {1, 0}], {add, <<"a">>}}, {[{0, 0}, {1, 0}], {add, <<"a">>}})).
 
 remove_redundant_crystal_test() ->
     {Redundant0, {?TYPE, {_POLog0, RWORSet0}}} = remove_redundant_crystal({[{0, 1}, {1, 2}, {2, 3}], {add, <<"a">>}}, {?TYPE, {[{0, 1}], [<<"a">>, <<"b">>, <<"c">>]}}),

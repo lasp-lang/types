@@ -32,6 +32,8 @@
 
 -define(TYPE, ?MODULE).
 
+-include("pure_type.hrl").
+
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
@@ -59,21 +61,21 @@ new([]) ->
 %% @doc Check redundancy `pure_ewflag()'
 %% Called in remove_redundant().
 -spec redundant({pure_type:id(), pure_ewflag_op()}, {pure_type:id(), pure_ewflag_op()}) ->
-    integer().
+    atom().
 redundant({VV1, Op1}, {VV2, Op2}) ->
     case pure_trcb:happened_before(VV1, VV2) of
         true ->
-            1;
+            ?RA;
         false ->
             case Op1 == Op2 of
                 true ->
-                    0;
+                    ?AA;
                 false ->
                     case Op2 of
                         enable ->
-                            1;
+                            ?RA;
                         disable ->
-                            2
+                            ?AR
                     end
             end
     end.
@@ -89,11 +91,11 @@ remove_redundant_polog({VV1, Op}, {?TYPE, {POLog0, Flag}}) ->
             {POLog1, Add1} = orddict:fold(
                 fun(Key, Value, {Acc, Add}) ->
                     case redundant({Key, Value}, {VV1, Op}) of
-                        0 ->
+                        ?AA ->
                             {orddict:store(Key, Value, Acc), Add};
-                        1 ->
+                        ?RA ->
                             {Acc, Add};
-                        2 ->
+                        ?AR ->
                             {orddict:store(Key, Value, Acc), Add andalso false}
                     end
                 end,
@@ -177,14 +179,14 @@ new_test() ->
     ?assertEqual({?TYPE, {orddict:new(), false}}, new()).
 
 redundant_test() ->
-    ?assertEqual(1, redundant({[{0, 0}, {1, 0}], enable}, {[{0, 1}, {1, 1}], enable})),
-    ?assertEqual(1, redundant({[{0, 0}, {1, 0}], enable}, {[{0, 1}, {1, 1}], disable})),
-    ?assertEqual(1, redundant({[{0, 0}, {1, 0}], disable}, {[{0, 1}, {1, 1}], enable})),
-    ?assertEqual(1, redundant({[{0, 0}, {1, 0}], disable}, {[{0, 1}, {1, 1}], disable})),
-    ?assertEqual(0, redundant({[{0, 1}, {1, 0}], enable}, {[{0, 0}, {1, 1}], enable})),
-    ?assertEqual(0, redundant({[{0, 1}, {1, 0}], disable}, {[{0, 0}, {1, 1}], disable})),
-    ?assertEqual(1, redundant({[{0, 1}, {1, 0}], disable}, {[{0, 0}, {1, 1}], enable})),
-    ?assertEqual(2, redundant({[{0, 1}, {1, 0}], enable}, {[{0, 0}, {1, 1}], disable})).
+    ?assertEqual(?RA, redundant({[{0, 0}, {1, 0}], enable}, {[{0, 1}, {1, 1}], enable})),
+    ?assertEqual(?RA, redundant({[{0, 0}, {1, 0}], enable}, {[{0, 1}, {1, 1}], disable})),
+    ?assertEqual(?RA, redundant({[{0, 0}, {1, 0}], disable}, {[{0, 1}, {1, 1}], enable})),
+    ?assertEqual(?RA, redundant({[{0, 0}, {1, 0}], disable}, {[{0, 1}, {1, 1}], disable})),
+    ?assertEqual(?AA, redundant({[{0, 1}, {1, 0}], enable}, {[{0, 0}, {1, 1}], enable})),
+    ?assertEqual(?AA, redundant({[{0, 1}, {1, 0}], disable}, {[{0, 0}, {1, 1}], disable})),
+    ?assertEqual(?RA, redundant({[{0, 1}, {1, 0}], disable}, {[{0, 0}, {1, 1}], enable})),
+    ?assertEqual(?AR, redundant({[{0, 1}, {1, 0}], enable}, {[{0, 0}, {1, 1}], disable})).
 
 query_test() ->
     Flag0 = new(),

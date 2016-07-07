@@ -32,6 +32,8 @@
 
 -define(TYPE, ?MODULE).
 
+-include("pure_type.hrl").
+
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
@@ -59,13 +61,13 @@ new([]) ->
 %% @doc Check redundancy `pure_mvreg()'
 %% Called in remove_redundant().
 -spec redundant({pure_type:id(), pure_mvreg_op()}, {pure_type:id(), pure_mvreg_op()}) ->
-    integer().
+    atom().
 redundant({VV1, {_Op1, _Str1}}, {VV2, {_Op2, _Str2}}) ->
     case pure_trcb:happened_before(VV1, VV2) of
         true ->
-            1;
+            ?RA;
         false ->
-            0
+            ?AA
     end.
 
 %% @doc Removes redundant operations from POLog of `pure_mvreg()'
@@ -78,9 +80,9 @@ remove_redundant_polog({VV1, Op}, {?TYPE, {POLog0, MVReg}}) ->
             {POLog1, Add1} = orddict:fold(
                 fun(Key, Value, {Acc, Add}) ->
                     case redundant({Key, {set, Value}}, {VV1, Op}) of
-                        0 ->
+                        ?AA ->
                             {orddict:store(Key, Value, Acc), Add};
-                        1 ->
+                        ?RA ->
                             {Acc, Add}
                     end
                 end,
@@ -136,8 +138,8 @@ new_test() ->
     ?assertEqual({?TYPE, {orddict:new(), []}}, new()).
 
 redundant_test() ->
-    ?assertEqual(1, redundant({[{0, 0}, {1, 0}], {set, "foo"}}, {[{0, 1}, {1, 1}], {set, "bar"}})),
-    ?assertEqual(0, redundant({[{0, 0}, {1, 1}], {set, "foo"}}, {[{0, 1}, {1, 0}], {set, "bar"}})).
+    ?assertEqual(?RA, redundant({[{0, 0}, {1, 0}], {set, "foo"}}, {[{0, 1}, {1, 1}], {set, "bar"}})),
+    ?assertEqual(?AA, redundant({[{0, 0}, {1, 1}], {set, "foo"}}, {[{0, 1}, {1, 0}], {set, "bar"}})).
 
 query_test() ->
     MVReg0 = new(),
