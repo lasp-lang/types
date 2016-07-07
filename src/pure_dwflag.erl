@@ -64,17 +64,17 @@ new([]) ->
 redundant({VV1, Op1}, {VV2, Op2}) ->
     case pure_trcb:happened_before(VV1, VV2) of
         true ->
-            1;
-        false ->
+            1; %% Op1 removed, Op2 added
+        false -> %% VV1 and VV2 are concurrent
             case Op1 == Op2 of
                 true ->
-                    0;
+                    0; %% Op1 stays, Op2 added
                 false ->
                     case Op2 of
                         disable ->
-                            1;
+                            1; %% Op1 removed, Op2 added. Since disable wins
                         enable ->
-                            2
+                            2 %% Op1 stays, Op2 non added. Enable loses
                     end
             end
     end.
