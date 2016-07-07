@@ -57,6 +57,7 @@ new([]) ->
     new().
 
 %% @doc Check redundancy `pure_aworset()'
+%% For a given element, either an "add" or a "rmv" in the future of an "add" make it redundant.
 %% Called in remove_redundant().
 -spec redundant({pure_type:id(), pure_aworset_op()}, {pure_type:id(), pure_aworset_op()}) ->
     integer().
