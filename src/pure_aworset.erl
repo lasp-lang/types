@@ -87,7 +87,8 @@ remove_redundant_polog({VV1, Op}, {?TYPE, {POLog0, ORSet}}) ->
     ),
     {true, {?TYPE, {POLog1, ORSet}}}.
 
-%% @doc Removes redundant operations from POLog of `pure_aworset()'
+%% @doc Removes redundant operations from Crystal of `pure_aworset()'
+%% If there is an "add" or "rmv" for some element, that element does not need to be in the sequential set. 
 %% Called upon updating (add, rmv) the `pure_aworset()'
 -spec remove_redundant_crystal({pure_type:id(), pure_aworset_op()}, pure_aworset()) -> {boolean(), pure_aworset()}.
 remove_redundant_crystal({_VV1, {_X, Elem}}, {?TYPE, {POLog, AWORSet}}) ->
