@@ -93,6 +93,11 @@ add_test() ->
     ?assertEqual({?TYPE, {[], [<<"a">>]}}, Set1),
     ?assertEqual({?TYPE, {[], [<<"a">>, <<"b">>]}}, Set2).
 
+reset_test() ->
+    Set1 = {?TYPE, {[], [<<"a">>, <<"b">>]}},
+    Set2 = pure_type:reset([], Set1),
+    ?assertEqual({?TYPE, {[], []}}, Set2).
+
 equal_test() ->
     Set1 = {?TYPE, {[], [<<"a">>]}},
     Set2 = {?TYPE, {[], [<<"a">>, <<"b">>]}},

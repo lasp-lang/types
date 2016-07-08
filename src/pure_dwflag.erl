@@ -183,6 +183,11 @@ mutate_test() ->
     ?assertEqual({?TYPE, {[{[{0, 2}, {1, 2}], enable}, {[{0, 4}, {1, 1}], enable}], true}}, Flag3),
     ?assertEqual({?TYPE, {[{[{0, 3}, {1, 2}], disable}], true}}, Flag4).
 
+reset_test() ->
+    Flag1 = {?TYPE, {[{[{0, 2}, {1, 2}], enable}, {[{0, 4}, {1, 1}], enable}], false}},
+    Flag2 = pure_type:reset([{0, 5}, {1, 6}], Flag1),
+    ?assertEqual({?TYPE, {[], true}}, Flag2).
+
 check_stability_test() ->
     Flag0 = new(),
     Flag1 = check_stability([], Flag0),

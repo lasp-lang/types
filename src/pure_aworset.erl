@@ -205,6 +205,11 @@ rmv_test() ->
     ?assertEqual({?TYPE, {[{[{0, 1}], {add, <<"a">>}}], []}}, Set5),
     ?assertEqual({?TYPE, {[], []}}, Set3).
 
+reset_test() ->
+    Set1 = {?TYPE, {[{[{0, 1}, {1, 2}], {add, <<"b">>}}, {[{0, 3}, {1, 4}], {add, <<"c">>}}, {[{0, 6}, {1, 5}], {add, <<"d">>}}], [<<"a">>]}},
+    Set2 = pure_type:reset([{0, 5}, {1, 6}], Set1),
+    ?assertEqual({?TYPE, {[{[{0, 6}, {1, 5}], {add, <<"d">>}}], []}}, Set2).
+
 check_stability_test() ->
     Set0 = new(),
     Set1 = check_stability([], Set0),

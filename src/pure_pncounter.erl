@@ -115,6 +115,11 @@ decrement_test() ->
     ?assertEqual({?TYPE, {[], -6}}, PurePNCounter3),
     ?assertEqual({?TYPE, {[], 2}}, PurePNCounter4).
 
+reset_test() ->
+    PurePNCounter1 = {?TYPE, {[], 54}},
+    PurePNCounter2 = pure_type:reset([], PurePNCounter1),
+    ?assertEqual({?TYPE, {[], 0}}, PurePNCounter2).
+
 equal_test() ->
     PurePNCounter1 = {?TYPE, {[], 1}},
     PurePNCounter2 = {?TYPE, {[], 2}},

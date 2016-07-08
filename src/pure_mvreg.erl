@@ -160,6 +160,11 @@ mutate_test() ->
     ?assertEqual({?TYPE, {[{[{0, 1}, {1, 1}], "foo"}], []}}, MVReg1),
     ?assertEqual({?TYPE, {[{[{0, 2}, {1, 2}], "bar"}], []}}, MVReg2).
 
+reset_test() ->
+    MVReg1 = {?TYPE, {[{[{0, 1}, {1, 3}], "bar"}, {[{0, 2}, {1, 1}], "baz"}], []}},
+    MVReg2 = pure_type:reset([{0, 5}, {1, 6}], MVReg1),
+    ?assertEqual({?TYPE, {[], []}}, MVReg2).
+
 check_stability_test() ->
     MVReg0 = new(),
     MVReg1 = check_stability([], MVReg0),

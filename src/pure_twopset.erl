@@ -113,6 +113,11 @@ rmv_test() ->
     ?assertEqual({?TYPE, {[], {[<<"b">>, <<"c">>], [<<"a">>]}}}, Set2),
     ?assertEqual({?TYPE, {[], {[<<"b">>], [<<"a">>, <<"c">>]}}}, Set3).
 
+reset_test() ->
+    Set1 = {?TYPE, {[], {[<<"b">>, <<"c">>], [<<"a">>, <<"c">>]}}},
+    Set2 = pure_type:reset([], Set1),
+    ?assertEqual({?TYPE, {[], {[], []}}}, Set2).
+
 equal_test() ->
     Set0 = {?TYPE, {[], {[<<"a">>, <<"b">>, <<"c">>], []}}},
     Set1 = {?TYPE, {[], {[<<"b">>, <<"c">>], [<<"a">>, <<"c">>]}}},

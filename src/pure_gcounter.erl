@@ -98,6 +98,11 @@ increment_test() ->
     ?assertEqual({?TYPE, {[], 2}}, PureGCounter2),
     ?assertEqual({?TYPE, {[], 7}}, PureGCounter3).
 
+reset_test() ->
+    PureGCounter1 = {?TYPE, {[], 15}},
+    PureGCounter2 = pure_type:reset([], PureGCounter1),
+    ?assertEqual({?TYPE, {[], 0}}, PureGCounter2).
+
 equal_test() ->
     PureGCounter1 = {?TYPE, {[], 1}},
     PureGCounter2 = {?TYPE, {[], 2}},
