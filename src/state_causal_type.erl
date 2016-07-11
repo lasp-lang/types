@@ -20,6 +20,8 @@
 %% -------------------------------------------------------------------
 
 %% @doc Common library for causal CRDTs.
+%% The current implementation does not have any optimisations such as
+%% the causal context compression.
 %%
 %% @reference Paulo Sérgio Almeida, Ali Shoker, and Carlos Baquero
 %% Delta State Replicated Data Types (2016)
@@ -68,12 +70,8 @@
 
 %% @doc Create an empty CausalCRDT.
 -spec new_causal_crdt(data_store_type()) -> causal_crdt().
-new_causal_crdt(dot_set) ->
-    {{dot_set, ordsets:new()}, ordsets:new()};
-new_causal_crdt(dot_fun) ->
-    {{dot_fun, orddict:new()}, ordsets:new()};
-new_causal_crdt({dot_map, ValueDataStoreType}) ->
-    {{{dot_map, ValueDataStoreType}, orddict:new()}, ordsets:new()}.
+new_causal_crdt(DataStoreType) ->
+    {new_data_store(DataStoreType), ordsets:new()}.
 
 %% @doc Universal causal join for a two CausalCRDTs.
 -spec causal_join(causal_crdt(), causal_crdt()) -> causal_crdt().
@@ -84,7 +82,7 @@ causal_join({{dot_set, DataStoreA}, DotCloudA},
     {{dot_set, ordsets:union([ordsets:intersection(DataStoreA, DataStoreB)] ++
                              [ordsets:subtract(DataStoreA, DotCloudB)] ++
                              [ordsets:subtract(DataStoreB, DotCloudA)])},
-     ordsets:union(DotCloudA, DotCloudB)};
+     merge_dot_clouds(DotCloudA, DotCloudB)};
 causal_join({{dot_fun, DataStoreA}=_Fst, DotCloudA},
             {{dot_fun, DataStoreB}=Snd, DotCloudB}) ->
     DomainSnd = get_dot_cloud(Snd),
@@ -121,7 +119,7 @@ causal_join({{dot_fun, DataStoreA}=_Fst, DotCloudA},
                                                              DataStore)}
                              end
                      end, MergedDataStore0, DataStoreB),
-    {MergedDataStore1, ordsets:union(DotCloudA, DotCloudB)};
+    {MergedDataStore1, merge_dot_clouds(DotCloudA, DotCloudB)};
 causal_join({{{dot_map, ValueDataStoreType}, DataStoreA}=Fst, DotCloudA},
             {{{dot_map, ValueDataStoreType}, DataStoreB}=Snd, DotCloudB}) ->
     UnionObjects = ordsets:union(ordsets:from_list(orddict:fetch_keys(DataStoreA)),
@@ -142,7 +140,7 @@ causal_join({{{dot_map, ValueDataStoreType}, DataStoreA}=Fst, DotCloudA},
                                                    MergedDataStore0)
                              end
                      end, new_data_store({dot_map, ValueDataStoreType}), UnionObjects),
-    {MergedDataStore, ordsets:union(DotCloudA, DotCloudB)}.
+    {MergedDataStore, merge_dot_clouds(DotCloudA, DotCloudB)}.
 
 %% @doc Determine if a change for a given causal crdt is an inflation or not.
 %%
