@@ -29,6 +29,7 @@
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
 -behaviour(type).
+-behaviour(pure_type).
 
 -define(TYPE, ?MODULE).
 
@@ -67,15 +68,8 @@ mutate({increment, Val}, _VV, {?TYPE, {POLog, PureGCounter}}) ->
 
 %% @doc Clear/reset the state to initial state.
 -spec reset(pure_type:id(), pure_gcounter()) -> pure_gcounter().
-reset(VV, {?TYPE, {POLog, _Crystal}}) ->
-    {?TYPE, {_POLog1, Crystal1}} = new(),
-    POLog2 = orddict:filter(
-        fun(VV1, _Op) ->
-            not pure_trcb:happened_before(VV1, VV)
-        end,
-        POLog
-    ),
-    {?TYPE, {POLog2, Crystal1}}.
+reset(VV, {?TYPE, _}=CRDT) ->
+    pure_type:reset(VV, CRDT).
 
 %% @doc Return the value of the `pure_gcounter()'.
 -spec query(pure_gcounter()) -> non_neg_integer().

@@ -28,6 +28,7 @@
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
 -behaviour(type).
+-behaviour(pure_type).
 
 -define(TYPE, ?MODULE).
 
@@ -72,15 +73,8 @@ mutate({rmv, Elem}, _VV, {?TYPE, {POLog, {Pure2PAddSet, Pure2PRmvSet}}}) ->
 
 %% @doc Clear/reset the state to initial state.
 -spec reset(pure_type:id(), pure_twopset()) -> pure_twopset().
-reset(VV, {?TYPE, {POLog, _Crystal}}) ->
-    {?TYPE, {_POLog1, Crystal1}} = new(),
-    POLog2 = orddict:filter(
-        fun(VV1, _Op) ->
-            not pure_trcb:happened_before(VV1, VV)
-        end,
-        POLog
-    ),
-    {?TYPE, {POLog2, Crystal1}}.
+reset(VV, {?TYPE, _}=CRDT) ->
+    pure_type:reset(VV, CRDT).
 
 %% @doc Returns the value of the `pure_twopset()'.
 %%      This value is a set with all the elements in the `pure_twopset()'.
