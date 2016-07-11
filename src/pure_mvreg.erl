@@ -39,7 +39,7 @@
 -endif.
 
 -export([new/0, new/1]).
--export([mutate/3, query/1, equal/2]).
+-export([mutate/3, query/1, equal/2, reset/2]).
 -export([redundant/2, remove_redundant_crystal/2, remove_redundant_polog/2, check_stability/2]).
 
 -export_type([pure_mvreg/0, pure_mvreg_op/0]).
@@ -110,6 +110,18 @@ mutate({Op, Str}, VV, {?TYPE, {POLog, PureMVReg}}) ->
     {_Add, {?TYPE, {POLog0, PureMVReg0}}} = pure_polog:remove_redundant({VV, {Op, Str}}, {?TYPE, {POLog, PureMVReg}}),
     {ok, {?TYPE, {orddict:store(VV, Str, POLog0), PureMVReg0}}}.
 
+%% @doc Clear/reset the state to initial state.
+-spec reset(pure_type:id(), pure_mvreg()) -> pure_mvreg().
+reset(VV, {?TYPE, {POLog, _Crystal}}) ->
+    {?TYPE, {_POLog1, Crystal1}} = new(),
+    POLog2 = orddict:filter(
+        fun(VV1, _Op) ->
+            not pure_trcb:happened_before(VV1, VV)
+        end,
+        POLog
+    ),
+    {?TYPE, {POLog2, Crystal1}}.
+
 %% @doc Returns the value of the `pure_mvreg()'.
 %%      This value is a a boolean value in the `pure_mvreg()'.
 -spec query(pure_mvreg()) -> [string()].
@@ -162,7 +174,7 @@ mutate_test() ->
 
 reset_test() ->
     MVReg1 = {?TYPE, {[{[{0, 1}, {1, 3}], "bar"}, {[{0, 2}, {1, 1}], "baz"}], []}},
-    MVReg2 = pure_type:reset([{0, 5}, {1, 6}], MVReg1),
+    MVReg2 = reset([{0, 5}, {1, 6}], MVReg1),
     ?assertEqual({?TYPE, {[], []}}, MVReg2).
 
 check_stability_test() ->

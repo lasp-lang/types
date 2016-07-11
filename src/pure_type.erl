@@ -37,12 +37,5 @@
 
 %% @doc Clear/reset the state to initial state.
 -spec reset(pure_type:id(), type:crdt()) -> type:crdt().
-reset(VV, {Type, {POLog, _Crystal}}) ->
-    {Type, {_POLog1, Crystal1}} = Type:new(),
-    POLog2 = orddict:filter(
-        fun(VV1, _Op) ->
-            not pure_trcb:happened_before(VV1, VV)
-        end,
-        POLog
-    ),
-    {Type, {POLog2, Crystal1}}.
+reset(VV, {Type, {POLog, Crystal}}) ->
+    Type:reset(VV, {Type, {POLog, Crystal}}).

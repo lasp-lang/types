@@ -36,7 +36,7 @@
 -endif.
 
 -export([new/0, new/1]).
--export([mutate/3, query/1, equal/2]).
+-export([mutate/3, query/1, equal/2, reset/2]).
 
 -export_type([pure_twopset/0, pure_twopset_op/0]).
 
@@ -69,6 +69,18 @@ mutate({add, Elem}, _VV, {?TYPE, {POLog, {Pure2PAddSet, Pure2PRmvSet}}}) ->
 mutate({rmv, Elem}, _VV, {?TYPE, {POLog, {Pure2PAddSet, Pure2PRmvSet}}}) ->
     PureTwoPSet = {?TYPE, {POLog, {ordsets:del_element(Elem, Pure2PAddSet), ordsets:add_element(Elem, Pure2PRmvSet)}}},
     {ok, PureTwoPSet}.
+
+%% @doc Clear/reset the state to initial state.
+-spec reset(pure_type:id(), pure_twopset()) -> pure_twopset().
+reset(VV, {?TYPE, {POLog, _Crystal}}) ->
+    {?TYPE, {_POLog1, Crystal1}} = new(),
+    POLog2 = orddict:filter(
+        fun(VV1, _Op) ->
+            not pure_trcb:happened_before(VV1, VV)
+        end,
+        POLog
+    ),
+    {?TYPE, {POLog2, Crystal1}}.
 
 %% @doc Returns the value of the `pure_twopset()'.
 %%      This value is a set with all the elements in the `pure_twopset()'.
@@ -115,7 +127,7 @@ rmv_test() ->
 
 reset_test() ->
     Set1 = {?TYPE, {[], {[<<"b">>, <<"c">>], [<<"a">>, <<"c">>]}}},
-    Set2 = pure_type:reset([], Set1),
+    Set2 = reset([], Set1),
     ?assertEqual({?TYPE, {[], {[], []}}}, Set2).
 
 equal_test() ->

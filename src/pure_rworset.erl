@@ -39,7 +39,7 @@
 -endif.
 
 -export([new/0, new/1]).
--export([mutate/3, query/1, equal/2]).
+-export([mutate/3, query/1, equal/2, reset/2]).
 -export([redundant/2, remove_redundant_crystal/2, remove_redundant_polog/2, check_stability/2]).
 
 -export_type([pure_rworset/0, pure_rworset_op/0]).
@@ -174,6 +174,18 @@ mutate({rmv, Elem}, VV, {?TYPE, {POLog, PureRWORSet}}) ->
     {_, {?TYPE, {POLog0, PureRWORSet0}}} = pure_polog:remove_redundant({VV, {rmv, Elem}}, {?TYPE, {POLog, PureRWORSet}}),
     {ok, {?TYPE, {orddict:store(VV, {rmv, Elem}, POLog0), PureRWORSet0}}}.
 
+%% @doc Clear/reset the state to initial state.
+-spec reset(pure_type:id(), pure_rworset()) -> pure_rworset().
+reset(VV, {?TYPE, {POLog, _Crystal}}) ->
+    {?TYPE, {_POLog1, Crystal1}} = new(),
+    POLog2 = orddict:filter(
+        fun(VV1, _Op) ->
+            not pure_trcb:happened_before(VV1, VV)
+        end,
+        POLog
+    ),
+    {?TYPE, {POLog2, Crystal1}}.
+
 %% @doc Returns the value of the `pure_rworset()'.
 %%      This value is a set with all the elements in the `pure_rworset()'.
 -spec query(pure_rworset()) -> sets:set(pure_type:element()).
@@ -251,7 +263,7 @@ rmv_test() ->
 
 reset_test() ->
     Set1 = {?TYPE, {[{[{0, 1}, {1, 2}], {add, <<"b">>}}, {[{0, 3}, {1, 4}], {add, <<"c">>}}, {[{0, 6}, {1, 5}], {add, <<"d">>}}], [<<"a">>]}},
-    Set2 = pure_type:reset([{0, 5}, {1, 6}], Set1),
+    Set2 = reset([{0, 5}, {1, 6}], Set1),
     ?assertEqual({?TYPE, {[{[{0, 6}, {1, 5}], {add, <<"d">>}}], []}}, Set2).
 
 check_stability_test() ->

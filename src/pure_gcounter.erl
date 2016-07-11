@@ -37,7 +37,7 @@
 -endif.
 
 -export([new/0, new/1]).
--export([mutate/3, query/1, equal/2]).
+-export([mutate/3, query/1, equal/2, reset/2]).
 
 -export_type([pure_gcounter/0, pure_gcounter_op/0]).
 
@@ -64,6 +64,18 @@ mutate(increment, _VV, {?TYPE, {POLog, PureGCounter}}) ->
 mutate({increment, Val}, _VV, {?TYPE, {POLog, PureGCounter}}) ->
     PureGCounter1 = {?TYPE, {POLog, PureGCounter + Val}},
     {ok, PureGCounter1}.
+
+%% @doc Clear/reset the state to initial state.
+-spec reset(pure_type:id(), pure_gcounter()) -> pure_gcounter().
+reset(VV, {?TYPE, {POLog, _Crystal}}) ->
+    {?TYPE, {_POLog1, Crystal1}} = new(),
+    POLog2 = orddict:filter(
+        fun(VV1, _Op) ->
+            not pure_trcb:happened_before(VV1, VV)
+        end,
+        POLog
+    ),
+    {?TYPE, {POLog2, Crystal1}}.
 
 %% @doc Return the value of the `pure_gcounter()'.
 -spec query(pure_gcounter()) -> non_neg_integer().
@@ -100,7 +112,7 @@ increment_test() ->
 
 reset_test() ->
     PureGCounter1 = {?TYPE, {[], 15}},
-    PureGCounter2 = pure_type:reset([], PureGCounter1),
+    PureGCounter2 = reset([], PureGCounter1),
     ?assertEqual({?TYPE, {[], 0}}, PureGCounter2).
 
 equal_test() ->

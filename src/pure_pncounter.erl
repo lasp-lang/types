@@ -37,7 +37,7 @@
 -endif.
 
 -export([new/0, new/1]).
--export([mutate/3, query/1, equal/2]).
+-export([mutate/3, query/1, equal/2, reset/2]).
 
 -export_type([pure_pncounter/0, pure_pncounter_op/0]).
 
@@ -70,6 +70,18 @@ mutate(decrement, _VV, {?TYPE, {POLog, PurePNCounter}}) ->
 mutate({decrement, Val}, _VV, {?TYPE, {POLog, PurePNCounter}}) ->
     PurePNCounter1 = {?TYPE, {POLog, PurePNCounter - Val}},
     {ok, PurePNCounter1}.
+
+%% @doc Clear/reset the state to initial state.
+-spec reset(pure_type:id(), pure_pncounter()) -> pure_pncounter().
+reset(VV, {?TYPE, {POLog, _Crystal}}) ->
+    {?TYPE, {_POLog1, Crystal1}} = new(),
+    POLog2 = orddict:filter(
+        fun(VV1, _Op) ->
+            not pure_trcb:happened_before(VV1, VV)
+        end,
+        POLog
+    ),
+    {?TYPE, {POLog2, Crystal1}}.
 
 %% @doc Return the value of the `pure_pncounter()'.
 -spec query(pure_pncounter()) -> integer().
@@ -117,7 +129,7 @@ decrement_test() ->
 
 reset_test() ->
     PurePNCounter1 = {?TYPE, {[], 54}},
-    PurePNCounter2 = pure_type:reset([], PurePNCounter1),
+    PurePNCounter2 = reset([], PurePNCounter1),
     ?assertEqual({?TYPE, {[], 0}}, PurePNCounter2).
 
 equal_test() ->

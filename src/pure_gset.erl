@@ -36,7 +36,7 @@
 -endif.
 
 -export([new/0, new/1]).
--export([mutate/3, query/1, equal/2]).
+-export([mutate/3, query/1, equal/2, reset/2]).
 
 -export_type([pure_gset/0, pure_gset_op/0]).
 
@@ -60,6 +60,18 @@ new([]) ->
 mutate({add, Elem}, _VV, {?TYPE, {POLog, PureGSet}}) ->
     PureGSet1 = {?TYPE, {POLog, ordsets:add_element(Elem, PureGSet)}},
     {ok, PureGSet1}.
+
+%% @doc Clear/reset the state to initial state.
+-spec reset(pure_type:id(), pure_gset()) -> pure_gset().
+reset(VV, {?TYPE, {POLog, _Crystal}}) ->
+    {?TYPE, {_POLog1, Crystal1}} = new(),
+    POLog2 = orddict:filter(
+        fun(VV1, _Op) ->
+            not pure_trcb:happened_before(VV1, VV)
+        end,
+        POLog
+    ),
+    {?TYPE, {POLog2, Crystal1}}.
 
 %% @doc Returns the value of the `pure_gset()'.
 %%      This value is a set with all the elements in the `pure_gset()'.
@@ -95,7 +107,7 @@ add_test() ->
 
 reset_test() ->
     Set1 = {?TYPE, {[], [<<"a">>, <<"b">>]}},
-    Set2 = pure_type:reset([], Set1),
+    Set2 = reset([], Set1),
     ?assertEqual({?TYPE, {[], []}}, Set2).
 
 equal_test() ->

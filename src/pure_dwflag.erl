@@ -39,7 +39,7 @@
 -endif.
 
 -export([new/0, new/1]).
--export([mutate/3, query/1, equal/2]).
+-export([mutate/3, query/1, equal/2, reset/2]).
 -export([redundant/2, remove_redundant_crystal/2, remove_redundant_polog/2, check_stability/2]).
 
 -export_type([pure_dwflag/0, pure_dwflag_op/0]).
@@ -129,6 +129,18 @@ mutate(Op, VV, {?TYPE, {POLog, PureDWFlag}}) ->
             {ok, {?TYPE, {orddict:store(VV, Op, POLog0), PureDWFlag0}}}
     end.
 
+%% @doc Clear/reset the state to initial state.
+-spec reset(pure_type:id(), pure_dwflag()) -> pure_dwflag().
+reset(VV, {?TYPE, {POLog, _Crystal}}) ->
+    {?TYPE, {_POLog1, Crystal1}} = new(),
+    POLog2 = orddict:filter(
+        fun(VV1, _Op) ->
+            not pure_trcb:happened_before(VV1, VV)
+        end,
+        POLog
+    ),
+    {?TYPE, {POLog2, Crystal1}}.
+
 %% @doc Returns the value of the `pure_dwflag()'.
 %%      This value is a a boolean value in the `pure_dwflag()'.
 -spec query(pure_dwflag()) -> boolean().
@@ -185,7 +197,7 @@ mutate_test() ->
 
 reset_test() ->
     Flag1 = {?TYPE, {[{[{0, 2}, {1, 2}], enable}, {[{0, 4}, {1, 1}], enable}], false}},
-    Flag2 = pure_type:reset([{0, 5}, {1, 6}], Flag1),
+    Flag2 = reset([{0, 5}, {1, 6}], Flag1),
     ?assertEqual({?TYPE, {[], true}}, Flag2).
 
 check_stability_test() ->
