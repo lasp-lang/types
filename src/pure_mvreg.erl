@@ -28,6 +28,7 @@
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
 -behaviour(type).
+-behaviour(pure_type).
 -behaviour(pure_polog).
 
 -define(TYPE, ?MODULE).
@@ -112,15 +113,8 @@ mutate({Op, Str}, VV, {?TYPE, {POLog, PureMVReg}}) ->
 
 %% @doc Clear/reset the state to initial state.
 -spec reset(pure_type:id(), pure_mvreg()) -> pure_mvreg().
-reset(VV, {?TYPE, {POLog, _Crystal}}) ->
-    {?TYPE, {_POLog1, Crystal1}} = new(),
-    POLog2 = orddict:filter(
-        fun(VV1, _Op) ->
-            not pure_trcb:happened_before(VV1, VV)
-        end,
-        POLog
-    ),
-    {?TYPE, {POLog2, Crystal1}}.
+reset(VV, {?TYPE, _}=CRDT) ->
+    pure_type:reset(VV, CRDT).
 
 %% @doc Returns the value of the `pure_mvreg()'.
 %%      This value is a a boolean value in the `pure_mvreg()'.

@@ -31,11 +31,23 @@
 
 %% Define some initial types.
 -type pure_type() :: pure_gcounter | pure_pncounter | pure_gset | pure_twopset | pure_aworset | pure_rworset | pure_ewflag | pure_dwflag | pure_mvreg.
+-type crdt() :: {pure_type(), payload()}.
+-type payload() :: {polog(), term()}.
 -type polog() :: orddict:orddict().
 -type id() :: orddict:orddict().
 -type element() :: term().
 
+%% Reset the data type
+-callback reset(pure_type:id(), crdt()) -> crdt().
+
 %% @doc Clear/reset the state to initial state.
--spec reset(pure_type:id(), type:crdt()) -> type:crdt().
-reset(VV, {Type, {POLog, Crystal}}) ->
-    Type:reset(VV, {Type, {POLog, Crystal}}).
+-spec reset(pure_type:id(), crdt()) -> crdt().
+reset(VV, {Type, {POLog, _Crystal}}) ->
+    {Type, {_POLog, Crystal}} = Type:new(),
+    POLog1 = orddict:filter(
+        fun(VV1, _Op) ->
+            not pure_trcb:happened_before(VV1, VV)
+        end,
+        POLog
+    ),
+    {Type, {POLog1, Crystal}}.
