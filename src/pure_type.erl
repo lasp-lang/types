@@ -19,11 +19,23 @@
 %%
 %% -------------------------------------------------------------------
 
--module(pure_type).
--author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
+%% @doc Inspired by both the Lasp data type behaviour and the Riak data
+%%      type behaviour.
 
--export_type([pure_type/0]).
+-module(pure_type).
+-author("Georges Younes <georges.r.younes@gmail.com>").
+
+-export_type([pure_type/0, polog/0, id/0, element/0]).
+
+-export([reset/2]).
 
 %% Define some initial types.
--type pure_type() ::  pure_gcounter |
-                      pure_gset.
+-type pure_type() :: pure_gcounter | pure_pncounter | pure_gset | pure_twopset | pure_aworset | pure_rworset | pure_ewflag | pure_dwflag | pure_mvreg.
+-type polog() :: orddict:orddict().
+-type id() :: orddict:orddict().
+-type element() :: term().
+
+%% @doc Clear/reset the state to initial state.
+-spec reset(pure_type:id(), type:crdt()) -> type:crdt().
+reset(VV, {Type, {POLog, Crystal}}) ->
+    Type:reset(VV, {Type, {POLog, Crystal}}).
