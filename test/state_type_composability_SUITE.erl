@@ -48,13 +48,14 @@ end_per_testcase(_Case, Config) -> Config.
 
 all() ->
     [
-     pair_with_gcounters_test,
-     pair_with_gcounter_and_another_pair_test,
-     pair_with_pairs_with_gcounters_test,
-     pair_with_gcounter_and_gset_test,
-     pair_with_pairs_with_gcounter_and_gset_test,
-     pair_with_gcounter_and_gmap_test,
-     pair_with_gmap_and_pair_with_gcounter_and_gmap_test
+        pair_with_gcounters_test,
+        pair_with_gcounter_and_another_pair_test,
+        pair_with_pairs_with_gcounters_test,
+        pair_with_gcounter_and_gset_test,
+        pair_with_pairs_with_gcounter_and_gset_test,
+        pair_with_gcounter_and_gmap_test,
+        pair_with_gmap_and_pair_with_gcounter_and_gmap_test,
+        pair_with_pair_with_gcounter_and_gmap_and_gmap_test
     ].
 
 %% ===================================================================
@@ -272,7 +273,7 @@ pair_with_gcounter_and_gmap_test(_Config) ->
 pair_with_gmap_and_pair_with_gcounter_and_gmap_test(_Config) ->
     Actor = "A",
     Pair0 = ?PAIR_TYPE:new([
-        {?GMAP_TYPE, [?BOOLEAN_TYPE]}, 
+        {?GMAP_TYPE, [?BOOLEAN_TYPE]},
         {?PAIR_TYPE, [
             ?GCOUNTER_TYPE, 
             {?GMAP_TYPE, [?BOOLEAN_TYPE]}
@@ -311,4 +312,54 @@ pair_with_gmap_and_pair_with_gcounter_and_gmap_test(_Config) ->
             {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, true}}]}}
         }}
     }}, Pair3),
-    ?assertEqual({[{Actor, true}], {2, [{Actor, true}]}}, Query).
+    ?assertEqual({
+        [{Actor, true}],
+        {2, [{Actor, true}]}
+    }, Query).
+
+pair_with_pair_with_gcounter_and_gmap_and_gmap_test(_Config) ->
+    Actor = "A",
+    Pair0 = ?PAIR_TYPE:new([
+        {?PAIR_TYPE, [
+            ?GCOUNTER_TYPE,
+            {?GMAP_TYPE, [?BOOLEAN_TYPE]}
+        ]},
+        {?GMAP_TYPE, [?BOOLEAN_TYPE]}
+    ]),
+    {ok, Pair1} = ?PAIR_TYPE:mutate({snd, {Actor, true}}, Actor, Pair0),
+    {ok, Pair2} = ?PAIR_TYPE:mutate({fst, {fst, increment}}, Actor, Pair1),
+    {ok, Pair3} = ?PAIR_TYPE:mutate({fst, {snd, {Actor, true}}}, Actor, Pair2),
+    Query = ?PAIR_TYPE:query(Pair3),
+
+    ?assertEqual({?PAIR_TYPE, {
+        {?PAIR_TYPE, {
+            {?GCOUNTER_TYPE, []},
+            {?GMAP_TYPE, {?BOOLEAN_TYPE, []}}
+        }},
+        {?GMAP_TYPE, {?BOOLEAN_TYPE, []}}
+    }}, Pair0),
+    ?assertEqual({?PAIR_TYPE, {
+        {?PAIR_TYPE, {
+            {?GCOUNTER_TYPE, []},
+            {?GMAP_TYPE, {?BOOLEAN_TYPE, []}}
+        }},
+        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, true}}]}}
+    }}, Pair1),
+    ?assertEqual({?PAIR_TYPE, {
+        {?PAIR_TYPE, {
+            {?GCOUNTER_TYPE, [{Actor, 1}]},
+            {?GMAP_TYPE, {?BOOLEAN_TYPE, []}}
+        }},
+        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, true}}]}}
+    }}, Pair2),
+    ?assertEqual({?PAIR_TYPE, {
+        {?PAIR_TYPE, {
+            {?GCOUNTER_TYPE, [{Actor, 1}]},
+            {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, true}}]}}
+        }},
+        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, true}}]}}
+    }}, Pair3),
+    ?assertEqual({
+        {2, [{Actor, true}]},
+        [{Actor, true}]
+    }, Query).
