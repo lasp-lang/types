@@ -47,26 +47,60 @@ init_per_testcase(_Case, Config) -> Config.
 end_per_testcase(_Case, Config) -> Config.
 
 all() ->
-		[
-		 pair_with_gcounters_test
-		].
+    [
+		 pair_with_gcounters_test,
+     pair_with_gcounter_and_another_pair_test
+    ].
 
 %% ===================================================================
 %% tests
 %% ===================================================================
 
 pair_with_gcounters_test(_Config) ->
-    Actor = 1,
+    Actor = "A",
     Pair0 = ?PAIR_TYPE:new([?GCOUNTER_TYPE, ?GCOUNTER_TYPE]),
     {ok, Pair1} = ?PAIR_TYPE:mutate({fst, increment}, Actor, Pair0),
     {ok, Pair2} = ?PAIR_TYPE:mutate({snd, increment}, Actor, Pair1),
     {ok, Pair3} = ?PAIR_TYPE:mutate({fst, increment}, Actor, Pair2),
     Query = ?PAIR_TYPE:query(Pair3),
     ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, []}, {?GCOUNTER_TYPE, []}}}, Pair0),
-    ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, [{1, 1}]}, {?GCOUNTER_TYPE, []}}}, Pair1),
-    ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, [{1, 1}]}, {?GCOUNTER_TYPE, [{1, 1}]}}}, Pair2),
-    ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, [{1, 2}]}, {?GCOUNTER_TYPE, [{1, 1}]}}}, Pair3),
-    ?assertEqual({2, 1}, Query),
-    ok.
+    ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, [{"A", 1}]}, {?GCOUNTER_TYPE, []}}}, Pair1),
+    ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, [{"A", 1}]}, {?GCOUNTER_TYPE, [{"A", 1}]}}}, Pair2),
+    ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, [{"A", 2}]}, {?GCOUNTER_TYPE, [{"A", 1}]}}}, Pair3),
+    ?assertEqual({2, 1}, Query).
 
-	
+pair_with_gcounter_and_another_pair_test(_Config) ->
+    Actor = "A",
+    Pair0 = ?PAIR_TYPE:new([?GCOUNTER_TYPE, {?PAIR_TYPE, [?GCOUNTER_TYPE, ?GCOUNTER_TYPE]}]),
+    {ok, Pair1} = ?PAIR_TYPE:mutate({fst, increment}, Actor, Pair0),
+    {ok, Pair2} = ?PAIR_TYPE:mutate({snd, {fst, increment}}, Actor, Pair1),
+    {ok, Pair3} = ?PAIR_TYPE:mutate({snd, {snd, increment}}, Actor, Pair2),
+    ?assertEqual({?PAIR_TYPE, {
+        {?GCOUNTER_TYPE, []},
+        {?PAIR_TYPE, {
+            {?GCOUNTER_TYPE, []},
+            {?GCOUNTER_TYPE, []}
+        }}
+    }}, Pair0),
+    ?assertEqual({?PAIR_TYPE, {
+        {?GCOUNTER_TYPE, [{"A", 1}]},
+        {?PAIR_TYPE, {
+            {?GCOUNTER_TYPE, []},
+            {?GCOUNTER_TYPE, []}
+        }}
+    }}, Pair1),
+    ?assertEqual({?PAIR_TYPE, {
+        {?GCOUNTER_TYPE, [{"A", 1}]},
+        {?PAIR_TYPE, {
+            {?GCOUNTER_TYPE, [{"A", 1}]},
+            {?GCOUNTER_TYPE, []}
+        }}
+    }}, Pair2),
+    ?assertEqual({?PAIR_TYPE, {
+        {?GCOUNTER_TYPE, [{"A", 1}]},
+        {?PAIR_TYPE, {
+            {?GCOUNTER_TYPE, [{"A", 1}]},
+            {?GCOUNTER_TYPE, [{"A", 1}]}
+        }}
+    }}, Pair3).
+
