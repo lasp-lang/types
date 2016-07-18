@@ -1,4 +1,5 @@
 -define(BCOUNTER_TYPE, state_bcounter).
+-define(BOOLEAN_TYPE, state_boolean).
 -define(GCOUNTER_TYPE, state_gcounter).
 -define(GMAP_TYPE, state_gmap).
 -define(GSET_TYPE, state_gset).
