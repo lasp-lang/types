@@ -314,7 +314,7 @@ pair_with_gmap_and_pair_with_gcounter_and_gmap_test(_Config) ->
     }}, Pair3),
     ?assertEqual({
         [{Actor, true}],
-        {2, [{Actor, true}]}
+        {1, [{Actor, true}]}
     }, Query).
 
 pair_with_pair_with_gcounter_and_gmap_and_gmap_test(_Config) ->
@@ -360,6 +360,6 @@ pair_with_pair_with_gcounter_and_gmap_and_gmap_test(_Config) ->
         {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, true}}]}}
     }}, Pair3),
     ?assertEqual({
-        {2, [{Actor, true}]},
+        {1, [{Actor, true}]},
         [{Actor, true}]
     }, Query).
