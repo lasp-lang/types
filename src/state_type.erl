@@ -95,8 +95,8 @@ new({state_max_int, _Payload}) ->
     state_max_int:new();
 new({state_orset, _Payload}) ->
     state_orset:new();
-new({state_pair, {{FstType, _}, {SndType, _}}}) ->
-    state_pair:new([FstType, SndType]);
+new({state_pair, {Fst, Snd}}) ->
+    {state_pair, {new(Fst), new(Snd)}};
 new({state_pncounter, _Payload}) ->
     state_pncounter:new();
 new({state_twopset, _Payload}) ->
