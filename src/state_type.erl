@@ -22,7 +22,7 @@
 -module(state_type).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
--export([new/1, mutate/3, is_inflation/2, is_strict_inflation/2]).
+-export([new/1, mutate/3, merge/3, is_inflation/2, is_strict_inflation/2]).
 
 -export_type([state_type/0]).
 
@@ -112,6 +112,18 @@ mutate(Op, Actor, {Type, _}=CRDT) ->
         Error ->
             Error
     end.
+
+%% @doc Generic Merge.
+-spec merge(delta_or_state(), delta_or_state(), function()) -> delta_or_state().
+merge({Type, {delta, Delta1}}, {Type, {delta, Delta2}}, MergeFun) ->
+    {Type, DeltaGroup} = MergeFun({Type, Delta1}, {Type, Delta2}),
+    {Type, {delta, DeltaGroup}};
+merge({Type, {delta, Delta}}, {Type, CRDT}, MergeFun) ->
+    MergeFun({Type, Delta}, {Type, CRDT});
+merge({Type, CRDT}, {Type, {delta, Delta}}, MergeFun) ->
+    MergeFun({Type, Delta}, {Type, CRDT});
+merge({Type, CRDT1}, {Type, CRDT2}, MergeFun) ->
+    MergeFun({Type, CRDT1}, {Type, CRDT2}).
 
 %% @doc Generic check for inflation.
 -spec is_inflation(crdt(), crdt()) -> boolean().

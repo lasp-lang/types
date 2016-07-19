@@ -111,22 +111,18 @@ query({?TYPE, LexCounter}) ->
 %%      If a key is present in both `state_lexcounter()', the new value
 %%      will be the join of the lexicographic pairs.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
-merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
-    {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
-    {?TYPE, {delta, DeltaGroup}};
-merge({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
-merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
-merge({?TYPE, LexCounter1}, {?TYPE, LexCounter2}) ->
-    LexCounter = orddict:merge(
-        fun(_, Value1, Value2) ->
-            join(Value1, Value2)
-        end,
-        LexCounter1,
-        LexCounter2
-    ),
-    {?TYPE, LexCounter}.
+merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
+    MergeFun = fun({?TYPE, LexCounter1}, {?TYPE, LexCounter2}) ->
+        LexCounter = orddict:merge(
+            fun(_, Value1, Value2) ->
+                join(Value1, Value2)
+            end,
+            LexCounter1,
+            LexCounter2
+        ),
+        {?TYPE, LexCounter}
+    end,
+    state_type:merge(CRDT1, CRDT2, MergeFun).
 
 join({Left1, Right1}, {Left2, _Right2}) when Left1 > Left2 ->
     {Left1, Right1};

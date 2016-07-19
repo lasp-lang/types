@@ -138,16 +138,12 @@ query({?TYPE, {DataStore, _DotCloud}=_AWSet}) ->
 %% @doc Merge two `state_awset()'.
 %% Merging will be handled by the causal_join() in the common library.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
-merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
-    {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
-    {?TYPE, {delta, DeltaGroup}};
-merge({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
-merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
-merge({?TYPE, AWSet1}, {?TYPE, AWSet2}) ->
-    AWSet = state_causal_type:causal_join(AWSet1, AWSet2),
-    {?TYPE, AWSet}.
+merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
+    MergeFun = fun({?TYPE, AWSet1}, {?TYPE, AWSet2}) ->
+        AWSet = state_causal_type:causal_join(AWSet1, AWSet2),
+        {?TYPE, AWSet}
+    end,
+    state_type:merge(CRDT1, CRDT2, MergeFun).
 
 %% @doc Equality for `state_awset()'.
 %% Since everything is ordered, == should work.

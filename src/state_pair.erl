@@ -111,18 +111,14 @@ query({?TYPE, {{FstType, _}=Fst, {SndType, _}=Snd}}) ->
 %% @doc Merge two `state_pair()'.
 %%      The resulting `state_pair()' is the component-wise join of components.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
-merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
-    {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
-    {?TYPE, {delta, DeltaGroup}};
-merge({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
-merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
-merge({?TYPE, {{FstType, _}=Fst1, {SndType, _}=Snd1}},
-      {?TYPE, {{FstType, _}=Fst2, {SndType, _}=Snd2}}) ->
-    Fst = FstType:merge(Fst1, Fst2),
-    Snd = SndType:merge(Snd1, Snd2),
-    {?TYPE, {Fst, Snd}}.
+merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
+    MergeFun = fun({?TYPE, {{FstType, _}=Fst1, {SndType, _}=Snd1}},
+                   {?TYPE, {{FstType, _}=Fst2, {SndType, _}=Snd2}}) ->
+        Fst = FstType:merge(Fst1, Fst2),
+        Snd = SndType:merge(Snd1, Snd2),
+        {?TYPE, {Fst, Snd}}
+    end,
+    state_type:merge(CRDT1, CRDT2, MergeFun).
 
 %% @doc Equality for `state_pair()'.
 -spec equal(state_pair(), state_pair()) -> boolean().

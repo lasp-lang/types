@@ -107,22 +107,18 @@ query({?TYPE, GCounter}) ->
 %%      will be the max of both values.
 %%      Return the join of the two `state_gcounter()'.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
-merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
-    {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
-    {?TYPE, {delta, DeltaGroup}};
-merge({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
-merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
-merge({?TYPE, GCounter1}, {?TYPE, GCounter2}) ->
-    GCounter = orddict:merge(
-        fun(_, Value1, Value2) ->
-            max(Value1, Value2)
-        end,
-        GCounter1,
-        GCounter2
-    ),
-    {?TYPE, GCounter}.
+merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
+    MergeFun = fun({?TYPE, GCounter1}, {?TYPE, GCounter2}) ->
+        GCounter = orddict:merge(
+            fun(_, Value1, Value2) ->
+                max(Value1, Value2)
+            end,
+            GCounter1,
+            GCounter2
+        ),
+        {?TYPE, GCounter}
+    end,
+    state_type:merge(CRDT1, CRDT2, MergeFun).
 
 %% @doc Are two `state_gcounter()'s structurally equal?
 %%      This is not `query/1' equality.
