@@ -51,7 +51,8 @@
 -opaque state_gmap() :: {?TYPE, payload()}.
 -opaque delta_state_gmap() :: {?TYPE, {delta, payload()}}.
 -type delta_or_state() :: state_gmap() | delta_state_gmap().
--type payload() :: {state_type:state_type(), orddict:orddict()}.
+-type ctype() :: state_type:state_type() | {state_type:state_type(), [term()]}.
+-type payload() :: {ctype(), orddict:orddict()}.
 -type state_gmap_op() :: term().
 
 %% @doc Create a new, empty `state_gmap()'.
@@ -62,8 +63,8 @@ new() ->
 
 %% @doc Create a new, empty `state_gmap()'
 -spec new([term()]) -> state_gmap().
-new([Type]) ->
-    {?TYPE, {Type, orddict:new()}}.
+new([CType]) ->
+    {?TYPE, {CType, orddict:new()}}.
 
 %% @doc Mutate a `state_gmap()'.
 -spec mutate(state_gmap_op(), type:id(), state_gmap()) ->
@@ -77,22 +78,25 @@ mutate(Op, Actor, {?TYPE, _}=CRDT) ->
 %%      to be performed on the correspondent value of that key.
 -spec delta_mutate(state_gmap_op(), type:id(), state_gmap()) ->
     {ok, delta_state_gmap()}.
-delta_mutate({Key, Op}, Actor, {?TYPE, {Type, GMap}}) ->
+delta_mutate({Key, Op}, Actor, {?TYPE, {CType, GMap}}) ->
+    {Type, Args} = state_type:extract_args(CType),
+
     Current = case orddict:find(Key, GMap) of
         {ok, Value} ->
             Value;
         error ->
-            Type:new()
+            Type:new(Args)
     end,
     {ok, {Type, {delta, KeyDelta}}} = Type:delta_mutate(Op, Actor, Current),
     Delta = orddict:store(Key, {Type, KeyDelta}, orddict:new()),
-    {ok, {?TYPE, {delta, {Type, Delta}}}}.
+    {ok, {?TYPE, {delta, {CType, Delta}}}}.
 
 %% @doc Returns the value of the `state_gmap()'.
 %%      This value is a dictionary where each key maps to the
 %%      result of `query/1' over the current value.
 -spec query(state_gmap()) -> term().
-query({?TYPE, {Type, GMap}}) ->
+query({?TYPE, {CType, GMap}}) ->
+    {Type, _Args} = state_type:extract_args(CType),
     lists:map(
         fun({Key, Value}) ->
             {Key, Type:query(Value)}
@@ -115,7 +119,8 @@ merge({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
     merge({?TYPE, Delta}, {?TYPE, CRDT});
 merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
     merge({?TYPE, Delta}, {?TYPE, CRDT});
-merge({?TYPE, {Type, GMap1}}, {?TYPE, {Type, GMap2}}) ->
+merge({?TYPE, {CType, GMap1}}, {?TYPE, {CType, GMap2}}) ->
+    {Type, _Args} = state_type:extract_args(CType),
     GMap = orddict:merge(
         fun(_, Value1, Value2) ->
             Type:merge(Value1, Value2)
@@ -123,13 +128,14 @@ merge({?TYPE, {Type, GMap1}}, {?TYPE, {Type, GMap2}}) ->
         GMap1,
         GMap2
     ),
-    {?TYPE, {Type, GMap}}.
+    {?TYPE, {CType, GMap}}.
 
 %% @doc Equality for `state_gmap()'.
 %%      Two `state_gmap()' are equal if they have the same keys
 %%      and for each key, their values are also `equal/2'.
 -spec equal(state_gmap(), state_gmap()) -> boolean().
-equal({?TYPE, {Type, GMap1}}, {?TYPE, {Type, GMap2}}) ->
+equal({?TYPE, {CType, GMap1}}, {?TYPE, {CType, GMap2}}) ->
+    {Type, _Args} = state_type:extract_args(CType),
     Fun = fun(Value1, Value2) ->
         Type:equal(Value1, Value2)
     end,
@@ -139,7 +145,7 @@ equal({?TYPE, {Type, GMap1}}, {?TYPE, {Type, GMap2}}) ->
 -spec is_bottom(delta_or_state()) -> boolean().
 is_bottom({?TYPE, {delta, GMap}}) ->
     is_bottom({?TYPE, GMap});
-is_bottom({?TYPE, {_Type, GMap}}) ->
+is_bottom({?TYPE, {_CType, GMap}}) ->
     orddict:is_empty(GMap).
 
 %% @doc Given two `state_gmap()', check if the second is an inflation
@@ -151,9 +157,10 @@ is_bottom({?TYPE, {_Type, GMap}}) ->
 %%          the correspondent value in the second `state_gmap()'
 %%          should be an inflation of the value in the first.
 -spec is_inflation(delta_or_state(), state_gmap()) -> boolean().
-is_inflation({?TYPE, {delta, {Type, _GMap1}=G1}}, {?TYPE, {Type, _GMap2}=G2}) ->
+is_inflation({?TYPE, {delta, {CType, _GMap1}=G1}}, {?TYPE, {CType, _GMap2}=G2}) ->
     is_inflation({?TYPE, G1}, {?TYPE, G2});
-is_inflation({?TYPE, {Type, GMap1}}, {?TYPE, {Type, GMap2}}) ->
+is_inflation({?TYPE, {CType, GMap1}}, {?TYPE, {CType, GMap2}}) ->
+    {Type, _Args} = state_type:extract_args(CType),
     lists_ext:iterate_until(
         fun({Key, Value1}) ->
             case orddict:find(Key, GMap2) of
@@ -168,7 +175,7 @@ is_inflation({?TYPE, {Type, GMap1}}, {?TYPE, {Type, GMap2}}) ->
 
 %% @doc Check for strict inflation.
 -spec is_strict_inflation(delta_or_state(), state_gmap()) -> boolean().
-is_strict_inflation({?TYPE, {delta, {Type, _GMap1}=G1}}, {?TYPE, {Type, _GMap2}=G2}) ->
+is_strict_inflation({?TYPE, {delta, {CType, _GMap1}=G1}}, {?TYPE, {CType, _GMap2}=G2}) ->
     is_strict_inflation({?TYPE, G1}, {?TYPE, G2});
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
@@ -176,7 +183,7 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 %% @doc Join decomposition for `state_gmap()'.
 %% @todo Check how to do this.
 -spec join_decomposition(state_gmap()) -> [state_gmap()].
-join_decomposition({?TYPE, {_Type, _GMap}}) -> [].
+join_decomposition({?TYPE, {_CType, _GMap}}) -> [].
 
 %% ===================================================================
 %% EUnit tests

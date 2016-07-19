@@ -66,8 +66,8 @@ new() ->
 %% @doc Create a new, empty `state_pair()'
 -spec new([state_type:state_type()]) -> state_pair().
 new([Fst, Snd]) ->
-    {FstType, FstArgs} = extract_args(Fst),
-    {SndType, SndArgs} = extract_args(Snd),
+    {FstType, FstArgs} = state_type:extract_args(Fst),
+    {SndType, SndArgs} = state_type:extract_args(Snd),
     {?TYPE, {
         FstType:new(FstArgs),
         SndType:new(SndArgs)
@@ -170,12 +170,6 @@ is_strict_inflation({?TYPE, {{FstType, _}=Fst1, {SndType, _}=Snd1}},
 %% @todo Check how to do this.
 -spec join_decomposition(state_pair()) -> [state_pair()].
 join_decomposition({?TYPE, _Pair}) -> [].
-
-%% @private
-extract_args({Type, Args}) ->
-    {Type, Args};
-extract_args(Type) ->
-    {Type, []}.
 
 
 %% ===================================================================
