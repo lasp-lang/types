@@ -23,6 +23,7 @@
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
 -export([new/1, mutate/3, merge/3, is_inflation/2, is_strict_inflation/2]).
+-export([extract_args/1]).
 
 -export_type([state_type/0]).
 
@@ -138,3 +139,9 @@ is_inflation({Type, _}=CRDT1, {Type, _}=CRDT2) ->
 is_strict_inflation({Type, _}=CRDT1, {Type, _}=CRDT2) ->
     Type:is_inflation(CRDT1, CRDT2) andalso
     not Type:equal(CRDT1, CRDT2).
+
+%% @doc extract arguments from complex (composite) types
+extract_args({Type, Args}) ->
+    {Type, Args};
+extract_args(Type) ->
+    {Type, []}.
