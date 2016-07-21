@@ -122,7 +122,7 @@ merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
             GMap1,
             GMap2
         ),
-        {?TYPE, {Type, GMap}}
+        {?TYPE, {CType, GMap}}
     end,
     state_type:merge(CRDT1, CRDT2, MergeFun).
 
