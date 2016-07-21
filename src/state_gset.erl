@@ -99,16 +99,12 @@ query({?TYPE, GSet}) ->
 %%      The result is the set union of both sets in the
 %%      `state_gset()' passed as argument.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
-merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
-    {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
-    {?TYPE, {delta, DeltaGroup}};
-merge({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
-merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
-merge({?TYPE, GSet1}, {?TYPE, GSet2}) ->
-    GSet = ordsets:union(GSet1, GSet2),
-    {?TYPE, GSet}.
+merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
+    MergeFun = fun({?TYPE, GSet1}, {?TYPE, GSet2}) ->
+        GSet = ordsets:union(GSet1, GSet2),
+        {?TYPE, GSet}
+    end,
+    state_type:merge(CRDT1, CRDT2, MergeFun).
 
 %% @doc Equality for `state_gset()'.
 -spec equal(state_gset(), state_gset()) -> boolean().

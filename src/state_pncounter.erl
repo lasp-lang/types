@@ -125,22 +125,18 @@ query({?TYPE, PNCounter}) ->
 %%      will be the componenet wise max of both values.
 %%      Return the join of the two `state_pncounter()'.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
-merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
-    {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
-    {?TYPE, {delta, DeltaGroup}};
-merge({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
-merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
-merge({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
-    PNCounter = orddict:merge(
-        fun(_, {Inc1, Dec1}, {Inc2, Dec2}) ->
-            {max(Inc1, Inc2), max(Dec1, Dec2)}
-        end,
-        PNCounter1,
-        PNCounter2
-    ),
-    {?TYPE, PNCounter}.
+merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
+    MergeFun = fun({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
+        PNCounter = orddict:merge(
+            fun(_, {Inc1, Dec1}, {Inc2, Dec2}) ->
+                {max(Inc1, Inc2), max(Dec1, Dec2)}
+            end,
+            PNCounter1,
+            PNCounter2
+        ),
+        {?TYPE, PNCounter}
+    end,
+    state_type:merge(CRDT1, CRDT2, MergeFun).
 
 %% @doc Are two `state_pncounter()'s structurally equal?
 %%      This is not `query/1' equality.

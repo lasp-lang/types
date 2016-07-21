@@ -166,17 +166,13 @@ query({?TYPE, {PNCounter, _GMap}}) ->
 %%      in the first component, and the merge of both
 %%      `state_gmap()' in the second component.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
-merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
-    {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
-    {?TYPE, {delta, DeltaGroup}};
-merge({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
-merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
-merge({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) ->
-    PNCounter = ?PNCOUNTER_TYPE:merge(PNCounter1, PNCounter2),
-    GMap = ?GMAP_TYPE:merge(GMap1, GMap2),
-    {?TYPE, {PNCounter, GMap}}.
+merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
+    MergeFun = fun({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) ->
+        PNCounter = ?PNCOUNTER_TYPE:merge(PNCounter1, PNCounter2),
+        GMap = ?GMAP_TYPE:merge(GMap1, GMap2),
+        {?TYPE, {PNCounter, GMap}}
+    end,
+    state_type:merge(CRDT1, CRDT2, MergeFun).
 
 %% @doc Equality for `state_bcounter()'.
 %%      Two `state_bcounter()' are equal if each

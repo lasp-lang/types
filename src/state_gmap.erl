@@ -108,22 +108,18 @@ query({?TYPE, {Type, GMap}}) ->
 %%      If a key is present in both `state_gmap()', the new value
 %%      will be the `merge/2' of both values.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
-merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
-    {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
-    {?TYPE, {delta, DeltaGroup}};
-merge({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
-merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
-merge({?TYPE, {Type, GMap1}}, {?TYPE, {Type, GMap2}}) ->
-    GMap = orddict:merge(
-        fun(_, Value1, Value2) ->
-            Type:merge(Value1, Value2)
-        end,
-        GMap1,
-        GMap2
-    ),
-    {?TYPE, {Type, GMap}}.
+merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
+    MergeFun = fun({?TYPE, {Type, GMap1}}, {?TYPE, {Type, GMap2}}) ->
+        GMap = orddict:merge(
+            fun(_, Value1, Value2) ->
+                Type:merge(Value1, Value2)
+            end,
+            GMap1,
+            GMap2
+        ),
+        {?TYPE, {Type, GMap}}
+    end,
+    state_type:merge(CRDT1, CRDT2, MergeFun).
 
 %% @doc Equality for `state_gmap()'.
 %%      Two `state_gmap()' are equal if they have the same keys

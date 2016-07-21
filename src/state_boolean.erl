@@ -83,15 +83,11 @@ query({?TYPE, Boolean}) ->
 %% @doc Merge two `state_boolean()'.
 %%      Join is the logical or.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
-merge({?TYPE, {delta, Delta1}}, {?TYPE, {delta, Delta2}}) ->
-    {?TYPE, DeltaGroup} = ?TYPE:merge({?TYPE, Delta1}, {?TYPE, Delta2}),
-    {?TYPE, {delta, DeltaGroup}};
-merge({?TYPE, {delta, Delta}}, {?TYPE, CRDT}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
-merge({?TYPE, CRDT}, {?TYPE, {delta, Delta}}) ->
-    merge({?TYPE, Delta}, {?TYPE, CRDT});
-merge({?TYPE, Boolean1}, {?TYPE, Boolean2}) ->
-    {?TYPE, Boolean1 orelse Boolean2}.
+merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
+    MergeFun = fun({?TYPE, Boolean1}, {?TYPE, Boolean2}) ->
+        {?TYPE, Boolean1 orelse Boolean2}
+    end,
+    state_type:merge(CRDT1, CRDT2, MergeFun).
 
 %% @doc Equality for `state_boolean()'.
 -spec equal(state_boolean(), state_boolean()) -> boolean().
