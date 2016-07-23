@@ -51,6 +51,7 @@
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
+-export([encode/2, decode/2]).
 -export([extract_delta/1]).
 
 -export_type([state_pncounter/0, delta_state_pncounter/0, state_pncounter_op/0]).
@@ -205,10 +206,20 @@ join_decomposition({?TYPE, PNCounter}) ->
         PNCounter
     ).
 
+-spec encode(state_type:format(), delta_or_state()) -> binary().
+encode(erlang, {?TYPE, _}=CRDT) ->
+    erlang:term_to_binary(CRDT).
+
+-spec decode(state_type:format(), binary()) -> delta_or_state().
+decode(erlang, Binary) ->
+    {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
+    CRDT.
+
 %% @doc Given the result of `delta_mutate/3', extract the delta.
 -spec extract_delta(delta_state_pncounter()) -> payload().
 extract_delta({?TYPE, {delta, Delta}}) ->
     Delta.
+
 
 %% ===================================================================
 %% EUnit tests
@@ -337,5 +348,11 @@ join_decomposition_test() ->
     List = [{?TYPE, [{1, {2, 0}}]}, {?TYPE, [{2, {1, 0}}]}, {?TYPE, [{4, {1, 0}}]},
             {?TYPE, [{1, {0, 1}}]}, {?TYPE, [{2, {0, 0}}]}, {?TYPE, [{4, {0, 2}}]}],
     ?assertEqual(lists:sort(List), lists:sort(Decomp1)).
+
+encode_decode_test() ->
+    Counter = {?TYPE, [{1, {2, 1}}, {2, {1, 0}}, {4, {1, 2}}]},
+    Binary = encode(erlang, Counter),
+    ECounter = decode(erlang, Binary),
+    ?assertEqual(Counter, ECounter).
 
 -endif.

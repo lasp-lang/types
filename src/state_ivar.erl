@@ -37,6 +37,7 @@
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
+-export([encode/2, decode/2]).
 
 -export_type([state_ivar/0, delta_state_ivar/0, state_ivar_op/0]).
 
@@ -129,6 +130,16 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 join_decomposition({?TYPE, _}=Var) ->
     [Var].
 
+-spec encode(state_type:format(), delta_or_state()) -> binary().
+encode(erlang, {?TYPE, _}=CRDT) ->
+    erlang:term_to_binary(CRDT).
+
+-spec decode(state_type:format(), binary()) -> delta_or_state().
+decode(erlang, Binary) ->
+    {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
+    CRDT.
+
+
 %% ===================================================================
 %% EUnit tests
 %% ===================================================================
@@ -213,5 +224,11 @@ join_decomposition_test() ->
     Decomp1 = join_decomposition(Var1),
     ?assertEqual([{?TYPE, undefined}], Decomp0),
     ?assertEqual([{?TYPE, <<"a">>}], Decomp1).
+
+encode_decode_test() ->
+    Var = {?TYPE, [<<"a">>]},
+    Binary = encode(erlang, Var),
+    EVar = decode(erlang, Binary),
+    ?assertEqual(Var, EVar).
 
 -endif.

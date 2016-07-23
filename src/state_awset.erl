@@ -19,13 +19,13 @@
 %% -------------------------------------------------------------------
 
 %% @doc Add-Wins ORSet CRDT: observed-remove set without tombstones.
-%% This type is an example of the causal CRDTs using the common library.
-%% Currently, the set-theoretic functions (product(), union(), intersection()) and
-%% the functional programming functions (map(), filter(), fold()) are not supported.
+%%      This type is an example of the causal CRDTs using the common library.
+%%      Currently, the set-theoretic functions (product(), union(), intersection()) and
+%%      the functional programming functions (map(), filter(), fold()) are not supported.
 %%
 %% @reference Paulo Sérgio Almeida, Ali Shoker, and Carlos Baquero
-%% Delta State Replicated Data Types (2016)
-%% [http://arxiv.org/pdf/1603.01529v1.pdf]
+%%      Delta State Replicated Data Types (2016)
+%%      [http://arxiv.org/pdf/1603.01529v1.pdf]
 
 -module(state_awset).
 -author("Junghun Yoo <junghun.yoo@cs.ox.ac.uk>").
@@ -43,6 +43,7 @@
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
+-export([encode/2, decode/2]).
 
 -export_type([state_awset/0, delta_state_awset/0, state_awset_op/0]).
 
@@ -199,6 +200,15 @@ join_decomposition({?TYPE, {{{dot_map, dot_set}, DataStoreDict}, DotCloud0}}) ->
                            [Dot0]}}])
               end, DecompList, RemovedDotCloud)
     end.
+
+-spec encode(state_type:format(), delta_or_state()) -> binary().
+encode(erlang, {?TYPE, _}=CRDT) ->
+    erlang:term_to_binary(CRDT).
+
+-spec decode(state_type:format(), binary()) -> delta_or_state().
+decode(erlang, Binary) ->
+    {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
+    CRDT.
 
 %% @private
 add_elem_delta(Elem,
@@ -460,5 +470,11 @@ join_decomposition_test() ->
             {?TYPE, {{{dot_map, dot_set}, []}, [{3, 1}]}}],
     ?assertEqual([Set1], Decomp1),
     ?assertEqual(lists:sort(List), lists:sort(Decomp2)).
+
+encode_decode_test() ->
+    Set = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]}, [{1, 1}, {2, 1}, {3, 1}]}},
+    Binary = encode(erlang, Set),
+    ESet = decode(erlang, Binary),
+    ?assertEqual(Set, ESet).
 
 -endif.

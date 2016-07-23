@@ -46,6 +46,10 @@
 -type delta_crdt() :: {state_type(), {delta, type:payload()}}.
 -type delta_or_state() :: crdt() | delta_crdt().
 
+%% Supported serialization formats.
+-type format() :: erlang.
+
+
 %% Perform a delta mutation.
 -callback delta_mutate(type:operation(), type:id(), crdt()) ->
     {ok, delta_crdt()} | {error, type:error()}.
@@ -65,6 +69,11 @@
 
 %% Join decomposition.
 -callback join_decomposition(crdt()) -> [crdt()].
+
+%% @todo These should be moved to type.erl
+%% Encode and Decode.
+-callback encode(format(), crdt()) -> binary().
+-callback decode(format(), binary()) -> crdt().
 
 %% @todo These functions are for the incremental interface.
 %% -type iterator() :: term().

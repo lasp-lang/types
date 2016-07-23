@@ -41,12 +41,14 @@
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
+-export([encode/2, decode/2]).
 
 -export_type([state_orset/0, delta_state_orset/0, state_orset_op/0]).
 
 -opaque state_orset() :: {?TYPE, payload()}.
 -opaque delta_state_orset() :: {?TYPE, {delta, payload()}}.
 -type delta_or_state() :: state_orset() | delta_state_orset().
+
 -type payload() :: orddict:orddict().
 -type element() :: term().
 -type token() :: term().
@@ -268,6 +270,15 @@ join_decomposition({?TYPE, ORSet}) ->
         ORSet
      ).
 
+-spec encode(state_type:format(), delta_or_state()) -> binary().
+encode(erlang, {?TYPE, _}=CRDT) ->
+    erlang:term_to_binary(CRDT).
+
+-spec decode(state_type:format(), binary()) -> delta_or_state().
+decode(erlang, Binary) ->
+    {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
+    CRDT.
+
 %% private
 unique(_Actor) ->
     crypto:strong_rand_bytes(20).
@@ -447,5 +458,11 @@ join_decomposition_test() ->
             {?TYPE, [{<<"b">>, [{<<"token2">>, false}]}]}],
     ?assertEqual([Set1], Decomp1),
     ?assertEqual(lists:sort(List), lists:sort(Decomp2)).
+
+encode_decode_test() ->
+    Set = {?TYPE, [{<<"a">>, [{<<"token1">>, true}]}, {<<"b">>, [{<<"token2">>, false}]}]},
+    Binary = encode(erlang, Set),
+    ESet = decode(erlang, Binary),
+    ?assertEqual(Set, ESet).
 
 -endif.

@@ -19,7 +19,7 @@
 %% -------------------------------------------------------------------
 
 %% @doc Add-Wins Set CRDT with the provenance semiring:
-%% add-wins set without tombstones.
+%%      add-wins set without tombstones.
 
 -module(state_awset_ps).
 -author("Junghun Yoo <junghun.yoo@cs.ox.ac.uk>").
@@ -37,6 +37,7 @@
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
+-export([encode/2, decode/2]).
 
 -export([subtract_all_events/2,
          add_elem_with_dot/3,
@@ -230,6 +231,15 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 -spec join_decomposition(state_awset_ps()) -> [state_awset_ps()].
 join_decomposition({?TYPE, AWSet}) ->
     [AWSet].
+
+-spec encode(state_type:format(), delta_or_state()) -> binary().
+encode(erlang, {?TYPE, _}=CRDT) ->
+    erlang:term_to_binary(CRDT).
+
+-spec decode(state_type:format(), binary()) -> delta_or_state().
+decode(erlang, Binary) ->
+    {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
+    CRDT.
 
 %% @private
 remove_all_private([], _ElemDataStore, ResultEvents) ->
@@ -928,7 +938,14 @@ is_strict_inflation_test() ->
     ?assertNot(is_strict_inflation(Set2, Set3)),
     ?assertNot(is_strict_inflation(Set3, Set2)).
 
-%% @todo
-%%join_decomposition_test() ->
+join_decomposition_test() ->
+    %% @todo
+    ok.
+
+encode_decode_test() ->
+    Set = {?TYPE, [{<<"a">>, [{<<"token1">>, true}]}, {<<"b">>, [{<<"token2">>, false}]}]},
+    Binary = encode(erlang, Set),
+    ESet = decode(erlang, Binary),
+    ?assertEqual(Set, ESet).
 
 -endif.

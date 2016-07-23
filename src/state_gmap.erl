@@ -45,6 +45,7 @@
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
+-export([encode/2, decode/2]).
 
 -export_type([state_gmap/0, delta_state_gmap/0, state_gmap_op/0]).
 
@@ -181,6 +182,16 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 -spec join_decomposition(state_gmap()) -> [state_gmap()].
 join_decomposition({?TYPE, {_CType, _GMap}}) -> [].
 
+-spec encode(state_type:format(), delta_or_state()) -> binary().
+encode(erlang, {?TYPE, _}=CRDT) ->
+    erlang:term_to_binary(CRDT).
+
+-spec decode(state_type:format(), binary()) -> delta_or_state().
+decode(erlang, Binary) ->
+    {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
+    CRDT.
+
+
 %% ===================================================================
 %% EUnit tests
 %% ===================================================================
@@ -279,6 +290,12 @@ is_strict_inflation_test() ->
 join_decomposition_test() ->
     %% @todo.
     ok.
+
+encode_decode_test() ->
+    Map = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 2}]}}]}},
+    Binary = encode(erlang, Map),
+    EMap = decode(erlang, Binary),
+    ?assertEqual(Map, EMap).
 
 equivalent_with_gcounter_test() ->
     Actor1 = 1,

@@ -47,6 +47,7 @@
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
+-export([encode/2, decode/2]).
 
 -export_type([state_pair/0, delta_state_pair/0, state_pair_op/0]).
 
@@ -166,6 +167,15 @@ is_strict_inflation({?TYPE, {{FstType, _}=Fst1, {SndType, _}=Snd1}},
 %% @todo Check how to do this.
 -spec join_decomposition(state_pair()) -> [state_pair()].
 join_decomposition({?TYPE, _Pair}) -> [].
+
+-spec encode(state_type:format(), delta_or_state()) -> binary().
+encode(erlang, {?TYPE, _}=CRDT) ->
+    erlang:term_to_binary(CRDT).
+
+-spec decode(state_type:format(), binary()) -> delta_or_state().
+decode(erlang, Binary) ->
+    {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
+    CRDT.
 
 
 %% ===================================================================
@@ -287,6 +297,14 @@ is_strict_inflation_test() ->
 join_decomposition_test() ->
     %% @todo
     ok.
+
+encode_decode_test() ->
+    GCounter = {?GCOUNTER_TYPE, [{1, 5}, {2, 10}]},
+    GSet = {?GSET_TYPE, [<<"a">>]},
+    Pair = {?TYPE, {GCounter, GSet}},
+    Binary = encode(erlang, Pair),
+    EPair = decode(erlang, Binary),
+    ?assertEqual(Pair, EPair).
 
 equivalent_with_pncounter_test() ->
     Actor = 1,

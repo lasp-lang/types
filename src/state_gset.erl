@@ -44,6 +44,7 @@
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
+-export([encode/2, decode/2]).
 
 -export_type([state_gset/0, delta_state_gset/0, state_gset_op/0]).
 
@@ -148,6 +149,16 @@ join_decomposition({?TYPE, GSet}) ->
         [],
         GSet
     ).
+
+-spec encode(state_type:format(), delta_or_state()) -> binary().
+encode(erlang, {?TYPE, _}=CRDT) ->
+    erlang:term_to_binary(CRDT).
+
+-spec decode(state_type:format(), binary()) -> delta_or_state().
+decode(erlang, Binary) ->
+    {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
+    CRDT.
+
 
 %% ===================================================================
 %% EUnit tests
@@ -257,5 +268,11 @@ join_decomposition_test() ->
     Decomp2 = join_decomposition(Set2),
     ?assertEqual([{?TYPE, [<<"a">>]}], Decomp1),
     ?assertEqual(lists:sort([{?TYPE, [<<"a">>]}, {?TYPE, [<<"b">>]}]), lists:sort(Decomp2)).
+
+encode_decode_test() ->
+    Set = {?TYPE, [<<"a">>, <<"b">>]},
+    Binary = encode(erlang, Set),
+    ESet = decode(erlang, Binary),
+    ?assertEqual(Set, ESet).
 
 -endif.

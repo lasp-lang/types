@@ -49,6 +49,7 @@
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
+-export([encode/2, decode/2]).
 
 -export_type([state_bcounter/0, delta_state_bcounter/0, state_bcounter_op/0]).
 
@@ -227,6 +228,16 @@ is_strict_inflation({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) 
 -spec join_decomposition(state_bcounter()) -> [state_bcounter()].
 join_decomposition({?TYPE, _}) -> [].
 
+-spec encode(state_type:format(), delta_or_state()) -> binary().
+encode(erlang, {?TYPE, _}=CRDT) ->
+    erlang:term_to_binary(CRDT).
+
+-spec decode(state_type:format(), binary()) -> delta_or_state().
+decode(erlang, Binary) ->
+    {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
+    CRDT.
+
+
 %% ===================================================================
 %% EUnit tests
 %% ===================================================================
@@ -315,5 +326,12 @@ merge_deltas_test() ->
 join_decomposition_test() ->
     %% @todo.
     ok.
+
+encode_decode_test() ->
+    GMap = {?GMAP_TYPE, {?MAX_INT_TYPE, []}},
+    Counter = {?TYPE, {{?PNCOUNTER_TYPE, [{1, {4, 0}}, {2, {1, 0}}]}, GMap}},
+    Binary = encode(erlang, Counter),
+    ECounter = decode(erlang, Binary),
+    ?assertEqual(Counter, ECounter).
 
 -endif.

@@ -20,12 +20,12 @@
 %% -------------------------------------------------------------------
 
 %% @doc Common library for causal CRDTs.
-%% The current implementation does not have any optimisations such as
-%% the causal context compression.
+%%      The current implementation does not have any optimisations such as
+%%      the causal context compression.
 %%
 %% @reference Paulo Sérgio Almeida, Ali Shoker, and Carlos Baquero
-%% Delta State Replicated Data Types (2016)
-%% [http://arxiv.org/pdf/1603.01529v1.pdf]
+%%      Delta State Replicated Data Types (2016)
+%%      [http://arxiv.org/pdf/1603.01529v1.pdf]
 
 -module(state_causal_type).
 -author("Junghun Yoo <junghun.yoo@cs.ox.ac.uk>").
