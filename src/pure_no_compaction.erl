@@ -75,7 +75,7 @@ query({pure_pncounter, {POLog0, _Crystal}}) ->
 query({pure_gset, {POLog0, _Crystal}}) ->
     lists:usort(orddict:fold(
         fun(_Key, {add, El}, Acc) ->
-                Acc ++ [El]
+                [El|Acc]
         end,
         [],
         POLog0
@@ -85,9 +85,9 @@ query({pure_twopset, {POLog0, _Crystal}}) ->
         fun(_Key, {Op, El}, {Acc1, Acc2}) ->
             case Op of
                 add ->
-                    {Acc1 ++ [El], Acc2};
+                    {[El|Acc1], Acc2};
                 rmv ->
-                    {Acc1, Acc2 ++ [El]}
+                    {Acc1, [El|Acc2]}
             end
         end,
         {[], []},
@@ -102,7 +102,7 @@ query({pure_aworset, {POLog0, _Crystal}}) ->
         orddict:new(),
         POLog0
     ),
-    orddict:fold(
+    lists:reverse(orddict:fold(
         fun(El1, [_|_], Acc1) ->
             ElOps = lists:last([L || {El, L} <- orddict:to_list(POLog1), El =:= El1]),
             case [VV || {VV, Op} <- ElOps, Op =:= add] of
@@ -111,7 +111,7 @@ query({pure_aworset, {POLog0, _Crystal}}) ->
                 [_|_] ->
                     case [VV || {VV, Op} <- ElOps, Op =:= rmv] of
                         [] ->
-                            Acc1 ++ [El1];
+                            [El1|Acc1];
                         [_|_] ->
                             Add = lists:last(lists:usort([VV || {VV, Op} <- ElOps, Op =:= add])),
                             Rmv = lists:last(lists:usort([VV || {VV, Op} <- ElOps, Op =:= rmv])),
@@ -119,14 +119,14 @@ query({pure_aworset, {POLog0, _Crystal}}) ->
                                 true ->
                                     Acc1;
                                 false ->
-                                    Acc1 ++ [El1]
+                                    [El1|Acc1]
                             end
                     end
             end
         end,
         [],
         POLog1
-    );
+    ));
 query({pure_rworset, {POLog0, _Crystal}}) ->
     POLog1 = orddict:fold(
             fun(Key0, {Op0, El0}, Acc0) ->
@@ -135,7 +135,7 @@ query({pure_rworset, {POLog0, _Crystal}}) ->
             orddict:new(),
             POLog0
         ),
-    orddict:fold(
+    lists:reverse(orddict:fold(
         fun(El1, [_|_], Acc1) ->
             ElOps = lists:last([L || {El, L} <- orddict:to_list(POLog1), El =:= El1]),
             case [VV || {VV, Op} <- ElOps, Op =:= add] of
@@ -144,13 +144,13 @@ query({pure_rworset, {POLog0, _Crystal}}) ->
                 [_|_] ->
                     case [VV || {VV, Op} <- ElOps, Op =:= rmv] of
                         [] ->
-                            Acc1 ++ [El1];
+                            [El1|Acc1];
                         [_|_] ->
                             Add = lists:last(lists:usort([VV || {VV, Op} <- ElOps, Op =:= add])),
                             Rmv = lists:last(lists:usort([VV || {VV, Op} <- ElOps, Op =:= rmv])),
                             case pure_trcb:happened_before(Rmv, Add) of
                                 true ->
-                                    Acc1 ++ [El1];
+                                    [El1|Acc1];
                                 false ->
                                     Acc1
                             end
@@ -159,7 +159,7 @@ query({pure_rworset, {POLog0, _Crystal}}) ->
         end,
         [],
         POLog1
-    );
+    ));
 query({pure_ewflag, {POLog0, _Crystal}}) ->
     case [VV || {VV, Op} <- orddict:to_list(POLog0), Op =:= enable] of
         [] ->
