@@ -73,11 +73,11 @@ query({pure_pncounter, {POLog0, _Crystal}}) ->
         POLog0
     );
 query({pure_gset, {POLog0, _Crystal}}) ->
-    lists:usort(orddict:fold(
+    sets:from_list(orddict:fold(
         fun(_Key, {add, El}, Acc) ->
-                [El|Acc]
+                ordsets:add_element(El, Acc)
         end,
-        [],
+        ordsets:new(),
         POLog0
     ));
 query({pure_twopset, {POLog0, _Crystal}}) ->
@@ -85,15 +85,15 @@ query({pure_twopset, {POLog0, _Crystal}}) ->
         fun(_Key, {Op, El}, {Acc1, Acc2}) ->
             case Op of
                 add ->
-                    {[El|Acc1], Acc2};
+                    {ordsets:add_element(El, Acc1), Acc2};
                 rmv ->
-                    {Acc1, [El|Acc2]}
+                    {Acc1, ordsets:add_element(El, Acc2)}
             end
         end,
-        {[], []},
+        {ordsets:new(), ordsets:new()},
         POLog0
     ),
-    lists:usort(lists:subtract(Add, Rmv));
+    sets:from_list(ordsets:subtract(Add, Rmv));
 query({pure_aworset, {POLog0, _Crystal}}) ->
     POLog1 = orddict:fold(
         fun(Key0, {Op0, El0}, Acc0) ->
@@ -102,7 +102,7 @@ query({pure_aworset, {POLog0, _Crystal}}) ->
         orddict:new(),
         POLog0
     ),
-    lists:reverse(orddict:fold(
+    sets:from_list(orddict:fold(
         fun(El1, [_|_], Acc1) ->
             ElOps = lists:last([L || {El, L} <- orddict:to_list(POLog1), El =:= El1]),
             case [VV || {VV, Op} <- ElOps, Op =:= add] of
@@ -111,7 +111,7 @@ query({pure_aworset, {POLog0, _Crystal}}) ->
                 [_|_] ->
                     case [VV || {VV, Op} <- ElOps, Op =:= rmv] of
                         [] ->
-                            [El1|Acc1];
+                            ordsets:add_element(El1, Acc1);
                         [_|_] ->
                             Add = lists:last(lists:usort([VV || {VV, Op} <- ElOps, Op =:= add])),
                             Rmv = lists:last(lists:usort([VV || {VV, Op} <- ElOps, Op =:= rmv])),
@@ -119,12 +119,12 @@ query({pure_aworset, {POLog0, _Crystal}}) ->
                                 true ->
                                     Acc1;
                                 false ->
-                                    [El1|Acc1]
+                                    ordsets:add_element(El1, Acc1)
                             end
                     end
             end
         end,
-        [],
+        ordsets:new(),
         POLog1
     ));
 query({pure_rworset, {POLog0, _Crystal}}) ->
@@ -135,7 +135,7 @@ query({pure_rworset, {POLog0, _Crystal}}) ->
             orddict:new(),
             POLog0
         ),
-    lists:reverse(orddict:fold(
+    sets:from_list(orddict:fold(
         fun(El1, [_|_], Acc1) ->
             ElOps = lists:last([L || {El, L} <- orddict:to_list(POLog1), El =:= El1]),
             case [VV || {VV, Op} <- ElOps, Op =:= add] of
@@ -144,20 +144,20 @@ query({pure_rworset, {POLog0, _Crystal}}) ->
                 [_|_] ->
                     case [VV || {VV, Op} <- ElOps, Op =:= rmv] of
                         [] ->
-                            [El1|Acc1];
+                            ordsets:add_element(El1, Acc1);
                         [_|_] ->
                             Add = lists:last(lists:usort([VV || {VV, Op} <- ElOps, Op =:= add])),
                             Rmv = lists:last(lists:usort([VV || {VV, Op} <- ElOps, Op =:= rmv])),
                             case pure_trcb:happened_before(Rmv, Add) of
                                 true ->
-                                    [El1|Acc1];
+                                    ordsets:add_element(El1, Acc1);
                                 false ->
                                     Acc1
                             end
                     end
             end
         end,
-        [],
+        ordsets:new(),
         POLog1
     ));
 query({pure_ewflag, {POLog0, _Crystal}}) ->
@@ -208,21 +208,21 @@ query_test() ->
     AWORSet3 = {pure_aworset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {rmv, <<"a">>}}, {[{0, 2}, {1, 3}], {add, <<"b">>}}], []}},
     AWORSet4 = {pure_aworset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 0}], {rmv, <<"a">>}}, {[{0, 2}, {1, 3}], {rmv, <<"b">>}}], []}},
     AWORSet5 = {pure_aworset, {[], []}},
-    ?assertEqual([<<"a">>, <<"b">>, <<"c">>], query(AWORSet1)),
-    ?assertEqual([<<"a">>, <<"b">>], query(AWORSet2)),
-    ?assertEqual([<<"b">>], query(AWORSet3)),
-    ?assertEqual([<<"a">>], query(AWORSet4)),
-    ?assertEqual([], query(AWORSet5)),
+    ?assertEqual(sets:from_list([<<"a">>, <<"b">>, <<"c">>]), query(AWORSet1)),
+    ?assertEqual(sets:from_list([<<"a">>, <<"b">>]), query(AWORSet2)),
+    ?assertEqual(sets:from_list([<<"b">>]), query(AWORSet3)),
+    ?assertEqual(sets:from_list([<<"a">>]), query(AWORSet4)),
+    ?assertEqual(sets:from_list([]), query(AWORSet5)),
     RWORSet1 = {pure_rworset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {add, <<"b">>}}, {[{0, 2}, {1, 3}], {add, <<"c">>}}], []}},
     RWORSet2 = {pure_rworset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {add, <<"b">>}}, {[{0, 2}, {1, 3}], {add, <<"a">>}}], []}},
     RWORSet3 = {pure_rworset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {rmv, <<"a">>}}, {[{0, 2}, {1, 3}], {add, <<"b">>}}], []}},
     RWORSet4 = {pure_rworset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 0}], {rmv, <<"a">>}}, {[{0, 2}, {1, 3}], {rmv, <<"b">>}}], []}},
     RWORSet5 = {pure_rworset, {[], []}},
-    ?assertEqual([<<"a">>, <<"b">>, <<"c">>], query(RWORSet1)),
-    ?assertEqual([<<"a">>, <<"b">>], query(RWORSet2)),
-    ?assertEqual([<<"b">>], query(RWORSet3)),
-    ?assertEqual([], query(RWORSet4)),
-    ?assertEqual([], query(RWORSet5)),
+    ?assertEqual(sets:from_list([<<"a">>, <<"b">>, <<"c">>]), query(RWORSet1)),
+    ?assertEqual(sets:from_list([<<"a">>, <<"b">>]), query(RWORSet2)),
+    ?assertEqual(sets:from_list([<<"b">>]), query(RWORSet3)),
+    ?assertEqual(sets:from_list([]), query(RWORSet4)),
+    ?assertEqual(sets:from_list([]), query(RWORSet5)),
     EWFlag0 = {pure_ewflag, {[{[{0, 0}, {1, 1}], disable}, {[{0, 1}, {1, 2}], disable}, {[{0, 2}, {1, 3}], disable}], []}},
     EWFlag1 = {pure_ewflag, {[{[{0, 0}, {1, 1}], enable}, {[{0, 1}, {1, 2}], enable}, {[{0, 2}, {1, 3}], enable}], []}},
     EWFlag2 = {pure_ewflag, {[{[{0, 0}, {1, 1}], enable}, {[{0, 1}, {1, 0}], disable}], []}},
