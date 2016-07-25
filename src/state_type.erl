@@ -22,7 +22,8 @@
 -module(state_type).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
--export([new/1, mutate/3, merge/3, is_inflation/2, is_strict_inflation/2]).
+-export([new/1, new_delta/1, new_delta/2, is_delta/1]).
+-export([mutate/3, merge/3, is_inflation/2, is_strict_inflation/2]).
 -export([extract_args/1]).
 
 -export_type([state_type/0]).
@@ -49,6 +50,12 @@
 %% Supported serialization formats.
 -type format() :: erlang.
 
+%% Creates an empty delta
+-callback new_delta() -> delta_crdt().
+-callback new_delta([term()]) -> delta_crdt().
+
+%% Check if it's a delta
+-callback is_delta(delta_or_state()) -> boolean().
 
 %% Perform a delta mutation.
 -callback delta_mutate(type:operation(), type:id(), crdt()) ->
@@ -111,6 +118,23 @@ new({state_pncounter, _Payload}) ->
     state_pncounter:new();
 new({state_twopset, _Payload}) ->
     state_twopset:new().
+
+%% Generic new_delta
+-spec new_delta(state_type()) -> delta_crdt().
+new_delta(Type) ->
+    new_delta(Type, []).
+
+-spec new_delta(state_type(), [term()]) -> delta_crdt().
+new_delta(Type, Args) ->
+    {Type, Payload} = Type:new(Args),
+    {Type, {delta, Payload}}.
+
+%% Check if it's a delta
+-spec is_delta(delta_or_state()) -> boolean().
+is_delta({_Type, {delta, _Payload}}) ->
+    true;
+is_delta({_Type, _Payload}) ->
+    false.
 
 %% @doc Generic Join composition.
 -spec mutate(type:operation(), type:id(), crdt()) ->

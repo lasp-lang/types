@@ -43,7 +43,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--export([new/0, new/1]).
+-export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
@@ -73,6 +73,18 @@ new([Fst, Snd]) ->
         FstType:new(FstArgs),
         SndType:new(SndArgs)
     }}.
+
+-spec new_delta() -> delta_state_pair().
+new_delta() ->
+    new_delta([?IVAR_TYPE, ?IVAR_TYPE]).
+
+-spec new_delta([state_type:state_type()]) -> delta_state_pair().
+new_delta(Args) ->
+    state_type:new_delta(?TYPE, Args).
+
+-spec is_delta(delta_or_state()) -> boolean().
+is_delta({?TYPE, _}=CRDT) ->
+    state_type:is_delta(CRDT).
 
 %% @doc Mutate a `state_pair()'.
 -spec mutate(state_pair_op(), type:id(), state_pair()) ->
@@ -186,8 +198,12 @@ decode(erlang, Binary) ->
 new_test() ->
     Pair0 = new(),
     Pair1 = new([?GSET_TYPE, ?GSET_TYPE]),
+    DeltaPair0 = new_delta(),
+    DeltaPair1 = new_delta([?GSET_TYPE, ?GSET_TYPE]),
     ?assertEqual({?TYPE, {{?IVAR_TYPE, undefined}, {?IVAR_TYPE, undefined}}}, Pair0),
-    ?assertEqual({?TYPE, {{?GSET_TYPE, []}, {?GSET_TYPE, []}}}, Pair1).
+    ?assertEqual({?TYPE, {{?GSET_TYPE, []}, {?GSET_TYPE, []}}}, Pair1),
+    ?assertEqual({?TYPE, {delta, {{?IVAR_TYPE, undefined}, {?IVAR_TYPE, undefined}}}}, DeltaPair0),
+    ?assertEqual({?TYPE, {delta, {{?GSET_TYPE, []}, {?GSET_TYPE, []}}}}, DeltaPair1).
 
 query_test() ->
     GCounter = {?GCOUNTER_TYPE, [{1, 5}, {2, 10}]},

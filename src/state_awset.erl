@@ -39,7 +39,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--export([new/0, new/1]).
+-export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
@@ -67,6 +67,18 @@ new() ->
 -spec new([term()]) -> state_awset().
 new([]) ->
     new().
+
+-spec new_delta() -> delta_state_awset().
+new_delta() ->
+    state_type:new_delta(?TYPE).
+
+-spec new_delta([term()]) -> delta_state_awset().
+new_delta([]) ->
+    new_delta().
+
+-spec is_delta(delta_or_state()) -> boolean().
+is_delta({?TYPE, _}=CRDT) ->
+    state_type:is_delta(CRDT).
 
 %% @doc Mutate a `state_awset()'.
 -spec mutate(state_awset_op(), type:id(), state_awset()) ->
@@ -259,7 +271,9 @@ remove_elems_delta([Elem|Rest], DataStore, {DeltaDataStore0, DeltaDotCloud0}) ->
 
 new_test() ->
     ?assertEqual({?TYPE, {{{dot_map, dot_set}, orddict:new()}, ordsets:new()}},
-                 new()).
+                 new()),
+    ?assertEqual({?TYPE, {delta, {{{dot_map, dot_set}, orddict:new()}, ordsets:new()}}},
+                 new_delta()).
 
 query_test() ->
     Set0 = new(),

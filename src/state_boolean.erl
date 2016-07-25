@@ -37,7 +37,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--export([new/0, new/1]).
+-export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
@@ -60,6 +60,18 @@ new() ->
 -spec new([term()]) -> state_boolean().
 new([]) ->
     new().
+
+-spec new_delta() -> delta_state_boolean().
+new_delta() ->
+    state_type:new_delta(?TYPE).
+
+-spec new_delta([term()]) -> delta_state_boolean().
+new_delta([]) ->
+    new_delta().
+
+-spec is_delta(delta_or_state()) -> boolean().
+is_delta({?TYPE, _}=CRDT) ->
+    state_type:is_delta(CRDT).
 
 %% @doc Mutate a `state_boolean()'.
 -spec mutate(state_boolean_op(), type:id(), state_boolean()) ->
@@ -139,7 +151,8 @@ decode(erlang, Binary) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, false}, new()).
+    ?assertEqual({?TYPE, false}, new()),
+    ?assertEqual({?TYPE, {delta, false}}, new_delta()).
 
 query_test() ->
     Boolean0 = new(),

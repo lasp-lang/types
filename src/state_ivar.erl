@@ -33,7 +33,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--export([new/0, new/1]).
+-export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
 -export([join_decomposition/1]).
@@ -56,6 +56,18 @@ new() ->
 -spec new([term()]) -> state_ivar().
 new([]) ->
     new().
+
+-spec new_delta() -> delta_state_ivar().
+new_delta() ->
+    state_type:new_delta(?TYPE).
+
+-spec new_delta([term()]) -> delta_state_ivar().
+new_delta([]) ->
+    new_delta().
+
+-spec is_delta(delta_or_state()) -> boolean().
+is_delta({?TYPE, _}=CRDT) ->
+    state_type:is_delta(CRDT).
 
 %% @doc Mutate a `state_ivar()'.
 -spec mutate(state_ivar_op(), type:id(), state_ivar()) ->
@@ -146,7 +158,8 @@ decode(erlang, Binary) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, undefined}, new()).
+    ?assertEqual({?TYPE, undefined}, new()),
+    ?assertEqual({?TYPE, {delta, undefined}}, new_delta()).
 
 query_test() ->
     Var0 = new(),
