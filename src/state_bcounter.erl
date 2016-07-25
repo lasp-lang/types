@@ -256,7 +256,8 @@ decode(erlang, Binary) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, {?PNCOUNTER_TYPE:new(), ?GMAP_TYPE:new([?MAX_INT_TYPE])}}, new()).
+    ?assertEqual({?TYPE, {?PNCOUNTER_TYPE:new(), ?GMAP_TYPE:new([?MAX_INT_TYPE])}}, new()),
+    ?assertEqual({?TYPE, {delta, {?PNCOUNTER_TYPE:new(), ?GMAP_TYPE:new([?MAX_INT_TYPE])}}}, new_delta()).
 
 query_test() ->
     BCounter0 = new(),

@@ -663,7 +663,11 @@ new_test() ->
     ?assertEqual({?TYPE, {{orddict:new(), orddict:new()},
                           ordsets:new(),
                           {vclock, []}}},
-                 new()).
+                 new()),
+    ?assertEqual({?TYPE, {delta, {{orddict:new(), orddict:new()},
+                          ordsets:new(),
+                          {vclock, []}}}},
+                 new_delta()).
 
 query_test() ->
     EventId = {<<"object1">>, a},

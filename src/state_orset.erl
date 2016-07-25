@@ -302,7 +302,8 @@ unique(_Actor) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, orddict:new()}, new()).
+    ?assertEqual({?TYPE, orddict:new()}, new()),
+    ?assertEqual({?TYPE, {delta, orddict:new()}}, new_delta()).
 
 query_test() ->
     Set0 = new(),

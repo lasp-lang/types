@@ -198,8 +198,12 @@ decode(erlang, Binary) ->
 new_test() ->
     Pair0 = new(),
     Pair1 = new([?GSET_TYPE, ?GSET_TYPE]),
+    DeltaPair0 = new_delta(),
+    DeltaPair1 = new_delta([?GSET_TYPE, ?GSET_TYPE]),
     ?assertEqual({?TYPE, {{?IVAR_TYPE, undefined}, {?IVAR_TYPE, undefined}}}, Pair0),
-    ?assertEqual({?TYPE, {{?GSET_TYPE, []}, {?GSET_TYPE, []}}}, Pair1).
+    ?assertEqual({?TYPE, {{?GSET_TYPE, []}, {?GSET_TYPE, []}}}, Pair1),
+    ?assertEqual({?TYPE, {delta, {{?IVAR_TYPE, undefined}, {?IVAR_TYPE, undefined}}}}, DeltaPair0),
+    ?assertEqual({?TYPE, {delta, {{?GSET_TYPE, []}, {?GSET_TYPE, []}}}}, DeltaPair1).
 
 query_test() ->
     GCounter = {?GCOUNTER_TYPE, [{1, 5}, {2, 10}]},

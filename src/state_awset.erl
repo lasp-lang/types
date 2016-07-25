@@ -271,7 +271,9 @@ remove_elems_delta([Elem|Rest], DataStore, {DeltaDataStore0, DeltaDotCloud0}) ->
 
 new_test() ->
     ?assertEqual({?TYPE, {{{dot_map, dot_set}, orddict:new()}, ordsets:new()}},
-                 new()).
+                 new()),
+    ?assertEqual({?TYPE, {delta, {{{dot_map, dot_set}, orddict:new()}, ordsets:new()}}},
+                 new_delta()).
 
 query_test() ->
     Set0 = new(),

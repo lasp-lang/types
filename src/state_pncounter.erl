@@ -239,7 +239,8 @@ extract_delta({?TYPE, {delta, Delta}}) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, []}, new()).
+    ?assertEqual({?TYPE, []}, new()),
+    ?assertEqual({?TYPE, {delta, []}}, new_delta()).
 
 query_test() ->
     Counter0 = new(),

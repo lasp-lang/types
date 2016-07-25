@@ -178,7 +178,8 @@ decode(erlang, Binary) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, ordsets:new()}, new()).
+    ?assertEqual({?TYPE, ordsets:new()}, new()),
+    ?assertEqual({?TYPE, {delta, ordsets:new()}}, new_delta()).
 
 query_test() ->
     Set0 = new(),

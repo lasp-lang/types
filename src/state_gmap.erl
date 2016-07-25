@@ -211,7 +211,9 @@ decode(erlang, Binary) ->
 
 new_test() ->
     ?assertEqual({?TYPE, {?MAX_INT_TYPE, []}}, new()),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, []}}, new([?GCOUNTER_TYPE])).
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, []}}, new([?GCOUNTER_TYPE])),
+    ?assertEqual({?TYPE, {delta, {?MAX_INT_TYPE, []}}}, new_delta()),
+    ?assertEqual({?TYPE, {delta, {?GCOUNTER_TYPE, []}}}, new_delta([?GCOUNTER_TYPE])).
 
 query_test() ->
     Counter1 = {?GCOUNTER_TYPE, [{1, 1}, {2, 13}, {3, 1}]},

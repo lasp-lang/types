@@ -158,7 +158,8 @@ decode(erlang, Binary) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, undefined}, new()).
+    ?assertEqual({?TYPE, undefined}, new()),
+    ?assertEqual({?TYPE, {delta, undefined}}, new_delta()).
 
 query_test() ->
     Var0 = new(),

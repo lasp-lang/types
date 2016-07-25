@@ -151,7 +151,8 @@ decode(erlang, Binary) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, 0}, new()).
+    ?assertEqual({?TYPE, 0}, new()),
+    ?assertEqual({?TYPE, {delta, 0}}, new_delta()).
 
 query_test() ->
     MaxInt0 = new(),
