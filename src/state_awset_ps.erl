@@ -104,7 +104,7 @@ new([]) ->
 
 -spec new_delta() -> delta_state_awset_ps().
 new_delta() ->
-    state_type:new_delta(?TYPE).
+    {?TYPE, {delta, {{orddict:new(), orddict:new()}, ordsets:new(), ordsets:new()}}}.
 
 -spec new_delta([term()]) -> delta_state_awset_ps().
 new_delta([]) ->
