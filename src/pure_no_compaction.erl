@@ -97,105 +97,133 @@ query({pure_twopset, {POLog0, _Crystal}}) ->
 query({pure_aworset, {POLog0, _Crystal}}) ->
     POLog1 = orddict:fold(
         fun(Key0, {Op0, El0}, Acc0) ->
-            orddict:append(El0, {Key0, Op0}, Acc0)
+            case orddict:fold(
+                fun(Key1, {Op1, El1}, Acc1) ->
+                    case El0 =:= El1 andalso Op0 =:= add andalso Op1 =:= rmv of
+                        true ->
+                            Acc1 andalso not pure_trcb:happened_before(Key0, Key1);
+                        false ->
+                            Acc1
+                    end
+                end,
+                true,
+                POLog0
+            ) of
+                true ->
+                    orddict:store(Key0, {Op0, El0}, Acc0);
+                false ->
+                    Acc0
+            end
         end,
         orddict:new(),
         POLog0
     ),
-    sets:from_list(orddict:fold(
-        fun(El1, [_|_], Acc1) ->
-            ElOps = lists:last([L || {El, L} <- orddict:to_list(POLog1), El =:= El1]),
-            case [VV || {VV, Op} <- ElOps, Op =:= add] of
-                [] ->
-                    Acc1;
-                [_|_] ->
-                    case [VV || {VV, Op} <- ElOps, Op =:= rmv] of
-                        [] ->
-                            ordsets:add_element(El1, Acc1);
-                        [_|_] ->
-                            Add = lists:last(lists:usort([VV || {VV, Op} <- ElOps, Op =:= add])),
-                            Rmv = lists:last(lists:usort([VV || {VV, Op} <- ElOps, Op =:= rmv])),
-                            case pure_trcb:happened_before(Add, Rmv) of
-                                true ->
-                                    Acc1;
-                                false ->
-                                    ordsets:add_element(El1, Acc1)
-                            end
-                    end
-            end
-        end,
-        ordsets:new(),
-        POLog1
-    ));
+    sets:from_list([El || {_Key, {Op, El}} <- orddict:to_list(POLog1), Op =:= add]);
 query({pure_rworset, {POLog0, _Crystal}}) ->
     POLog1 = orddict:fold(
-            fun(Key0, {Op0, El0}, Acc0) ->
-                orddict:append(El0, {Key0, Op0}, Acc0)
-            end,
-            orddict:new(),
-            POLog0
-        ),
-    sets:from_list(orddict:fold(
-        fun(El1, [_|_], Acc1) ->
-            ElOps = lists:last([L || {El, L} <- orddict:to_list(POLog1), El =:= El1]),
-            case [VV || {VV, Op} <- ElOps, Op =:= add] of
-                [] ->
-                    Acc1;
-                [_|_] ->
-                    case [VV || {VV, Op} <- ElOps, Op =:= rmv] of
-                        [] ->
-                            ordsets:add_element(El1, Acc1);
-                        [_|_] ->
-                            Add = lists:last(lists:usort([VV || {VV, Op} <- ElOps, Op =:= add])),
-                            Rmv = lists:last(lists:usort([VV || {VV, Op} <- ElOps, Op =:= rmv])),
-                            case pure_trcb:happened_before(Rmv, Add) of
-                                true ->
-                                    ordsets:add_element(El1, Acc1);
-                                false ->
-                                    Acc1
-                            end
+        fun(Key0, {Op0, El0}, Acc0) ->
+            case orddict:fold(
+                fun(Key1, {Op1, El1}, Acc1) ->
+                    case El0 =:= El1 andalso Op0 =:= add andalso Op1 =:= rmv of
+                        true ->
+                            Acc1 andalso pure_trcb:happened_before(Key1, Key0);
+                        false ->
+                            Acc1
                     end
+                end,
+                true,
+                POLog0
+            ) of
+                true ->
+                    orddict:store(Key0, {Op0, El0}, Acc0);
+                false ->
+                    Acc0
             end
         end,
-        ordsets:new(),
-        POLog1
-    ));
+        orddict:new(),
+        POLog0
+    ),
+    sets:from_list([El || {_Key, {Op, El}} <- orddict:to_list(POLog1), Op =:= add]);
 query({pure_ewflag, {POLog0, _Crystal}}) ->
-    case [VV || {VV, Op} <- orddict:to_list(POLog0), Op =:= enable] of
+    POLog1 = orddict:fold(
+        fun(Key0, Op0, Acc0) ->
+            case orddict:fold(
+                fun(Key1, _Op1, Acc1) ->
+                    Acc1 andalso not pure_trcb:happened_before(Key0, Key1)
+                end,
+                true,
+                POLog0
+            ) of
+                true ->
+                    orddict:store(Key0, Op0, Acc0);
+                false ->
+                    Acc0
+            end
+        end,
+        orddict:new(),
+        POLog0
+    ),
+    case [Op || {_Key, Op} <- orddict:to_list(POLog1), Op =:= enable] of
         [] ->
             false;
         [_|_] ->
-            case [VV || {VV, Op} <- orddict:to_list(POLog0), Op =:= disable] of
-                [] ->
-                    true;
-                [_|_] ->
-                    Enable = lists:last(lists:usort([VV || {VV, Op} <- orddict:to_list(POLog0), Op =:= enable])),
-                    Disable = lists:last(lists:usort([VV || {VV, Op} <- orddict:to_list(POLog0), Op =:= disable])),
-                    not pure_trcb:happened_before(Enable, Disable)
-            end
+            true
     end;
 query({pure_dwflag, {POLog0, _Crystal}}) ->
-    case [VV || {VV, Op} <- orddict:to_list(POLog0), Op =:= disable] of
-        [] ->
+    case orddict:is_empty(POLog0) of
+        true ->
             true;
-        [_|_] ->
-            case [VV || {VV, Op} <- orddict:to_list(POLog0), Op =:= enable] of
+        false ->
+            POLog1 = orddict:fold(
+                fun(Key0, Op0, Acc0) ->
+                    case orddict:fold(
+                        fun(Key1, Op1, Acc1) ->
+                            case Op0 =:= enable andalso Op1 =:= disable of
+                                true ->
+                                    Acc1 andalso pure_trcb:happened_before(Key1, Key0);
+                                false ->
+                                    Acc1
+                            end
+                        end,
+                        true,
+                        POLog0
+                    ) of
+                        true ->
+                            orddict:store(Key0, Op0, Acc0);
+                        false ->
+                            Acc0
+                    end
+                end,
+                orddict:new(),
+                POLog0
+            ),
+            case [Op || {_Key, Op} <- orddict:to_list(POLog1), Op =:= enable] of
                 [] ->
                     false;
                 [_|_] ->
-                    Enable = lists:last(lists:usort([VV || {VV, Op} <- orddict:to_list(POLog0), Op =:= enable])),
-                    Disable = lists:last(lists:usort([VV || {VV, Op} <- orddict:to_list(POLog0), Op =:= disable])),
-                    pure_trcb:happened_before(Disable, Enable)
+                    true
             end
     end;
 query({pure_mvreg, {POLog0, _Crystal}}) ->
-    case orddict:is_empty(POLog0) of
-        true ->
-            [];
-        false ->
-            LastVV = lists:last(lists:usort([VV || {VV, _Reg} <- orddict:to_list(POLog0)])),
-            [Str || {VV, Str} <- orddict:to_list(POLog0), not pure_trcb:happened_before(VV, LastVV)]
-    end.
+    POLog1 = orddict:fold(
+        fun(Key0, Op0, Acc0) ->
+            case orddict:fold(
+                fun(Key1, _Op1, Acc1) ->
+                    Acc1 andalso not pure_trcb:happened_before(Key0, Key1)
+                end,
+                true,
+                POLog0
+            ) of
+                true ->
+                    orddict:store(Key0, Op0, Acc0);
+                false ->
+                    Acc0
+            end
+        end,
+        orddict:new(),
+        POLog0
+    ),
+    sets:from_list([Reg || {_Key, Reg} <- orddict:to_list(POLog1)]).
 
 %% ===================================================================
 %% EUnit tests
@@ -208,11 +236,13 @@ query_test() ->
     AWORSet3 = {pure_aworset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {rmv, <<"a">>}}, {[{0, 2}, {1, 3}], {add, <<"b">>}}], []}},
     AWORSet4 = {pure_aworset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 0}], {rmv, <<"a">>}}, {[{0, 2}, {1, 3}], {rmv, <<"b">>}}], []}},
     AWORSet5 = {pure_aworset, {[], []}},
+    AWORSet6 = {pure_aworset, {[{[{0, 5}, {1, 1}], {add, <<"a">>}}, {[{0, 6}, {1, 1}], {rmv, <<"a">>}}, {[{0, 1}, {1, 5}], {add, <<"a">>}}], []}},
     ?assertEqual(sets:from_list([<<"a">>, <<"b">>, <<"c">>]), query(AWORSet1)),
     ?assertEqual(sets:from_list([<<"a">>, <<"b">>]), query(AWORSet2)),
     ?assertEqual(sets:from_list([<<"b">>]), query(AWORSet3)),
     ?assertEqual(sets:from_list([<<"a">>]), query(AWORSet4)),
     ?assertEqual(sets:from_list([]), query(AWORSet5)),
+    ?assertEqual(sets:from_list([<<"a">>]), query(AWORSet6)),
     RWORSet1 = {pure_rworset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {add, <<"b">>}}, {[{0, 2}, {1, 3}], {add, <<"c">>}}], []}},
     RWORSet2 = {pure_rworset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {add, <<"b">>}}, {[{0, 2}, {1, 3}], {add, <<"a">>}}], []}},
     RWORSet3 = {pure_rworset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {rmv, <<"a">>}}, {[{0, 2}, {1, 3}], {add, <<"b">>}}], []}},
@@ -252,10 +282,10 @@ query_test() ->
     MVReg2 = {pure_mvreg, {[{[{0, 2}, {1, 1}], "foo"}, {[{0, 1}, {1, 2}], "bar"}], []}},
     MVReg3 = {pure_mvreg, {[{[{0, 3}, {1, 4}], "foo"}, {[{0, 1}, {1, 1}], "foo"}, {[{0, 2}, {1, 3}], "bar"}], []}},
     MVReg4 = {pure_mvreg, {[], []}},
-    ?assertEqual(["foo"], query(MVReg0)),
-    ?assertEqual(["bar"], query(MVReg1)),
-    ?assertEqual(["foo", "bar"], query(MVReg2)),
-    ?assertEqual(["foo"], query(MVReg3)),
-    ?assertEqual([], query(MVReg4)).
+    ?assertEqual(sets:from_list(["foo"]), query(MVReg0)),
+    ?assertEqual(sets:from_list(["bar"]), query(MVReg1)),
+    ?assertEqual(sets:from_list(["foo", "bar"]), query(MVReg2)),
+    ?assertEqual(sets:from_list(["foo"]), query(MVReg3)),
+    ?assertEqual(sets:from_list([]), query(MVReg4)).
 
 -endif.
