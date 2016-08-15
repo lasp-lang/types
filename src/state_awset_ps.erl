@@ -143,7 +143,7 @@ delta_mutate({add, Elem},
                           ordsets:new(),
                           ordsets:add_element(NewEvent, ordsets:new())}}}};
 
-%% Adds a list of elemenets to `state_awset_ps()'.
+%% Adds a list of elements to `state_awset_ps()'.
 delta_mutate({add_all, Elems},
              EventId,
              {?TYPE, {_DataStore, _FilteredOutEvents, AllEvents}}) ->
@@ -180,7 +180,7 @@ delta_mutate({rmv, Elem},
             {error, {precondition, {not_present, Elem}}}
     end;
 
-%% Removes a list of elemenets in `state_awset_ps()'.
+%% Removes a list of elements in `state_awset_ps()'.
 delta_mutate({rmv_all, Elems},
              _EventId,
              {?TYPE, {{ElemDataStore, _EventDataStore},
