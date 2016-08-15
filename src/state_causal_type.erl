@@ -20,8 +20,6 @@
 %% -------------------------------------------------------------------
 
 %% @doc Common library for causal CRDTs.
-%%      The current implementation does not have any optimisations such as
-%%      the causal context compression.
 %%
 %% @reference Paulo Sérgio Almeida, Ali Shoker, and Carlos Baquero
 %%      Delta State Replicated Data Types (2016)
@@ -30,244 +28,139 @@
 -module(state_causal_type).
 -author("Junghun Yoo <junghun.yoo@cs.ox.ac.uk>").
 
-%% causal_crdt() related.
--export([new_causal_crdt/1,
-         causal_join/2,
-         is_lattice_inflation/2]).
+-export([new/1,
+         merge/2,
+         is_inflation/2]).
 
-%% data_store() related.
--export([new_data_store/1,
-         get_dot_cloud/1,
-         is_bottom_data_store/1]).
-%% dot_cloud() related.
--export([get_next_dot_context/2,
-         insert_dot_context/2,
-         merge_dot_clouds/2]).
-%% {{dot_map, data_store_type()}, dot_map()} related.
--export([get_sub_data_store/2,
-         insert_object/3,
-         remove_object/2,
-         get_all_objects/1,
-         get_objects_count/1]).
+-export_type([causal_crdt/0]).
 
--export_type([dot_context/0,
-              dot_cloud/0,
-              data_store/0,
-              data_store_type/0,
-              causal_crdt/0]).
-
--type dot_actor() :: term().
--type dot_context() :: {dot_actor(), pos_integer()}.
--type dot_cloud() :: ordsets:ordsets(dot_context()).
--type dot_set() :: dot_cloud().
--type dot_fun() :: orddict:orddict(dot_context(), term()).
--type dot_map() :: orddict:orddict(term(), data_store()).
--type data_store_type() :: dot_set | dot_fun | {dot_map, data_store_type()}.
--type data_store() :: {dot_set, dot_set()}
-                    | {dot_fun, dot_fun()}
-                    | {{dot_map, data_store_type()}, dot_map()}.
--type causal_crdt() :: {data_store(), dot_cloud()}.
+-type causal_crdt() :: {
+                            dot_store:dot_store(), 
+                            causal_context:causal_context()
+                       }.
 
 %% @doc Create an empty CausalCRDT.
--spec new_causal_crdt(data_store_type()) -> causal_crdt().
-new_causal_crdt(DataStoreType) ->
-    {new_data_store(DataStoreType), ordsets:new()}.
+-spec new(dot_store:type()) -> causal_crdt().
+new(CType) ->
+    {DotStoreType, Args} = state_type:extract_args(CType),
+    {DotStoreType:new(Args), causal_context:new()}.
 
-%% @doc Universal causal join for a two CausalCRDTs.
--spec causal_join(causal_crdt(), causal_crdt()) -> causal_crdt().
-causal_join({DataStore, DotCloud}, {DataStore, DotCloud}) ->
-    {DataStore, DotCloud};
-causal_join({{dot_set, DataStoreA}, DotCloudA},
-            {{dot_set, DataStoreB}, DotCloudB}) ->
-    {{dot_set, ordsets:union([ordsets:intersection(DataStoreA, DataStoreB)] ++
-                             [ordsets:subtract(DataStoreA, DotCloudB)] ++
-                             [ordsets:subtract(DataStoreB, DotCloudA)])},
-     merge_dot_clouds(DotCloudA, DotCloudB)};
-causal_join({{dot_fun, DataStoreA}=_Fst, DotCloudA},
-            {{dot_fun, DataStoreB}=Snd, DotCloudB}) ->
-    DomainSnd = get_dot_cloud(Snd),
-    InterDataStore =
-        orddict:fold(fun(DotContext, Object, {dot_fun, DataStore}) ->
-                             case lists:member(DotContext, DomainSnd) of
-                                 true ->
-                                     {dot_fun, orddict:store(DotContext,
-                                                             Object,
-                                                             DataStore)};
-                                 false ->
-                                     {dot_fun, DataStore}
-                             end
-                     end, new_data_store(dot_fun), DataStoreA),
-    MergedDataStore0 =
-        orddict:fold(fun(DotContext, Object, {dot_fun, DataStore}) ->
-                             case ordsets:is_element(DotContext, DotCloudB) of
-                                 true ->
-                                     {dot_fun, DataStore};
-                                 false ->
-                                     {dot_fun, orddict:store(DotContext,
-                                                             Object,
-                                                             DataStore)}
-                             end
-                     end, InterDataStore, DataStoreA),
-    MergedDataStore1 =
-        orddict:fold(fun(DotContext, Object, {dot_fun, DataStore}) ->
-                             case ordsets:is_element(DotContext, DotCloudA) of
-                                 true ->
-                                     {dot_fun, DataStore};
-                                 false ->
-                                     {dot_fun, orddict:store(DotContext,
-                                                             Object,
-                                                             DataStore)}
-                             end
-                     end, MergedDataStore0, DataStoreB),
-    {MergedDataStore1, merge_dot_clouds(DotCloudA, DotCloudB)};
-causal_join({{{dot_map, ValueDataStoreType}, DataStoreA}=Fst, DotCloudA},
-            {{{dot_map, ValueDataStoreType}, DataStoreB}=Snd, DotCloudB}) ->
-    UnionObjects = ordsets:union(ordsets:from_list(orddict:fetch_keys(DataStoreA)),
-                                 ordsets:from_list(orddict:fetch_keys(DataStoreB))),
-    MergedDataStore =
-        ordsets:fold(fun(Object, MergedDataStore0) ->
-                             {ok, SubDataStoreA} = get_sub_data_store(Object, Fst),
-                             {ok, SubDataStoreB} = get_sub_data_store(Object, Snd),
-                             {MergedSubDataStore, _} =
-                                 causal_join({SubDataStoreA, DotCloudA},
-                                             {SubDataStoreB, DotCloudB}),
-                             case is_bottom_data_store(MergedSubDataStore) of
-                                 true ->
-                                     MergedDataStore0;
-                                 false ->
-                                     insert_object(Object,
-                                                   MergedSubDataStore,
-                                                   MergedDataStore0)
-                             end
-                     end, new_data_store({dot_map, ValueDataStoreType}), UnionObjects),
-    {MergedDataStore, merge_dot_clouds(DotCloudA, DotCloudB)}.
+%% @doc Universal merge for a two CausalCRDTs.
+-spec merge(causal_crdt(), causal_crdt()) -> causal_crdt().
+merge({DotStore, CausalContext}, {DotStore, CausalContext}) ->
+    {DotStore, CausalContext};
 
-%% @doc Determine if a change for a given causal crdt is an inflation or not.
-%%
-%% Given a particular causal crdt and two instances of that causal crdt,
-%% determine if `B(second)' is an inflation of `A(first)'.
--spec is_lattice_inflation(causal_crdt(), causal_crdt()) -> boolean().
-is_lattice_inflation({DataStoreA, DotCloudA}, {DataStoreB, DotCloudB}) ->
-    DotCloudAList = get_maxs_for_all(DotCloudA),
-    DotCloudBList = get_maxs_for_all(DotCloudB),
-    is_inflation(DotCloudAList, DotCloudBList) andalso
-        ordsets:is_subset(get_dot_cloud(DataStoreB), get_dot_cloud(DataStoreA)).
+merge({{dot_set, _}=DotSetA, CausalContextA},
+      {{dot_set, _}=DotSetB, CausalContextB}) ->
 
-%% @doc Create an empty DataStore.
-new_data_store(dot_set) ->
-    {dot_set, ordsets:new()};
-new_data_store(dot_fun) ->
-    {dot_fun, orddict:new()};
-new_data_store({dot_map, ValueDataStoreType}) ->
-    {{dot_map, ValueDataStoreType}, orddict:new()}.
+    DotSetL = dot_set:intersection(DotSetA, DotSetB),
+    DotSetM = dot_set:subtract(
+        DotSetA,
+        causal_context:to_dot_set(CausalContextB)
+    ),
+    DotSetR = dot_set:subtract(
+        DotSetB,
+        causal_context:to_dot_set(CausalContextA)
+    ),
 
-%% @doc Get DotCloud from DataStore.
--spec get_dot_cloud(data_store()) -> dot_cloud().
-get_dot_cloud({dot_set, DataStore}) ->
-    DataStore;
-get_dot_cloud({dot_fun, DataStore}) ->
-    ordsets:from_list(orddict:fetch_keys(DataStore));
-get_dot_cloud({{dot_map, _ValueDataStoreType}, DataStore}) ->
-    orddict:fold(fun(_Object, SubDataStore, DotCloud) ->
-                         ordsets:union(DotCloud, get_dot_cloud(SubDataStore))
-                 end, ordsets:new(), DataStore).
+    DotStore = dot_set:union(
+        dot_set:union(DotSetL, DotSetM),
+        DotSetR
+    ),
+    CausalContext = causal_context:merge(CausalContextA, CausalContextB),
 
-%% @doc Check whether the DataStore is empty.
--spec is_bottom_data_store(data_store()) -> boolean().
-is_bottom_data_store({dot_set, DataStore}) ->
-    ordsets:size(DataStore) == 0;
-is_bottom_data_store({dot_fun, DataStore}) ->
-    orddict:is_empty(DataStore);
-is_bottom_data_store({{dot_map, _ValueDataStoreType}, DataStore}) ->
-    orddict:is_empty(DataStore).
+    {DotStore, CausalContext};
 
-%% @doc Get the Actor's next DotContext from DotCloud.
--spec get_next_dot_context(dot_actor(), dot_cloud()) -> dot_context().
-get_next_dot_context(DotActor, DotCloud) ->
-    MaxCounter = ordsets:fold(fun({DotActor0, DotCounter0}, MaxValue0) ->
-                                      case (DotActor0 == DotActor) andalso
-                                              (DotCounter0 > MaxValue0) of
-                                          true ->
-                                              DotCounter0;
-                                          false ->
-                                              MaxValue0
-                                      end
-                              end, 0, DotCloud),
-    {DotActor, MaxCounter + 1}.
+merge({{{dot_fun, CRDTType}, _}=DotFunA, CausalContextA},
+      {{{dot_fun, CRDTType}, _}=DotFunB, CausalContextB}) ->
 
-%% @doc Insert a dot to DotCloud.
--spec insert_dot_context(dot_context(), dot_cloud()) -> dot_cloud().
-insert_dot_context(DotContext, DotCloud) ->
-    ordsets:add_element(DotContext, DotCloud).
+    DotSetA = causal_context:to_dot_set(
+        dot_fun:to_causal_context(DotFunA)
+    ),
+    DotSetB = causal_context:to_dot_set(
+        dot_fun:to_causal_context(DotFunB)
+    ),
+    CCDotSetA = causal_context:to_dot_set(CausalContextA),
+    CCDotSetB = causal_context:to_dot_set(CausalContextB),
 
-%% @doc Merge two DotClouds.
--spec merge_dot_clouds(dot_cloud(), dot_cloud()) -> dot_cloud().
-merge_dot_clouds(DotCloudA, DotCloudB) ->
-    ordsets:union(DotCloudA, DotCloudB).
+    CommonDotSet = dot_set:intersection(DotSetA, DotSetB),
 
-%% @doc Get SubDataStore pointed by the object from {dot_map, dot_map()}.
--spec get_sub_data_store(term(), {{dot_map, data_store_type()}, dot_map()}) ->
-          {ok, data_store()}.
-get_sub_data_store(Object, {{dot_map, ValueDataStoreType}, DataStore}) ->
-    case orddict:find(Object, DataStore) of
-        {ok, SubDataStore} ->
-            {ok, SubDataStore};
-        error ->
-            {ok, new_data_store(ValueDataStoreType)}
-    end.
+    DotFun0 = lists:foldl(
+        fun(Dot, DotFun) ->
+            ValueA = dot_fun:fetch(Dot, DotFunA),
+            ValueB = dot_fun:fetch(Dot, DotFunB),
+            Value = CRDTType:merge(ValueA, ValueB),
+            dot_fun:store(Dot, Value, DotFun)
+        end,
+        dot_fun:new([CRDTType]),
+        dot_set:to_list(CommonDotSet)
+    ),
 
-%% @doc Insert (key: Object, value: SubDataStore) into {dot_map, dot_map()}.
--spec insert_object(term(), data_store(), {{dot_map, data_store_type()}, dot_map()}) ->
-          {{dot_map, data_store_type()}, dot_map()}.
-insert_object(Object, SubDataStore, {{dot_map, ValueDataStoreType}, DataStore}) ->
-    {{dot_map, ValueDataStoreType}, orddict:store(Object, SubDataStore, DataStore)}.
-
-%% @doc Remove the Object from DataStore.
-%% The Object has to be in the DataStore. This can be checked by
-%% get_data_store().
--spec remove_object(term(), {{dot_map, data_store_type()}, dot_map()}) ->
-          {{dot_map, data_store_type()}, dot_map()}.
-remove_object(Object, {{dot_map, ValueDataStoreType}, DataStore}) ->
-    {{dot_map, ValueDataStoreType}, orddict:erase(Object, DataStore)}.
-
-%% @doc Get all Objects from DataStore.
--spec get_all_objects({{dot_map, data_store_type()}, dot_map()}) -> [term()].
-get_all_objects({{dot_map, _ValueDataStoreType}, DataStore}) ->
-    orddict:fetch_keys(DataStore).
-
-%% @doc Get the number of Objects from DataStore.
--spec get_objects_count({{dot_map, data_store_type()}, dot_map()}) -> non_neg_integer().
-get_objects_count({{dot_map, _ValueDataStoreType}, DataStore}) ->
-    orddict:size(DataStore).
-
-%% @private
-%% @todo This function can be used for the compressing functionality.
-get_maxs_for_all(DotCloud) ->
-    ordsets:fold(fun({DotActor0, DotCounter0}, MaxList) ->
-                         {Counter, NewList} =
-                             case lists:keytake(DotActor0, 1, MaxList) of
-                                 false ->
-                                     {DotCounter0, MaxList};
-                                 {value, {_DotActor, C}, ModList} ->
-                                     {max(DotCounter0, C), ModList}
-                             end,
-                         [{DotActor0, Counter}|NewList]
-                 end, [], DotCloud).
-
-%% @private
-is_inflation([], _) ->
-    % all DotClouds are the inflation of the empty DotCloud
-    true;
-is_inflation(DotCloudA, DotCloudB) ->
-    [{DotActorA, DotCounterA} | RestA] = DotCloudA,
-    case lists:keyfind(DotActorA, 1, DotCloudB) of
-        false ->
-            false;
-        {_, DotCounterB} ->
-            case DotCounterA == DotCounterB of
+    DotFun1 = lists:foldl(
+        fun(Dot, DotFun) ->
+            case dot_set:is_element(Dot, CCDotSetB) of
                 true ->
-                    is_inflation(RestA, DotCloudB);
+                    DotFun;
                 false ->
-                    DotCounterA < DotCounterB
+                    Value = dot_fun:fetch(Dot, DotFunA),
+                    dot_fun:store(Dot, Value, DotFun)
             end
-    end.
+        end,
+        dot_fun:fetch_keys(DotFunA),
+        DotFun0
+    ),
+
+    DotFun2 = lists:foldl(
+        fun(Dot, DotFun) ->
+            case dot_set:is_element(Dot, CCDotSetA) of
+                true ->
+                    DotFun;
+                false ->
+                    Value = dot_fun:fetch(Dot, DotFunB),
+                    dot_fun:store(Dot, Value, DotFun)
+            end 
+        end,
+        dot_fun:fetch_keys(DotFunB),
+        DotFun1
+    ),
+
+    DotStore = DotFun2,
+    CausalContext = causal_context:merge(CausalContextA, CausalContextB),
+    {DotStore, CausalContext};
+
+merge({{{dot_map, DotStoreType}, _}=DotMapA, CausalContextA},
+      {{{dot_map, DotStoreType}, _}=DotMapB, CausalContextB}) ->
+
+    KeysA = dot_map:fetch_keys(DotMapA),
+    KeysB = dot_map:fetch_keys(DotMapB),
+    Keys = ordsets:union(
+        ordsets:from_list(KeysA),
+        ordsets:from_list(KeysB)
+    ),
+
+    DotStore = ordsets:fold(
+        fun(Key, DotMap) ->
+            KeyDotStoreA = dot_map:fetch(Key, DotMapA),
+            KeyDotStoreB = dot_map:fetch(Key, DotMapB),
+
+            {VK, _} = merge(
+                {KeyDotStoreA, CausalContextA},
+                {KeyDotStoreB, CausalContextB}
+            ),
+
+            case DotStoreType:is_empty(VK) of
+                true ->
+                    DotMap;
+                false ->
+                    dot_map:store(Key, VK, DotMap)
+            end
+        end,
+        dot_map:new(dot_set),
+        Keys
+    ),
+    CausalContext = causal_context:merge(CausalContextA, CausalContextB),
+
+    {DotStore, CausalContext}.
+
+-spec is_inflation(causal_crdt(), causal_crdt()) -> boolean().
+is_inflation(_, _) -> true.
