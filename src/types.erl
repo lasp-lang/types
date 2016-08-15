@@ -1,4 +1,3 @@
-%% -------------------------------------------------------------------
 %%
 %% Copyright (c) 2016 Christopher Meiklejohn.  All Rights Reserved.
 %%
