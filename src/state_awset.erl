@@ -194,12 +194,16 @@ is_bottom({?TYPE, _}=CRDT) ->
 
 %% @doc Given two `state_awset()', check if the second is and inflation of the first.
 %% @todo
--spec is_inflation(state_awset(), state_awset()) -> boolean().
+-spec is_inflation(delta_or_state(), state_awset()) -> boolean().
+is_inflation({?TYPE, {delta, AWSet1}}, {?TYPE, AWSet2}) ->
+    is_inflation({?TYPE, AWSet1}, {?TYPE, AWSet2});
 is_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_inflation(CRDT1, CRDT2).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(state_awset(), state_awset()) -> boolean().
+-spec is_strict_inflation(delta_or_state(), state_awset()) -> boolean().
+is_strict_inflation({?TYPE, {delta, AWSet1}}, {?TYPE, AWSet2}) ->
+    is_strict_inflation({?TYPE, AWSet1}, {?TYPE, AWSet2});
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
