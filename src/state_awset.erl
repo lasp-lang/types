@@ -169,7 +169,8 @@ query({?TYPE, {DotStore, _CausalContext}}) ->
     sets:from_list(Elements).
 
 %% @doc Merge two `state_awset()'.
-%% Merging will be handled by the causal_join() in the common library.
+%%      Merging is handled by the `merge' function in
+%%      `state_causal_type' common library.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
 merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     MergeFun = fun({?TYPE, AWSet1}, {?TYPE, AWSet2}) ->
@@ -179,7 +180,7 @@ merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:merge(CRDT1, CRDT2, MergeFun).
 
 %% @doc Equality for `state_awset()'.
-%% Since everything is ordered, == should work.
+%%      Since everything is ordered, == should work.
 -spec equal(state_awset(), state_awset()) -> boolean().
 equal({?TYPE, AWSet1}, {?TYPE, AWSet2}) ->
     AWSet1 == AWSet2.
@@ -192,10 +193,10 @@ is_bottom({?TYPE, _}=CRDT) ->
     CRDT == new().
 
 %% @doc Given two `state_awset()', check if the second is and inflation of the first.
-%%      The inflation will be checked by the `is_inflation()` in the common library.
+%% @todo
 -spec is_inflation(state_awset(), state_awset()) -> boolean().
-is_inflation({?TYPE, _}=AWSet1, {?TYPE, _}=AWSet2) ->
-    state_type:is_inflation(AWSet1, AWSet2).
+is_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
+    state_type:is_inflation(CRDT1, CRDT2).
 
 %% @doc Check for strict inflation.
 -spec is_strict_inflation(state_awset(), state_awset()) -> boolean().
