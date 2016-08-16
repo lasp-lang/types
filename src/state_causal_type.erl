@@ -103,8 +103,8 @@ merge({{{dot_fun, CRDTType}, _}=DotFunA, CausalContextA},
                     dot_fun:store(Dot, Value, DotFun)
             end
         end,
-        dot_fun:fetch_keys(DotFunA),
-        DotFun0
+        DotFun0,
+        dot_fun:fetch_keys(DotFunA)
     ),
 
     DotFun2 = lists:foldl(
@@ -117,8 +117,8 @@ merge({{{dot_fun, CRDTType}, _}=DotFunA, CausalContextA},
                     dot_fun:store(Dot, Value, DotFun)
             end 
         end,
-        dot_fun:fetch_keys(DotFunB),
-        DotFun1
+        DotFun1,
+        dot_fun:fetch_keys(DotFunB)
     ),
 
     DotStore = DotFun2,
