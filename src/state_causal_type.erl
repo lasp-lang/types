@@ -89,7 +89,7 @@ merge({{{dot_fun, CRDTType}, _}=DotFunA, CausalContextA},
             Value = CRDTType:merge(ValueA, ValueB),
             dot_fun:store(Dot, Value, DotFun)
         end,
-        dot_fun:new([CRDTType]),
+        dot_fun:new(CRDTType),
         dot_set:to_list(CommonDotSet)
     ),
 
