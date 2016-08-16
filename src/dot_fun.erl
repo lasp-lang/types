@@ -70,8 +70,8 @@ to_causal_context({{dot_fun, _CRDTType}, DotFun}) ->
 %% DotSet API
 %% @doc Given a Dot and a DotSet, get the correspondent CRDT value.
 -spec fetch(dot_store:dot(), dot_store:dot_fun()) -> state_type:crdt().
-fetch(Dot, {{dot_fun, _CRDTType}, DotFun}) ->
-    {ok, CRDTValue} = orddict:fetch(Dot, DotFun),
+fetch(Dot, {{dot_fun, CRDTType}, DotFun}) ->
+    {CRDTType, _}=CRDTValue = orddict:fetch(Dot, DotFun),
     CRDTValue.
 
 %% @doc Get the list of dots used as keys in the DotFun.
