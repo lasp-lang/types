@@ -27,8 +27,7 @@
 -author("Junghun Yoo <junghun.yoo@cs.ox.ac.uk>").
 
 -export([new/1,
-         merge/2,
-         is_inflation/2]).
+         merge/2]).
 
 -export_type([causal_crdt/0]).
 
@@ -159,6 +158,3 @@ merge({{{dot_map, DotStoreType}, _}=DotMapA, CausalContextA},
     CausalContext = causal_context:merge(CausalContextA, CausalContextB),
 
     {DotStore, CausalContext}.
-
--spec is_inflation(causal_crdt(), causal_crdt()) -> boolean().
-is_inflation(_, _) -> true.

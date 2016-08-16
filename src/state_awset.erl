@@ -194,8 +194,8 @@ is_bottom({?TYPE, _}=CRDT) ->
 %% @doc Given two `state_awset()', check if the second is and inflation of the first.
 %%      The inflation will be checked by the `is_inflation()` in the common library.
 -spec is_inflation(state_awset(), state_awset()) -> boolean().
-is_inflation({?TYPE, AWSet1}, {?TYPE, AWSet2}) ->
-    state_causal_type:is_inflation(AWSet1, AWSet2).
+is_inflation({?TYPE, _}=AWSet1, {?TYPE, _}=AWSet2) ->
+    state_type:is_inflation(AWSet1, AWSet2).
 
 %% @doc Check for strict inflation.
 -spec is_strict_inflation(state_awset(), state_awset()) -> boolean().
