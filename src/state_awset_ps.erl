@@ -237,11 +237,11 @@ is_inflation({?TYPE, AWSet1}, {?TYPE, AWSet2}) ->
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
-%% @todo
 %% @doc Join decomposition for `state_awset_ps()'.
+%% @todo
 -spec join_decomposition(state_awset_ps()) -> [state_awset_ps()].
-join_decomposition({?TYPE, AWSet}) ->
-    [AWSet].
+join_decomposition({?TYPE, _}=CRDT) ->
+    [CRDT].
 
 -spec encode(state_type:format(), delta_or_state()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->

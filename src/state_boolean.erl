@@ -130,8 +130,8 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 
 %% @doc Join decomposition for `state_boolean()'.
 -spec join_decomposition(state_boolean()) -> [state_boolean()].
-join_decomposition({?TYPE, Boolean}) ->
-    [{?TYPE, Boolean}].
+join_decomposition({?TYPE, _}=Boolean) ->
+    [Boolean].
 
 -spec encode(state_type:format(), delta_or_state()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->

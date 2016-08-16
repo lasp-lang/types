@@ -174,9 +174,10 @@ is_strict_inflation({?TYPE, {{FstType, _}=Fst1, {SndType, _}=Snd1}},
     (FstType:is_inflation(Fst1, Fst2) andalso SndType:is_strict_inflation(Snd1, Snd2)).
 
 %% @doc Join decomposition for `state_pair()'.
-%% @todo Check how to do this.
+%% @todo
 -spec join_decomposition(state_pair()) -> [state_pair()].
-join_decomposition({?TYPE, _Pair}) -> [].
+join_decomposition({?TYPE, _}=CRDT) ->
+    [CRDT].
 
 -spec encode(state_type:format(), delta_or_state()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->

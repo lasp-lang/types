@@ -188,9 +188,10 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
 %% @doc Join decomposition for `state_gmap()'.
-%% @todo Check how to do this.
+%% @todo
 -spec join_decomposition(state_gmap()) -> [state_gmap()].
-join_decomposition({?TYPE, {_CType, _GMap}}) -> [].
+join_decomposition({?TYPE, _}=CRDT) ->
+    [CRDT].
 
 -spec encode(state_type:format(), delta_or_state()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
@@ -300,7 +301,7 @@ is_strict_inflation_test() ->
     ?assertNot(is_strict_inflation(Map1, Map3)).
 
 join_decomposition_test() ->
-    %% @todo.
+    %% @todo
     ok.
 
 encode_decode_test() ->
