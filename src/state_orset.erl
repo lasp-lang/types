@@ -372,9 +372,9 @@ merge_idempotent_test() ->
     Set4 = merge(Set1, Set1),
     Set5 = merge(Set2, Set2),
     Set6 = merge(Set3, Set3),
-    ?assertEqual({?TYPE, [{<<"a">>, [{<<"token1">>, false}]}]}, Set4),
-    ?assertEqual({?TYPE, [{<<"b">>, [{<<"token2">>, true}]}]}, Set5),
-    ?assertEqual({?TYPE, [{<<"a">>, [{<<"token1">>, true}]}, {<<"b">>, [{<<"token2">>, false}]}]}, Set6).
+    ?assertEqual(Set1, Set4),
+    ?assertEqual(Set2, Set5),
+    ?assertEqual(Set3, Set6).
 
 merge_commutative_test() ->
     Set1 = {?TYPE, [{<<"a">>, [{<<"token1">>, false}]}]},

@@ -184,8 +184,8 @@ merge_idempotent_test() ->
     MaxInt2 = {?TYPE, 17},
     MaxInt3 = merge(MaxInt1, MaxInt1),
     MaxInt4 = merge(MaxInt2, MaxInt2),
-    ?assertEqual({?TYPE, 1}, MaxInt3),
-    ?assertEqual({?TYPE, 17}, MaxInt4).
+    ?assertEqual(MaxInt1, MaxInt3),
+    ?assertEqual(MaxInt2, MaxInt4).
 
 merge_commutative_test() ->
     MaxInt1 = {?TYPE, 1},

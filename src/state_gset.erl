@@ -216,8 +216,8 @@ merge_idempotent_test() ->
     Set2 = {?TYPE, [<<"a">>, <<"b">>]},
     Set3 = merge(Set1, Set1),
     Set4 = merge(Set2, Set2),
-    ?assertEqual({?TYPE, [<<"a">>]}, Set3),
-    ?assertEqual({?TYPE, [<<"a">>, <<"b">>]}, Set4).
+    ?assertEqual(Set1, Set3),
+    ?assertEqual(Set2, Set4).
 
 merge_commutative_test() ->
     Set1 = {?TYPE, [<<"a">>]},
