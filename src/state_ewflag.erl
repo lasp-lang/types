@@ -50,7 +50,6 @@
 -type state_ewflag_op() :: enable | disable.
 
 %% @doc Create a new, empty `state_ewflag()'
-%%      DotMap<Elem, DotFlag>
 -spec new() -> state_ewflag().
 new() ->
     {?TYPE, state_causal_type:new(dot_set)}.
