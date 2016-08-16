@@ -290,69 +290,31 @@ delta_add_test() ->
     {ok, {?TYPE, {delta, Delta3}}} = delta_mutate({add, <<"b">>}, Actor, Set2),
     Set3 = merge({?TYPE, Delta3}, Set2),
 
-    ?assertEqual({?TYPE,
-        {
-            {
-                {dot_map, dot_set},
-                [{<<"a">>, {dot_set, [{Actor, 1}]}}]
-            },
-            [{Actor, 1}]
-        }},
-        {?TYPE, Delta1}
-    ),
-    ?assertEqual({?TYPE,
-        {
-            {
-                {dot_map, dot_set},
-                [{<<"a">>, {dot_set, [{Actor, 1}]}}]
-            },
-            [{Actor, 1}]
-        }},
-        Set1
-    ),
-    ?assertEqual({?TYPE,
-        {
-            {
-                {dot_map, dot_set},
-                [{<<"a">>, {dot_set, [{Actor, 2}]}}]
-            },
-            [{Actor, 1}, {Actor, 2}]
-        }},
-        {?TYPE, Delta2}
-    ),
-    ?assertEqual({?TYPE,
-        {
-            {
-                {dot_map, dot_set},
-                [{<<"a">>, {dot_set, [{Actor, 2}]}}]
-            },
-            [{Actor, 1}, {Actor, 2}]
-        }},
-        Set2
-    ),
-    ?assertEqual({?TYPE,
-        {
-            {
-                {dot_map, dot_set},
-                [{<<"b">>, {dot_set, [{Actor, 3}]}}]
-            },
-            [{Actor, 3}]
-        }},
-        {?TYPE, Delta3}
-    ),
-    ?assertEqual({?TYPE,
-        {
-            {
-                {dot_map, dot_set},
-                [
-                    {<<"a">>, {dot_set, [{Actor, 2}]}},
-                    {<<"b">>, {dot_set, [{Actor, 3}]}}
-                ]
-            },
-            [{Actor, 1}, {Actor, 2}, {Actor, 3}]
-        }},
-        Set3
-    ).
+    ?assertEqual({?TYPE, {{{dot_map, dot_set},
+                           [{<<"a">>, {dot_set, [{Actor, 1}]}}]},
+                          [{Actor, 1}]}},
+                 {?TYPE, Delta1}),
+    ?assertEqual({?TYPE, {{{dot_map, dot_set},
+                           [{<<"a">>, {dot_set, [{Actor, 1}]}}]},
+                          [{Actor, 1}]}},
+                 Set1),
+    ?assertEqual({?TYPE, {{{dot_map, dot_set},
+                           [{<<"a">>, {dot_set, [{Actor, 2}]}}]},
+                          [{Actor, 1}, {Actor, 2}]}},
+                 {?TYPE, Delta2}),
+    ?assertEqual({?TYPE, {{{dot_map, dot_set},
+                           [{<<"a">>, {dot_set, [{Actor, 2}]}}]},
+                          [{Actor, 1}, {Actor, 2}]}},
+                 Set2),
+    ?assertEqual({?TYPE, {{{dot_map, dot_set},
+                           [{<<"b">>, {dot_set, [{Actor, 3}]}}]},
+                          [{Actor, 3}]}},
+                 {?TYPE, Delta3}),
+    ?assertEqual({?TYPE, {{{dot_map, dot_set},
+                           [{<<"a">>, {dot_set, [{Actor, 2}]}},
+                            {<<"b">>, {dot_set, [{Actor, 3}]}}]},
+                          [{Actor, 1}, {Actor, 2}, {Actor, 3}]}},
+                 Set3).
 
 add_test() ->
     Actor = 1,
@@ -360,39 +322,20 @@ add_test() ->
     {ok, Set1} = mutate({add, <<"a">>}, Actor, Set0),
     {ok, Set2} = mutate({add, <<"a">>}, Actor, Set1),
     {ok, Set3} = mutate({add, <<"b">>}, Actor, Set2),
-    ?assertEqual({?TYPE,
-        {
-            {
-                {dot_map, dot_set},
-                [{<<"a">>, {dot_set, [{Actor, 1}]}}]
-            },
-            [{Actor, 1}]
-        }},
-        Set1
-    ),
-    ?assertEqual({?TYPE,
-        {
-            {
-                {dot_map, dot_set},
-                [{<<"a">>, {dot_set, [{Actor, 2}]}}]
-            },
-            [{Actor, 1}, {Actor, 2}]
-        }},
-        Set2
-    ),
-    ?assertEqual({?TYPE,
-        {
-            {
-                {dot_map, dot_set},
-                [
-                    {<<"a">>, {dot_set, [{Actor, 2}]}},
-                    {<<"b">>, {dot_set, [{Actor, 3}]}}
-                ]
-            },
-            [{Actor, 1}, {Actor, 2}, {Actor, 3}]
-        }},
-        Set3
-    ).
+
+    ?assertEqual({?TYPE, {{{dot_map, dot_set},
+                           [{<<"a">>, {dot_set, [{Actor, 1}]}}]},
+                          [{Actor, 1}]}},
+                 Set1),
+    ?assertEqual({?TYPE, {{{dot_map, dot_set},
+                           [{<<"a">>, {dot_set, [{Actor, 2}]}}]},
+                          [{Actor, 1}, {Actor, 2}]}},
+                 Set2),
+    ?assertEqual({?TYPE, {{{dot_map, dot_set},
+                           [{<<"a">>, {dot_set, [{Actor, 2}]}},
+                            {<<"b">>, {dot_set, [{Actor, 3}]}}]},
+                          [{Actor, 1}, {Actor, 2}, {Actor, 3}]}},
+                 Set3).
 
 rmv_test() ->
     Actor = 1,
