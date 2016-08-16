@@ -32,7 +32,7 @@
 -export_type([causal_crdt/0]).
 
 -type causal_crdt() :: {
-                            dot_store:dot_store(), 
+                            dot_store:dot_store(),
                             causal_context:causal_context()
                        }.
 
@@ -115,7 +115,7 @@ merge({{{dot_fun, CRDTType}, _}=DotFunA, CausalContextA},
                 false ->
                     Value = dot_fun:fetch(Dot, DotFunB),
                     dot_fun:store(Dot, Value, DotFun)
-            end 
+            end
         end,
         DotFun1,
         dot_fun:fetch_keys(DotFunB)

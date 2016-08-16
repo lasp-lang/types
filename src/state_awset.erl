@@ -270,7 +270,7 @@ query_test() ->
     Set1 = {?TYPE,
         {
             {
-                {dot_map, dot_set}, 
+                {dot_map, dot_set},
                 [{<<"a">>, {dot_set, [{a, 2}]}}]
             },
             [{a, 1}, {a, 2}]
@@ -291,8 +291,8 @@ delta_add_test() ->
 
     ?assertEqual({?TYPE,
         {
-            {   
-                {dot_map, dot_set},  
+            {
+                {dot_map, dot_set},
                 [{<<"a">>, {dot_set, [{Actor, 1}]}}]
             },
             [{Actor, 1}]
@@ -331,7 +331,7 @@ delta_add_test() ->
     ),
     ?assertEqual({?TYPE,
         {
-            {   
+            {
                 {dot_map, dot_set},
                 [{<<"b">>, {dot_set, [{Actor, 3}]}}]
             },
@@ -341,7 +341,7 @@ delta_add_test() ->
     ),
     ?assertEqual({?TYPE,
         {
-            {   
+            {
                 {dot_map, dot_set},
                 [
                     {<<"a">>, {dot_set, [{Actor, 2}]}},
@@ -381,7 +381,7 @@ add_test() ->
     ),
     ?assertEqual({?TYPE,
         {
-            {   
+            {
                 {dot_map, dot_set},
                 [
                     {<<"a">>, {dot_set, [{Actor, 2}]}},
