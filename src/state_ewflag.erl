@@ -75,7 +75,7 @@ is_delta({?TYPE, _}=CRDT) ->
 
 %% @doc Mutate a `state_ewflag()'.
 -spec mutate(state_ewflag_op(), type:id(), state_ewflag()) ->
-    {ok, state_ewflag()} | {error, {precondition, {not_present, [element()]}}}.
+    {ok, state_ewflag()}.
 mutate(Op, Actor, {?TYPE, _Flag}=CRDT) ->
     state_type:mutate(Op, Actor, CRDT).
 
