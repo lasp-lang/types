@@ -284,23 +284,23 @@ merge_idempontent_test() ->
     ActorTwo = 2,
     Register1 = {?TYPE, {
                     {
-                        {dot_fun, ?MAX_INT_TYPE}, 
+                        {dot_fun, ?MAX_INT_TYPE},
                         [{{ActorOne, 1}, Value1}]
-                    }, 
+                    },
                     [{ActorOne, 1}]
                 }},
     Register2 = {?TYPE, {
                     {
-                        {dot_fun, ?MAX_INT_TYPE}, 
+                        {dot_fun, ?MAX_INT_TYPE},
                         [{{ActorOne, 1}, Value1}, {{ActorTwo, 1}, Value2}]
-                    }, 
+                    },
                     [{ActorOne, 1}, {ActorTwo, 1}]
                 }},
     Register3 = {?TYPE, {
                     {
-                        {dot_fun, ?MAX_INT_TYPE}, 
+                        {dot_fun, ?MAX_INT_TYPE},
                         [{{ActorTwo, 1}, Value2}]
-                    }, 
+                    },
                     [{ActorTwo, 1}]
                 }},
     Register4 = merge(Register1, Register1),
@@ -317,23 +317,23 @@ merge_commutative_test() ->
     ActorTwo = 2,
     Register1 = {?TYPE, {
                     {
-                        {dot_fun, ?MAX_INT_TYPE}, 
+                        {dot_fun, ?MAX_INT_TYPE},
                         [{{ActorOne, 1}, Value1}]
-                    }, 
+                    },
                     [{ActorOne, 1}]
                 }},
     Register2 = {?TYPE, {
                     {
-                        {dot_fun, ?MAX_INT_TYPE}, 
+                        {dot_fun, ?MAX_INT_TYPE},
                         [{{ActorOne, 1}, Value1}, {{ActorTwo, 1}, Value2}]
-                    }, 
+                    },
                     [{ActorOne, 1}, {ActorTwo, 1}]
                 }},
     Register3 = {?TYPE, {
                     {
-                        {dot_fun, ?MAX_INT_TYPE}, 
+                        {dot_fun, ?MAX_INT_TYPE},
                         [{{ActorTwo, 1}, Value2}]
-                    }, 
+                    },
                     [{ActorTwo, 1}]
                 }},
     Register4 = merge(Register1, Register2),
@@ -361,23 +361,23 @@ equal_test() ->
     ActorTwo = 2,
     Register1 = {?TYPE, {
                     {
-                        {dot_fun, ?MAX_INT_TYPE}, 
+                        {dot_fun, ?MAX_INT_TYPE},
                         [{{ActorOne, 1}, Value1}]
-                    }, 
+                    },
                     [{ActorOne, 1}]
                 }},
     Register2 = {?TYPE, {
                     {
-                        {dot_fun, ?MAX_INT_TYPE}, 
+                        {dot_fun, ?MAX_INT_TYPE},
                         [{{ActorOne, 1}, Value1}, {{ActorTwo, 1}, Value2}]
-                    }, 
+                    },
                     [{ActorOne, 1}, {ActorTwo, 1}]
                 }},
     Register3 = {?TYPE, {
                     {
-                        {dot_fun, ?MAX_INT_TYPE}, 
+                        {dot_fun, ?MAX_INT_TYPE},
                         [{{ActorTwo, 1}, Value2}]
-                    }, 
+                    },
                     [{ActorTwo, 1}]
                 }},
     ?assert(equal(Register1, Register1)),
@@ -391,9 +391,9 @@ is_bottom_test() ->
     Register0 = new(),
     Register1 = {?TYPE, {
                     {
-                        {dot_fun, ?MAX_INT_TYPE}, 
+                        {dot_fun, ?MAX_INT_TYPE},
                         [{{1, 1}, {?MAX_INT_TYPE, 17}}]
-                    }, 
+                    },
                     [{1, 1}]
                 }},
     ?assert(is_bottom(Register0)),
@@ -406,23 +406,23 @@ is_inflation_test() ->
     ActorTwo = 2,
     Register1 = {?TYPE, {
                     {
-                        {dot_fun, ?MAX_INT_TYPE}, 
+                        {dot_fun, ?MAX_INT_TYPE},
                         [{{ActorOne, 1}, Value1}]
-                    }, 
+                    },
                     [{ActorOne, 1}]
                 }},
     Register2 = {?TYPE, {
                     {
-                        {dot_fun, ?MAX_INT_TYPE}, 
+                        {dot_fun, ?MAX_INT_TYPE},
                         [{{ActorOne, 1}, Value1}, {{ActorTwo, 1}, Value2}]
-                    }, 
+                    },
                     [{ActorOne, 1}, {ActorTwo, 1}]
                 }},
     Register3 = {?TYPE, {
                     {
-                        {dot_fun, ?MAX_INT_TYPE}, 
+                        {dot_fun, ?MAX_INT_TYPE},
                         [{{ActorTwo, 1}, Value2}]
-                    }, 
+                    },
                     [{ActorTwo, 1}]
                 }},
     ?assert(is_inflation(Register1, Register1)),
@@ -446,23 +446,23 @@ is_strict_inflation_test() ->
     ActorTwo = 2,
     Register1 = {?TYPE, {
                     {
-                        {dot_fun, ?MAX_INT_TYPE}, 
+                        {dot_fun, ?MAX_INT_TYPE},
                         [{{ActorOne, 1}, Value1}]
-                    }, 
+                    },
                     [{ActorOne, 1}]
                 }},
     Register2 = {?TYPE, {
                     {
-                        {dot_fun, ?MAX_INT_TYPE}, 
+                        {dot_fun, ?MAX_INT_TYPE},
                         [{{ActorOne, 1}, Value1}, {{ActorTwo, 1}, Value2}]
-                    }, 
+                    },
                     [{ActorOne, 1}, {ActorTwo, 1}]
                 }},
     Register3 = {?TYPE, {
                     {
-                        {dot_fun, ?MAX_INT_TYPE}, 
+                        {dot_fun, ?MAX_INT_TYPE},
                         [{{ActorTwo, 1}, Value2}]
-                    }, 
+                    },
                     [{ActorTwo, 1}]
                 }},
     ?assertNot(is_strict_inflation(Register1, Register1)),
@@ -479,9 +479,9 @@ join_decomposition_test() ->
 encode_decode_test() ->
     Register = {?TYPE, {
                     {
-                        {dot_fun, ?MAX_INT_TYPE}, 
+                        {dot_fun, ?MAX_INT_TYPE},
                         [{{1, 1}, {?MAX_INT_TYPE, 17}}]
-                    }, 
+                    },
                     [{1, 1}]
                 }},
     Binary = encode(erlang, Register),
