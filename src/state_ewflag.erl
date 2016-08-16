@@ -47,7 +47,6 @@
 -opaque delta_state_ewflag() :: {?TYPE, {delta, payload()}}.
 -type delta_or_state() :: state_ewflag() | delta_state_ewflag().
 -type payload() :: state_causal_type:causal_crdt().
--type element() :: term().
 -type state_ewflag_op() :: enable | disable.
 
 %% @doc Create a new, empty `state_ewflag()'
