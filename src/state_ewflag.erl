@@ -90,8 +90,8 @@ mutate(Op, Actor, {?TYPE, _Flag}=CRDT) ->
 delta_mutate(enable, Actor, {?TYPE, {DotStore, CausalContext}}) ->
     NextDot = causal_context:next_dot(Actor, CausalContext),
 
-    EmptyDotFlag = dot_set:new(),
-    DeltaDotStore = dot_set:add_element(NextDot, EmptyDotFlag),
+    EmptyDotSet = dot_set:new(),
+    DeltaDotStore = dot_set:add_element(NextDot, EmptyDotSet),
     DeltaCausalContext = dot_set:to_causal_context(
         dot_set:union(DotStore, DeltaDotStore)
     ),
