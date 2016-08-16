@@ -17,13 +17,13 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Pure MVReg CRDT: pure op-based multi-value register
+%% @doc Pure MVRegister CRDT: pure op-based multi-value register
 %%
 %% @reference Carlos Baquero, Paulo Sérgio Almeida, and Ali Shoker
 %%      Making Operation-based CRDTs Operation-based (2014)
 %%      [http://haslab.uminho.pt/ashoker/files/opbaseddais14.pdf]
 
--module(pure_mvreg).
+-module(pure_mvregister).
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
 -behaviour(type).
@@ -42,25 +42,25 @@
 -export([mutate/3, query/1, equal/2, reset/2]).
 -export([redundant/2, remove_redundant_crystal/2, remove_redundant_polog/2, check_stability/2]).
 
--export_type([pure_mvreg/0, pure_mvreg_op/0]).
+-export_type([pure_mvregister/0, pure_mvregister_op/0]).
 
--opaque pure_mvreg() :: {?TYPE, payload()}.
+-opaque pure_mvregister() :: {?TYPE, payload()}.
 -type payload() :: {pure_type:polog(), []}.
--type pure_mvreg_op() :: {set, string()}.
+-type pure_mvregister_op() :: {set, string()}.
 
-%% @doc Create a new, empty `pure_mvreg()'
--spec new() -> pure_mvreg().
+%% @doc Create a new, empty `pure_mvregister()'
+-spec new() -> pure_mvregister().
 new() ->
     {?TYPE, {orddict:new(), []}}.
 
-%% @doc Create a new, empty `pure_mvreg()'
--spec new([term()]) -> pure_mvreg().
+%% @doc Create a new, empty `pure_mvregister()'
+-spec new([term()]) -> pure_mvregister().
 new([]) ->
     new().
 
-%% @doc Check redundancy `pure_mvreg()'
+%% @doc Check redundancy `pure_mvregister()'
 %% Called in remove_redundant().
--spec redundant({pure_type:id(), pure_mvreg_op()}, {pure_type:id(), pure_mvreg_op()}) ->
+-spec redundant({pure_type:id(), pure_mvregister_op()}, {pure_type:id(), pure_mvregister_op()}) ->
     atom().
 redundant({VV1, {_Op1, _Str1}}, {VV2, {_Op2, _Str2}}) ->
     case pure_trcb:happened_before(VV1, VV2) of
@@ -70,8 +70,8 @@ redundant({VV1, {_Op1, _Str1}}, {VV2, {_Op2, _Str2}}) ->
             ?AA
     end.
 
-%% @doc Removes redundant operations from POLog of `pure_mvreg()'
--spec remove_redundant_polog({pure_type:id(), pure_mvreg_op()}, pure_mvreg()) -> {boolean(), pure_mvreg()}.
+%% @doc Removes redundant operations from POLog of `pure_mvregister()'
+-spec remove_redundant_polog({pure_type:id(), pure_mvregister_op()}, pure_mvregister()) -> {boolean(), pure_mvregister()}.
 remove_redundant_polog({VV1, Op}, {?TYPE, {POLog0, MVReg}}) ->
     case orddict:is_empty(POLog0) of
         true ->
@@ -92,32 +92,32 @@ remove_redundant_polog({VV1, Op}, {?TYPE, {POLog0, MVReg}}) ->
             {Add1, {?TYPE, {POLog1, MVReg}}}
     end.
 
-%% @doc Removes redundant operations from crystal of `pure_mvreg()'
+%% @doc Removes redundant operations from crystal of `pure_mvregister()'
 %% No crystalisation for this one.
--spec remove_redundant_crystal({pure_type:id(), pure_mvreg_op()}, pure_mvreg()) -> {boolean(), pure_mvreg()}.
+-spec remove_redundant_crystal({pure_type:id(), pure_mvregister_op()}, pure_mvregister()) -> {boolean(), pure_mvregister()}.
 remove_redundant_crystal({_VV1, _X}, {?TYPE, {POLog0, MVReg}}) ->
     {true, {?TYPE, {POLog0, MVReg}}}.
 
-%% @doc Checks stable operations and remove them from POLog of `pure_mvreg()'
--spec check_stability(pure_type:id(), pure_mvreg()) -> pure_mvreg().
+%% @doc Checks stable operations and remove them from POLog of `pure_mvregister()'
+-spec check_stability(pure_type:id(), pure_mvregister()) -> pure_mvregister().
 check_stability(_StableVV, {?TYPE, {POLog0, MVReg0}}) ->
     {?TYPE, {POLog0, MVReg0}}.
 
-%% @doc Update a `pure_mvreg()'.
--spec mutate(pure_mvreg_op(), pure_type:id(), pure_mvreg()) ->
-    {ok, pure_mvreg()}.
+%% @doc Update a `pure_mvregister()'.
+-spec mutate(pure_mvregister_op(), pure_type:id(), pure_mvregister()) ->
+    {ok, pure_mvregister()}.
 mutate({Op, Str}, VV, {?TYPE, {POLog, PureMVReg}}) ->
     {_Add, {?TYPE, {POLog0, PureMVReg0}}} = pure_polog:remove_redundant({VV, {Op, Str}}, {?TYPE, {POLog, PureMVReg}}),
     {ok, {?TYPE, {orddict:store(VV, Str, POLog0), PureMVReg0}}}.
 
 %% @doc Clear/reset the state to initial state.
--spec reset(pure_type:id(), pure_mvreg()) -> pure_mvreg().
+-spec reset(pure_type:id(), pure_mvregister()) -> pure_mvregister().
 reset(VV, {?TYPE, _}=CRDT) ->
     pure_type:reset(VV, CRDT).
 
-%% @doc Returns the value of the `pure_mvreg()'.
-%%      This value is a a boolean value in the `pure_mvreg()'.
--spec query(pure_mvreg()) -> [string()].
+%% @doc Returns the value of the `pure_mvregister()'.
+%%      This value is a a boolean value in the `pure_mvregister()'.
+-spec query(pure_mvregister()) -> [string()].
 query({?TYPE, {POLog0, _PureMVReg0}}) ->
     case orddict:is_empty(POLog0) of
         true ->
@@ -127,8 +127,8 @@ query({?TYPE, {POLog0, _PureMVReg0}}) ->
     end.
 
 
-%% @doc Equality for `pure_mvreg()'.
--spec equal(pure_mvreg(), pure_mvreg()) -> boolean().
+%% @doc Equality for `pure_mvregister()'.
+-spec equal(pure_mvregister(), pure_mvregister()) -> boolean().
 equal({?TYPE, {POLog1, _PureMVReg1}}, {?TYPE, {POLog2, _PureMVReg2}}) ->
     Fun = fun(Value1, Value2) -> Value1 == Value2 end,
     orddict_ext:equal(POLog1, POLog2, Fun).

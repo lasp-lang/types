@@ -28,7 +28,15 @@
 -export([reset/2]).
 
 %% Define some initial types.
--type pure_type() :: pure_gcounter | pure_pncounter | pure_gset | pure_twopset | pure_aworset | pure_rworset | pure_ewflag | pure_dwflag | pure_mvreg.
+-type pure_type() :: pure_aworset |
+                     pure_dwflag |
+                     pure_ewflag |
+                     pure_gcounter |
+                     pure_gset |
+                     pure_mvregister |
+                     pure_pncounter |
+                     pure_rworset |
+                     pure_twopset.
 -type crdt() :: {pure_type(), payload()}.
 -type payload() :: {polog(), term()}.
 -type polog() :: orddict:orddict().
