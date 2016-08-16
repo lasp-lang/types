@@ -38,6 +38,7 @@
                       state_ivar |
                       state_lexcounter |
                       state_max_int |
+                      state_mvregister |
                       state_orset |
                       state_pair |
                       state_pncounter |
