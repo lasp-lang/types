@@ -268,15 +268,8 @@ new_test() ->
 
 query_test() ->
     Set0 = new(),
-    Set1 = {?TYPE,
-        {
-            {
-                {dot_map, dot_set},
-                [{<<"a">>, {dot_set, [{a, 2}]}}]
-            },
-            [{a, 1}, {a, 2}]
-        }
-    },
+    Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{a, 2}]}}]},
+                    [{a, 1}, {a, 2}]}},
     ?assertEqual(sets:new(), query(Set0)),
     ?assertEqual(sets:from_list([<<"a">>]), query(Set1)).
 
