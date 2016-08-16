@@ -31,6 +31,7 @@
                       state_awset_ps |
                       state_bcounter |
                       state_boolean |
+                      state_ewflag |
                       state_gcounter |
                       state_gmap |
                       state_gset |
