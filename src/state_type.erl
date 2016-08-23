@@ -37,6 +37,7 @@
                       state_gset |
                       state_ivar |
                       state_lexcounter |
+                      state_lwwregister |
                       state_max_int |
                       state_mvregister |
                       state_orset |
