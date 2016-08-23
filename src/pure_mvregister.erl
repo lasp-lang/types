@@ -46,7 +46,7 @@
 
 -opaque pure_mvregister() :: {?TYPE, payload()}.
 -type payload() :: {pure_type:polog(), []}.
--type pure_mvregister_op() :: {set, string()}.
+-type pure_mvregister_op() :: {set, term()}.
 
 %% @doc Create a new, empty `pure_mvregister()'
 -spec new() -> pure_mvregister().
@@ -62,7 +62,7 @@ new([]) ->
 %% Called in remove_redundant().
 -spec redundant({pure_type:id(), pure_mvregister_op()}, {pure_type:id(), pure_mvregister_op()}) ->
     atom().
-redundant({VV1, {_Op1, _Str1}}, {VV2, {_Op2, _Str2}}) ->
+redundant({VV1, {_Op1, _Val1}}, {VV2, {_Op2, _Val2}}) ->
     case pure_trcb:happened_before(VV1, VV2) of
         true ->
             ?RA;
@@ -106,9 +106,9 @@ check_stability(_StableVV, {?TYPE, {POLog0, MVReg0}}) ->
 %% @doc Update a `pure_mvregister()'.
 -spec mutate(pure_mvregister_op(), pure_type:id(), pure_mvregister()) ->
     {ok, pure_mvregister()}.
-mutate({Op, Str}, VV, {?TYPE, {POLog, PureMVReg}}) ->
-    {_Add, {?TYPE, {POLog0, PureMVReg0}}} = pure_polog:remove_redundant({VV, {Op, Str}}, {?TYPE, {POLog, PureMVReg}}),
-    {ok, {?TYPE, {orddict:store(VV, Str, POLog0), PureMVReg0}}}.
+mutate({Op, Value}, VV, {?TYPE, {POLog, PureMVReg}}) ->
+    {_Add, {?TYPE, {POLog0, PureMVReg0}}} = pure_polog:remove_redundant({VV, {Op, Value}}, {?TYPE, {POLog, PureMVReg}}),
+    {ok, {?TYPE, {orddict:store(VV, Value, POLog0), PureMVReg0}}}.
 
 %% @doc Clear/reset the state to initial state.
 -spec reset(pure_type:id(), pure_mvregister()) -> pure_mvregister().
@@ -117,13 +117,13 @@ reset(VV, {?TYPE, _}=CRDT) ->
 
 %% @doc Returns the value of the `pure_mvregister()'.
 %%      This value is a a boolean value in the `pure_mvregister()'.
--spec query(pure_mvregister()) -> [string()].
+-spec query(pure_mvregister()) -> [term()].
 query({?TYPE, {POLog0, _PureMVReg0}}) ->
     case orddict:is_empty(POLog0) of
         true ->
             [];
         false ->
-            [Str || {_Key, Str} <- orddict:to_list(POLog0)]
+            [Value || {_Key, Value} <- orddict:to_list(POLog0)]
     end.
 
 
