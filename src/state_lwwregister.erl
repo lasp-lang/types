@@ -21,7 +21,7 @@
 %% @doc LWWRegister.
 %%      We assume timestamp are unique, totally ordered and consistent
 %%      with causal order. We use integers as timestamps.
-%%      When using this, make sure you provide globally unique 
+%%      When using this, make sure you provide globally unique
 %%      timestamps.
 %%
 %% @reference Marc Shapiro, Nuno Preguiça, Carlos Baquero and Marek Zawirsk
