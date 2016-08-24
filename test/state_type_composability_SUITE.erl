@@ -57,8 +57,7 @@ all() ->
         pair_with_gmap_and_pair_with_gcounter_and_gmap_test,
         pair_with_pair_with_gcounter_and_gmap_and_gmap_test,
         gmap_with_pair_test,
-        gmap_with_awset_test,
-        gmap_with_gmap_with_awset_test
+        maps_within_maps_test
     ].
 
 %% ===================================================================
@@ -382,33 +381,46 @@ gmap_with_pair_test(_Config) ->
     ?assertEqual({?GMAP_TYPE, {CType, [{Actor, {?PAIR_TYPE, {{?BOOLEAN_TYPE, true}, {?BOOLEAN_TYPE, true}}}}]}}, GMap3),
     ?assertEqual([{Actor, {true, true}}], Query).
 
-gmap_with_awset_test(_Config) ->
+maps_within_maps_test(_Config) ->
+    lists:foreach(
+        fun(MapType) ->
+            map_with_awset(MapType),
+            map_with_map_with_awset(MapType)
+        end,
+        [?GMAP_TYPE]
+    ).
+
+%% ===================================================================
+%% Internal functions
+%% ===================================================================
+
+map_with_awset(MapType) ->
     Actor = "A",
     CType = ?AWSET_TYPE,
-    GMap0 = ?GMAP_TYPE:new([CType]),
-    {ok, GMap1} = ?GMAP_TYPE:mutate({"hello", {add, 3}}, Actor, GMap0),
-    {ok, GMap2} = ?GMAP_TYPE:mutate({"world", {add, 17}}, Actor, GMap1),
-    {ok, GMap3} = ?GMAP_TYPE:mutate({"hello", {add, 13}}, Actor, GMap2),
-    Query1 = ?GMAP_TYPE:query(GMap1),
-    Query2 = ?GMAP_TYPE:query(GMap2),
-    Query3 = ?GMAP_TYPE:query(GMap3),
+    Map0 = MapType:new([CType]),
+    {ok, Map1} = MapType:mutate({"hello", {add, 3}}, Actor, Map0),
+    {ok, Map2} = MapType:mutate({"world", {add, 17}}, Actor, Map1),
+    {ok, Map3} = MapType:mutate({"hello", {add, 13}}, Actor, Map2),
+    Query1 = MapType:query(Map1),
+    Query2 = MapType:query(Map2),
+    Query3 = MapType:query(Map3),
 
     ?assertEqual([{"hello", sets:from_list([3])}], Query1),
     ?assertEqual([{"hello", sets:from_list([3])}, {"world", sets:from_list([17])}], Query2),
     ?assertEqual([{"hello", sets:from_list([3, 13])}, {"world", sets:from_list([17])}], Query3).
 
-gmap_with_gmap_with_awset_test(_Config) ->
+map_with_map_with_awset(MapType) ->
     Actor = "A",
-    CType = {?GMAP_TYPE, [?AWSET_TYPE]},
-    GMap0 = ?GMAP_TYPE:new([CType]),
-    {ok, GMap1} = ?GMAP_TYPE:mutate({"hello", {"world_one", {add, 3}}}, Actor, GMap0),
-    {ok, GMap2} = ?GMAP_TYPE:mutate({"hello", {"world_two", {add, 7}}}, Actor, GMap1),
-    {ok, GMap3} = ?GMAP_TYPE:mutate({"world", {"hello", {add, 17}}}, Actor, GMap2),
-    {ok, GMap4} = ?GMAP_TYPE:mutate({"hello", {"world_one", {add, 13}}}, Actor, GMap3),
-    Query1 = ?GMAP_TYPE:query(GMap1),
-    Query2 = ?GMAP_TYPE:query(GMap2),
-    Query3 = ?GMAP_TYPE:query(GMap3),
-    Query4 = ?GMAP_TYPE:query(GMap4),
+    CType = {MapType, [?AWSET_TYPE]},
+    Map0 = MapType:new([CType]),
+    {ok, Map1} = MapType:mutate({"hello", {"world_one", {add, 3}}}, Actor, Map0),
+    {ok, Map2} = MapType:mutate({"hello", {"world_two", {add, 7}}}, Actor, Map1),
+    {ok, Map3} = MapType:mutate({"world", {"hello", {add, 17}}}, Actor, Map2),
+    {ok, Map4} = MapType:mutate({"hello", {"world_one", {add, 13}}}, Actor, Map3),
+    Query1 = MapType:query(Map1),
+    Query2 = MapType:query(Map2),
+    Query3 = MapType:query(Map3),
+    Query4 = MapType:query(Map4),
 
     ?assertEqual([{"hello", [{"world_one", sets:from_list([3])}]}], Query1),
     ?assertEqual([{"hello", [{"world_one", sets:from_list([3])}, {"world_two", sets:from_list([7])}]}], Query2),
