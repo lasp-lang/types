@@ -56,7 +56,9 @@ all() ->
         pair_with_gcounter_and_gmap_test,
         pair_with_gmap_and_pair_with_gcounter_and_gmap_test,
         pair_with_pair_with_gcounter_and_gmap_and_gmap_test,
-        gmap_with_pair_test
+        gmap_with_pair_test,
+        gmap_with_awset_test,
+        gmap_with_gmap_with_awset_test
     ].
 
 %% ===================================================================
@@ -380,3 +382,35 @@ gmap_with_pair_test(_Config) ->
     ?assertEqual({?GMAP_TYPE, {CType, [{Actor, {?PAIR_TYPE, {{?BOOLEAN_TYPE, true}, {?BOOLEAN_TYPE, true}}}}]}}, GMap3),
     ?assertEqual([{Actor, {true, true}}], Query).
 
+gmap_with_awset_test(_Config) ->
+    Actor = "A",
+    CType = ?AWSET_TYPE,
+    GMap0 = ?GMAP_TYPE:new([CType]),
+    {ok, GMap1} = ?GMAP_TYPE:mutate({"hello", {add, 3}}, Actor, GMap0),
+    {ok, GMap2} = ?GMAP_TYPE:mutate({"world", {add, 17}}, Actor, GMap1),
+    {ok, GMap3} = ?GMAP_TYPE:mutate({"hello", {add, 13}}, Actor, GMap2),
+    Query1 = ?GMAP_TYPE:query(GMap1),
+    Query2 = ?GMAP_TYPE:query(GMap2),
+    Query3 = ?GMAP_TYPE:query(GMap3),
+
+    ?assertEqual([{"hello", sets:from_list([3])}], Query1),
+    ?assertEqual([{"hello", sets:from_list([3])}, {"world", sets:from_list([17])}], Query2),
+    ?assertEqual([{"hello", sets:from_list([3, 13])}, {"world", sets:from_list([17])}], Query3).
+
+gmap_with_gmap_with_awset_test(_Config) ->
+    Actor = "A",
+    CType = {?GMAP_TYPE, [?AWSET_TYPE]},
+    GMap0 = ?GMAP_TYPE:new([CType]),
+    {ok, GMap1} = ?GMAP_TYPE:mutate({"hello", {"world_one", {add, 3}}}, Actor, GMap0),
+    {ok, GMap2} = ?GMAP_TYPE:mutate({"hello", {"world_two", {add, 7}}}, Actor, GMap1),
+    {ok, GMap3} = ?GMAP_TYPE:mutate({"world", {"hello", {add, 17}}}, Actor, GMap2),
+    {ok, GMap4} = ?GMAP_TYPE:mutate({"hello", {"world_one", {add, 13}}}, Actor, GMap3),
+    Query1 = ?GMAP_TYPE:query(GMap1),
+    Query2 = ?GMAP_TYPE:query(GMap2),
+    Query3 = ?GMAP_TYPE:query(GMap3),
+    Query4 = ?GMAP_TYPE:query(GMap4),
+
+    ?assertEqual([{"hello", [{"world_one", sets:from_list([3])}]}], Query1),
+    ?assertEqual([{"hello", [{"world_one", sets:from_list([3])}, {"world_two", sets:from_list([7])}]}], Query2),
+    ?assertEqual([{"hello", [{"world_one", sets:from_list([3])}, {"world_two", sets:from_list([7])}]}, {"world", [{"hello", sets:from_list([17])}]}], Query3),
+    ?assertEqual([{"hello", [{"world_one", sets:from_list([3, 13])}, {"world_two", sets:from_list([7])}]}, {"world", [{"hello", sets:from_list([17])}]}], Query4).

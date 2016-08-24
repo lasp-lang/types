@@ -3,6 +3,7 @@
 deps/*
 ebin/*
 dev
+include/*.swp
 src/*.swp
 src/.DS_Store
 .DS_Store

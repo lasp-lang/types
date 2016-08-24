@@ -1,3 +1,4 @@
+-define(AWSET_TYPE, state_awset).
 -define(BCOUNTER_TYPE, state_bcounter).
 -define(BOOLEAN_TYPE, state_boolean).
 -define(GCOUNTER_TYPE, state_gcounter).
