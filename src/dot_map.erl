@@ -81,9 +81,16 @@ fetch(Key, {{dot_map, DotStoreType}, DotMap}) ->
         {ok, DotStore} ->
             DotStore;
         error ->
-            %% @todo Support complex/nested types
-            %% See `ctype()' on `state_gmap'
-            DotStoreType:new()
+            case DotStoreType of
+                dot_set ->
+                    dot_set:new();
+                {dot_fun, CRDTType} ->
+                    dot_fun:new(CRDTType);
+                CCausalCRDTType ->
+                    {CausalCRDTType, Args} = state_type:extract_args(CCausalCRDTType),
+                    {CausalCRDTType, {EmptyDotStore, _CC}} = CausalCRDTType:new(Args),
+                    EmptyDotStore
+            end
     end.
 
 %% @doc Get a list of keys in the DotMap.
