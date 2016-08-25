@@ -26,6 +26,10 @@
 -module(state_causal_type).
 -author("Junghun Yoo <junghun.yoo@cs.ox.ac.uk>").
 
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
 -export([new/1,
          merge/2]).
 

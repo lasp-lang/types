@@ -28,6 +28,10 @@
 
 -behaviour(dot_store).
 
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
 -export([new/0,
          new/1,
          is_empty/1,

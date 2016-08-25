@@ -28,6 +28,10 @@
 -module(causal_context).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
 -export([new/0,
          merge/2,
          add_dot/2,
