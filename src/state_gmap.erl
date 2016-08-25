@@ -86,9 +86,10 @@ mutate(Op, Actor, {?TYPE, _}=CRDT) ->
     state_type:mutate(Op, Actor, CRDT).
 
 %% @doc Delta-mutate a `state_gmap()'.
-%%      The first argument can only be a pair where the first
-%%      component is a key, and the second is the operation
-%%      to be performed on the correspondent value of that key.
+%%      The first argument can only be a triple where the first
+%%      component `apply`, the second is a key, and the third is the
+%%      operation to be performed on the correspondent value of that
+%%      key.
 -spec delta_mutate(state_gmap_op(), type:id(), state_gmap()) ->
     {ok, delta_state_gmap()}.
 delta_mutate({apply, Key, Op}, Actor, {?TYPE, {CType, GMap}}) ->
@@ -150,7 +151,7 @@ equal({?TYPE, {CType, GMap1}}, {?TYPE, {CType, GMap2}}) ->
     end,
     orddict_ext:equal(GMap1, GMap2, Fun).
 
-%% @doc Check if a GMap is bottom
+%% @doc Check if a `state_gmap()' is bottom
 -spec is_bottom(delta_or_state()) -> boolean().
 is_bottom({?TYPE, {delta, GMap}}) ->
     is_bottom({?TYPE, GMap});
