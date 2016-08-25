@@ -144,19 +144,21 @@ merge({{{dot_map, DotStoreType}, _}=DotMapA, CausalContextA},
             KeyDotStoreA = dot_map:fetch(Key, DotMapA),
             KeyDotStoreB = dot_map:fetch(Key, DotMapB),
 
-            {VK, _} = merge(
+            {{CType, _}=VK, _} = merge(
                 {KeyDotStoreA, CausalContextA},
                 {KeyDotStoreB, CausalContextB}
             ),
 
-            case DotStoreType:is_empty(VK) of
+            {SubDotStoreType, _} = state_type:extract_args(CType),
+
+            case SubDotStoreType:is_empty(VK) of
                 true ->
                     DotMap;
                 false ->
                     dot_map:store(Key, VK, DotMap)
             end
         end,
-        dot_map:new(dot_set),
+        dot_map:new(DotStoreType),
         Keys
     ),
     CausalContext = causal_context:merge(CausalContextA, CausalContextB),
