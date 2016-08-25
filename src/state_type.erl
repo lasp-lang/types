@@ -40,6 +40,7 @@
                       state_lwwregister |
                       state_max_int |
                       state_mvregister |
+                      state_ormap |
                       state_orset |
                       state_pair |
                       state_pncounter |

@@ -7,6 +7,7 @@
 -define(IVAR_TYPE, state_ivar).
 -define(MAX_INT_TYPE, state_max_int).
 -define(ORSET_TYPE, state_orset).
+-define(ORMAP_TYPE, state_ormap).
 -define(PAIR_TYPE, state_pair).
 -define(PNCOUNTER_TYPE, state_pncounter).
 -define(TWOPSET_TYPE, state_twopset).
