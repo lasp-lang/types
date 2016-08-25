@@ -50,7 +50,8 @@
 
 -type type() :: dot_set |
                 {dot_fun, state_type:state_type()} |
-                {dot_map, type()}.
+                {dot_map, type()} |
+                state_type:state_type().
 -type dot_store() :: dot_set() | dot_fun() | dot_map().
 
 
