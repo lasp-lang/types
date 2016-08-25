@@ -262,7 +262,7 @@ pair_with_gcounter_and_gmap_test(_Config) ->
     Actor = "A",
     Pair0 = ?PAIR_TYPE:new([?GCOUNTER_TYPE, {?GMAP_TYPE, [?BOOLEAN_TYPE]}]),
     {ok, Pair1} = ?PAIR_TYPE:mutate({fst, increment}, Actor, Pair0),
-    {ok, Pair2} = ?PAIR_TYPE:mutate({snd, {Actor, true}}, Actor, Pair1),
+    {ok, Pair2} = ?PAIR_TYPE:mutate({snd, {apply, Actor, true}}, Actor, Pair1),
     {ok, Pair3} = ?PAIR_TYPE:mutate({fst, increment}, Actor, Pair2),
     Query = ?PAIR_TYPE:query(Pair3),
 
@@ -281,9 +281,9 @@ pair_with_gmap_and_pair_with_gcounter_and_gmap_test(_Config) ->
             {?GMAP_TYPE, [?BOOLEAN_TYPE]}
         ]}
     ]),
-    {ok, Pair1} = ?PAIR_TYPE:mutate({fst, {Actor, true}}, Actor, Pair0),
+    {ok, Pair1} = ?PAIR_TYPE:mutate({fst, {apply, Actor, true}}, Actor, Pair0),
     {ok, Pair2} = ?PAIR_TYPE:mutate({snd, {fst, increment}}, Actor, Pair1),
-    {ok, Pair3} = ?PAIR_TYPE:mutate({snd, {snd, {Actor, true}}}, Actor, Pair2),
+    {ok, Pair3} = ?PAIR_TYPE:mutate({snd, {snd, {apply, Actor, true}}}, Actor, Pair2),
     Query = ?PAIR_TYPE:query(Pair3),
 
     ?assertEqual({?PAIR_TYPE, {
@@ -328,9 +328,9 @@ pair_with_pair_with_gcounter_and_gmap_and_gmap_test(_Config) ->
         ]},
         {?GMAP_TYPE, [?BOOLEAN_TYPE]}
     ]),
-    {ok, Pair1} = ?PAIR_TYPE:mutate({snd, {Actor, true}}, Actor, Pair0),
+    {ok, Pair1} = ?PAIR_TYPE:mutate({snd, {apply, Actor, true}}, Actor, Pair0),
     {ok, Pair2} = ?PAIR_TYPE:mutate({fst, {fst, increment}}, Actor, Pair1),
-    {ok, Pair3} = ?PAIR_TYPE:mutate({fst, {snd, {Actor, true}}}, Actor, Pair2),
+    {ok, Pair3} = ?PAIR_TYPE:mutate({fst, {snd, {apply, Actor, true}}}, Actor, Pair2),
     Query = ?PAIR_TYPE:query(Pair3),
 
     ?assertEqual({?PAIR_TYPE, {
@@ -370,9 +370,9 @@ gmap_with_pair_test(_Config) ->
     Actor = "A",
     CType = {?PAIR_TYPE, [?BOOLEAN_TYPE, ?BOOLEAN_TYPE]},
     GMap0 = ?GMAP_TYPE:new([CType]),
-    {ok, GMap1} = ?GMAP_TYPE:mutate({Actor, {fst, true}}, Actor, GMap0),
-    {ok, GMap2} = ?GMAP_TYPE:mutate({Actor, {snd, true}}, Actor, GMap0),
-    {ok, GMap3} = ?GMAP_TYPE:mutate({Actor, {snd, true}}, Actor, GMap1),
+    {ok, GMap1} = ?GMAP_TYPE:mutate({apply, Actor, {fst, true}}, Actor, GMap0),
+    {ok, GMap2} = ?GMAP_TYPE:mutate({apply, Actor, {snd, true}}, Actor, GMap0),
+    {ok, GMap3} = ?GMAP_TYPE:mutate({apply, Actor, {snd, true}}, Actor, GMap1),
     Query = ?GMAP_TYPE:query(GMap3),
 
     ?assertEqual({?GMAP_TYPE, {CType, []}}, GMap0),
@@ -398,9 +398,9 @@ map_with_awset(MapType) ->
     Actor = "A",
     CType = ?AWSET_TYPE,
     Map0 = MapType:new([CType]),
-    {ok, Map1} = MapType:mutate({"hello", {add, 3}}, Actor, Map0),
-    {ok, Map2} = MapType:mutate({"world", {add, 17}}, Actor, Map1),
-    {ok, Map3} = MapType:mutate({"hello", {add, 13}}, Actor, Map2),
+    {ok, Map1} = MapType:mutate({apply, "hello", {add, 3}}, Actor, Map0),
+    {ok, Map2} = MapType:mutate({apply, "world", {add, 17}}, Actor, Map1),
+    {ok, Map3} = MapType:mutate({apply, "hello", {add, 13}}, Actor, Map2),
     Query1 = MapType:query(Map1),
     Query2 = MapType:query(Map2),
     Query3 = MapType:query(Map3),
@@ -413,10 +413,10 @@ map_with_map_with_awset(MapType) ->
     Actor = "A",
     CType = {MapType, [?AWSET_TYPE]},
     Map0 = MapType:new([CType]),
-    {ok, Map1} = MapType:mutate({"hello", {"world_one", {add, 3}}}, Actor, Map0),
-    {ok, Map2} = MapType:mutate({"hello", {"world_two", {add, 7}}}, Actor, Map1),
-    {ok, Map3} = MapType:mutate({"world", {"hello", {add, 17}}}, Actor, Map2),
-    {ok, Map4} = MapType:mutate({"hello", {"world_one", {add, 13}}}, Actor, Map3),
+    {ok, Map1} = MapType:mutate({apply, "hello", {apply, "world_one", {add, 3}}}, Actor, Map0),
+    {ok, Map2} = MapType:mutate({apply, "hello", {apply, "world_two", {add, 7}}}, Actor, Map1),
+    {ok, Map3} = MapType:mutate({apply, "world", {apply, "hello", {add, 17}}}, Actor, Map2),
+    {ok, Map4} = MapType:mutate({apply, "hello", {apply, "world_one", {add, 13}}}, Actor, Map3),
     Query1 = MapType:query(Map1),
     Query2 = MapType:query(Map2),
     Query3 = MapType:query(Map3),
