@@ -89,6 +89,17 @@ fetch(Key, {{dot_map, DotStoreType}, DotMap}) ->
                 CCausalCRDTType ->
                     {CausalCRDTType, Args} = state_type:extract_args(CCausalCRDTType),
                     {CausalCRDTType, {EmptyDotStore, _CC}} = CausalCRDTType:new(Args),
+                    %% DotMap's can only embed DotStore's.
+                    %% For example, an ORMap<K, AWSet<E>>
+                    %% never actually stores an AWSet in the values
+                    %% only the underlying DotStore (and that's why
+                    %% an ORMap can only embed Causal CRDTs)
+                    %% We know that an AWSet is <DotStore, CausalContext>
+                    %% but the CausalContext is not stored per key-value
+                    %% because all the key-value pairs in the ORMap
+                    %% share the same CausalContext.
+                    %% This behaviour can easily be observed in
+                    %% `state_ormap:query/1' function.
                     EmptyDotStore
             end
     end.
