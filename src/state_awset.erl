@@ -103,7 +103,7 @@ delta_mutate({add, Elem}, Actor, {?TYPE, {DotStore, CausalContext}}) ->
     DeltaDotStore = dot_map:store(Elem, DeltaDotSet, EmptyDotMap),
 
     CurrentDotSet = dot_map:fetch(Elem, DotStore),
-    DeltaCausalContext0 = dot_set:to_causal_context(CurrentDotSet),
+    DeltaCausalContext0 = causal_context:to_causal_context(CurrentDotSet),
     DeltaCausalContext1 = causal_context:add_dot(NextDot, DeltaCausalContext0),
 
     Delta = {DeltaDotStore, DeltaCausalContext1},
@@ -132,7 +132,7 @@ delta_mutate({rmv, Elem}, _Actor, {?TYPE, {DotStore, _CausalContext}}) ->
             {error, {precondition, {not_present, [Elem]}}};
         false ->
             DeltaDotStore = dot_map:new(dot_set),
-            DeltaCausalContext = dot_set:to_causal_context(CurrentDotSet),
+            DeltaCausalContext = causal_context:to_causal_context(CurrentDotSet),
             Delta = {DeltaDotStore, DeltaCausalContext},
             {ok, {?TYPE, {delta, Delta}}}
     end;

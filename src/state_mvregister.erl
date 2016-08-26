@@ -93,7 +93,7 @@ delta_mutate({set, {CRDTType, _}=CRDTValue}, Actor, {?TYPE, {{{dot_fun, CRDTType
 
     EmptyDotFun = dot_fun:new(),
     DeltaDotStore = dot_fun:store(NextDot, CRDTValue, EmptyDotFun),
-    DeltaCausalContext0 = dot_fun:to_causal_context(DotStore),
+    DeltaCausalContext0 = causal_context:to_causal_context(DotStore),
     DeltaCausalContext1 = causal_context:add_dot(NextDot, DeltaCausalContext0),
 
     Delta = {DeltaDotStore, DeltaCausalContext1},

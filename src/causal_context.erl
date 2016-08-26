@@ -37,7 +37,8 @@
          add_dot/2,
          max_dot/2,
          next_dot/2,
-         to_dot_set/1]).
+         to_dot_set/1,
+         to_causal_context/1]).
 
 -export_type([causal_context/0]).
 
@@ -80,7 +81,7 @@ next_dot(DotActor, CausalContext) ->
     {DotActor, MaxValue} = max_dot(DotActor, CausalContext),
     {DotActor, MaxValue + 1}.
 
-%% @doc Convert a Causal Context to a DotSet
+%% @doc Convert a CausalContext to a DotSet
 -spec to_dot_set(causal_context()) -> dot_store:dot_set().
 to_dot_set(CausalContext) ->
     ordsets:fold(
@@ -89,4 +90,37 @@ to_dot_set(CausalContext) ->
         end,
         dot_set:new(),
         CausalContext
+    ).
+
+%% @doc Given a DotStore, extract a Causal Context.
+-spec to_causal_context(dot_store:dot_store()) -> causal_context().
+to_causal_context({dot_set, DotSet}) ->
+    ordsets:fold(
+        fun(Dot, CausalContext) ->
+            causal_context:add_dot(Dot, CausalContext)
+        end,
+        causal_context:new(),
+        DotSet
+    );
+
+to_causal_context({{dot_fun, _CRDTType}, DotFun}) ->
+    Dots = orddict:fetch_keys(DotFun),
+    lists:foldl(
+        fun(Dot, CausalContext) ->
+            causal_context:add_dot(Dot, CausalContext)
+        end,
+        causal_context:new(),
+        Dots
+    );
+
+to_causal_context({{dot_map, _DotStoreType}, DotMap}) ->
+    orddict:fold(
+        fun(_Key, SubDotStore, CausalContext) ->
+            causal_context:merge(
+                to_causal_context(SubDotStore),
+                CausalContext
+            )
+        end,
+        causal_context:new(),
+        DotMap
     ).

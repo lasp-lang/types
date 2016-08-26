@@ -36,8 +36,7 @@
 
 -export([new/0,
          new/1,
-         is_empty/1,
-         to_causal_context/1]).
+         is_empty/1]).
 
 % DotFun related (following the same API as `orddict`)
 -export([fetch/2,
@@ -57,18 +56,6 @@ new(CRDTType) ->
 -spec is_empty(dot_store:dot_fun()) -> boolean().
 is_empty({{dot_fun, _CRDTType}, DotFun}) ->
     orddict:is_empty(DotFun).
-
-%% @doc Given a DotFun, extract a Causal Context.
--spec to_causal_context(dot_store:dot_fun()) -> causal_context:causal_context().
-to_causal_context({{dot_fun, _CRDTType}, DotFun}) ->
-    Dots = orddict:fetch_keys(DotFun),
-    lists:foldl(
-        fun(Dot, CausalContext) ->
-            causal_context:add_dot(Dot, CausalContext)
-        end,
-        causal_context:new(),
-        Dots
-    ).
 
 
 %% DotSet API

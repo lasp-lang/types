@@ -34,8 +34,7 @@
 
 -export([new/0,
          new/1,
-         is_empty/1,
-         to_causal_context/1]).
+         is_empty/1]).
 
 %% DotSet related (following the same API as `ordsets`)
 -export([add_element/2,
@@ -58,17 +57,6 @@ new([]) ->
 -spec is_empty(dot_store:dot_set()) -> boolean().
 is_empty({dot_set, DotSet}) ->
     ordsets:size(DotSet) == 0.
-
-%% @doc Given a DotSet, extract a Causal Context.
--spec to_causal_context(dot_store:dot_set()) -> causal_context:causal_context().
-to_causal_context({dot_set, DotSet}) ->
-    ordsets:fold(
-        fun(Dot, CausalContext) ->
-            causal_context:add_dot(Dot, CausalContext)
-        end,
-        causal_context:new(),
-        DotSet
-    ).
 
 
 %% DotSet API

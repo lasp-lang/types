@@ -61,6 +61,3 @@
 
 %% @doc Check if a DotStore is empty.
 -callback is_empty(dot_store()) -> boolean().
-
-%% @doc Given a DotStore, extract a Causal Context.
--callback to_causal_context(dot_store()) -> causal_context:causal_context().

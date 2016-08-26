@@ -76,10 +76,10 @@ merge({{{dot_fun, CRDTType}, _}=DotFunA, CausalContextA},
       {{{dot_fun, CRDTType}, _}=DotFunB, CausalContextB}) ->
 
     DotSetA = causal_context:to_dot_set(
-        dot_fun:to_causal_context(DotFunA)
+        causal_context:to_causal_context(DotFunA)
     ),
     DotSetB = causal_context:to_dot_set(
-        dot_fun:to_causal_context(DotFunB)
+        causal_context:to_causal_context(DotFunB)
     ),
     CCDotSetA = causal_context:to_dot_set(CausalContextA),
     CCDotSetB = causal_context:to_dot_set(CausalContextB),

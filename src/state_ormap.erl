@@ -86,9 +86,15 @@ mutate(Op, Actor, {?TYPE, _}=CRDT) ->
     state_type:mutate(Op, Actor, CRDT).
 
 %% @doc Delta-mutate a `state_ormap()'.
-%%      The first argument can only be a pair where the first
-%%      component is a key, and the second is the operation
-%%      to be performed on the correspondent value of that key.
+%%      The first argument can be:
+%%          - `{apply, Key, Op}'
+%%          - `{rmv, Key}'
+%%      `apply' also receives an operation that will be applied to the
+%%      key.
+%%      This operation has to be a valid operation in the CausalCRDT
+%%      choosed to be in the values (by defaul an AWSet).
+%%      The second argument is the replica id.
+%%      The third argument is the `state_ormap()' to be inflated.
 -spec delta_mutate(state_ormap_op(), type:id(), state_ormap()) ->
     {ok, delta_state_ormap()}.
 delta_mutate({apply, Key, Op}, Actor, {?TYPE, {{{dot_map, CType}, _}=DotMap, CausalContext}}) ->
@@ -97,6 +103,14 @@ delta_mutate({apply, Key, Op}, Actor, {?TYPE, {{{dot_map, CType}, _}=DotMap, Cau
     {ok, {Type, {delta, {DeltaSubDotStore, DeltaCausalContext}}}} = Type:delta_mutate(Op, Actor, {Type, {SubDotStore, CausalContext}}),
     EmptyDotMap = dot_map:new(CType),
     DeltaDotStore = dot_map:store(Key, DeltaSubDotStore, EmptyDotMap),
+
+    Delta = {DeltaDotStore, DeltaCausalContext},
+    {ok, {?TYPE, {delta, Delta}}};
+
+delta_mutate({rmv, Key}, _Actor, {?TYPE, {{{dot_map, CType}, _}=DotMap, _CausalContext}}) ->
+    SubDotStore = dot_map:fetch(Key, DotMap),
+    DeltaCausalContext = causal_context:to_causal_context(SubDotStore),
+    DeltaDotStore = dot_map:new(CType),
 
     Delta = {DeltaDotStore, DeltaCausalContext},
     {ok, {?TYPE, {delta, Delta}}}.

@@ -34,8 +34,7 @@
 
 -export([new/0,
          new/1,
-         is_empty/1,
-         to_causal_context/1]).
+         is_empty/1]).
 
 %% DotMap related (following the same API as `orddict')
 -export([fetch/2,
@@ -52,24 +51,10 @@ new() ->
 new(DotStoreType) ->
     {{dot_map, DotStoreType}, orddict:new()}.
 
-%% @doc Check if a DotStore is empty.
+%% @doc Check if a DotMap is empty.
 -spec is_empty(dot_store:dot_map()) -> boolean().
 is_empty({{dot_map, _DotStoreType}, DotMap}) ->
     orddict:is_empty(DotMap).
-
-%% @doc Given a DotStore, extract a Causal Context.
--spec to_causal_context(dot_store:dot_map()) -> causal_context:causal_context().
-to_causal_context({{dot_map, _DotStoreType}, DotMap}) ->
-    orddict:fold(
-        fun(_Key, SubDotStore, CausalContext) ->
-            causal_context:merge(
-                to_causal_context(SubDotStore),
-                CausalContext
-            )
-        end,
-        causal_context:new(),
-        DotMap
-    ).
 
 
 %% DotMap API
@@ -110,7 +95,7 @@ fetch_keys({{dot_map, _DotStoreType}, DotMap}) ->
     orddict:fetch_keys(DotMap).
 
 %% @doc Stores a new {Key, DotStore} pair in the DotMap.
-%%      If `Key` already in the DotMap, then its value is updated.
+%%      If `Key` already in the DotMap, then its value is replaced.
 -spec store(term(), dot_store:dot_store(), dot_store:dot_map()) -> dot_store:dot_map().
 store(Key, SubDotStore, {{dot_map, DotStoreType}, DotMap}) ->
     {{dot_map, DotStoreType}, orddict:store(Key, SubDotStore, DotMap)}.

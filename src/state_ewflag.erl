@@ -92,7 +92,7 @@ delta_mutate(enable, Actor, {?TYPE, {DotStore, CausalContext}}) ->
 
     EmptyDotSet = dot_set:new(),
     DeltaDotStore = dot_set:add_element(NextDot, EmptyDotSet),
-    DeltaCausalContext = dot_set:to_causal_context(
+    DeltaCausalContext = causal_context:to_causal_context(
         dot_set:union(DotStore, DeltaDotStore)
     ),
 
@@ -102,7 +102,7 @@ delta_mutate(enable, Actor, {?TYPE, {DotStore, CausalContext}}) ->
 %% @doc Disables `state_ewflag()'.
 delta_mutate(disable, _Actor, {?TYPE, {DotStore, _CausalContext}}) ->
     DeltaDotStore = dot_set:new(),
-    DeltaCausalContext = dot_set:to_causal_context(DotStore),
+    DeltaCausalContext = causal_context:to_causal_context(DotStore),
 
     Delta = {DeltaDotStore, DeltaCausalContext},
     {ok, {?TYPE, {delta, Delta}}}.
