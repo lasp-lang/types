@@ -185,7 +185,7 @@ new_test() ->
 query_test() ->
     Actor = 1,
     Map0 = new([?AWSET_TYPE]),
-    Map1 = {?TYPE, {{{dot_map, ?AWSET_TYPE}, 
+    Map1 = {?TYPE, {{{dot_map, ?AWSET_TYPE},
                      [{"a", {{dot_map, dot_set}, [{17, {dot_set, [{Actor, 2}]}}]}},
                       {"b", {{dot_map, dot_set}, [{3, {dot_set, [{Actor, 1}]}},
                                                   {13, {dot_set, [{Actor, 3}]}}]}}]},
