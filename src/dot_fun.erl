@@ -38,7 +38,7 @@
          new/1,
          is_empty/1]).
 
-% DotFun related (following the same API as `orddict`)
+% DotFun related (following the same API as `orddict')
 -export([fetch/2,
          fetch_keys/1,
          store/3]).

@@ -36,7 +36,7 @@
          new/1,
          is_empty/1]).
 
-%% DotSet related (following the same API as `ordsets`)
+%% DotSet related (following the same API as `ordsets')
 -export([add_element/2,
          intersection/2,
          is_element/2,
