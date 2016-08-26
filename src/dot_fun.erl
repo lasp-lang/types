@@ -58,8 +58,8 @@ is_empty({{dot_fun, _CRDTType}, DotFun}) ->
     orddict:is_empty(DotFun).
 
 
-%% DotSet API
-%% @doc Given a Dot and a DotSet, get the correspondent CRDT value.
+%% DotFun API
+%% @doc Given a Dot and a DotFun, get the correspondent CRDT value.
 -spec fetch(dot_store:dot(), dot_store:dot_fun()) -> state_type:crdt().
 fetch(Dot, {{dot_fun, CRDTType}, DotFun}) ->
     {CRDTType, _}=CRDTValue = orddict:fetch(Dot, DotFun),
