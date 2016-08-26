@@ -225,7 +225,7 @@ query_test() ->
     ?assertEqual([], query(Map0)),
     ?assertEqual([{<<"key1">>, 15}, {<<"key2">>, 17}], query(Map1)).
 
-delta_increment_test() ->
+delta_apply_test() ->
     Map0 = new([?GCOUNTER_TYPE]),
     {ok, {?TYPE, {delta, Delta1}}} = delta_mutate({apply, <<"key1">>, increment}, 1, Map0),
     Map1 = merge({?TYPE, Delta1}, Map0),
@@ -241,7 +241,7 @@ delta_increment_test() ->
     ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}, {2, 1}]}},
                                            {<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}}, Map3).
 
-increment_test() ->
+apply_test() ->
     Map0 = new([?GCOUNTER_TYPE]),
     {ok, Map1} = mutate({apply, <<"key1">>, increment}, 1, Map0),
     {ok, Map2} = mutate({apply, <<"key1">>, increment}, 2, Map1),
