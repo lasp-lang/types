@@ -57,7 +57,8 @@ all() ->
         pair_with_gmap_and_pair_with_gcounter_and_gmap_test,
         pair_with_pair_with_gcounter_and_gmap_and_gmap_test,
         gmap_with_pair_test,
-        maps_within_maps_test
+        maps_within_maps_test,
+        ormap_nested_rmv_test
     ].
 
 %% ===================================================================
@@ -389,6 +390,32 @@ maps_within_maps_test(_Config) ->
         end,
         [?GMAP_TYPE, ?ORMAP_TYPE]
     ).
+
+ormap_nested_rmv_test(_Config) ->
+    Actor = "A",
+    CType = {?ORMAP_TYPE, [?AWSET_TYPE]},
+    Map0 = ?ORMAP_TYPE:new([CType]),
+    {ok, Map1} = ?ORMAP_TYPE:mutate({apply, "hello", {apply, "world_one", {add, 3}}}, Actor, Map0),
+    {ok, Map2} = ?ORMAP_TYPE:mutate({apply, "hello", {apply, "world_two", {add, 7}}}, Actor, Map1),
+    {ok, Map3} = ?ORMAP_TYPE:mutate({apply, "world", {apply, "hello", {add, 17}}}, Actor, Map2),
+    {ok, Map4} = ?ORMAP_TYPE:mutate({apply, "hello", {rmv, "world_one"}}, Actor, Map3),
+    {ok, Map5} = ?ORMAP_TYPE:mutate({rmv, "world"}, Actor, Map4),
+    {ok, Map6} = ?ORMAP_TYPE:mutate({apply, "hello", {apply, "world_z", {add, 23}}}, Actor, Map5),
+    {ok, Map7} = ?ORMAP_TYPE:mutate({apply, "hello", {rmv, "world_two"}}, Actor, Map6),
+    {ok, Map8} = ?ORMAP_TYPE:mutate({apply, "hello", {rmv, "world_z"}}, Actor, Map7),
+    Query3 = ?ORMAP_TYPE:query(Map3),
+    Query4 = ?ORMAP_TYPE:query(Map4),
+    Query5 = ?ORMAP_TYPE:query(Map5),
+    Query6 = ?ORMAP_TYPE:query(Map6),
+    Query7 = ?ORMAP_TYPE:query(Map7),
+    Query8 = ?ORMAP_TYPE:query(Map8),
+
+    ?assertEqual([{"hello", [{"world_one", sets:from_list([3])}, {"world_two", sets:from_list([7])}]}, {"world", [{"hello", sets:from_list([17])}]}], Query3),
+    ?assertEqual([{"hello", [{"world_two", sets:from_list([7])}]}, {"world", [{"hello", sets:from_list([17])}]}], Query4),
+    ?assertEqual([{"hello", [{"world_two", sets:from_list([7])}]}], Query5),
+    ?assertEqual([{"hello", [{"world_two", sets:from_list([7])}, {"world_z", sets:from_list([23])}]}], Query6),
+    ?assertEqual([{"hello", [{"world_z", sets:from_list([23])}]}], Query7),
+    ?assertEqual([], Query8).
 
 %% ===================================================================
 %% Internal functions
