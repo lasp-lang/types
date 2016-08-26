@@ -387,7 +387,7 @@ maps_within_maps_test(_Config) ->
             map_with_awset(MapType),
             map_with_map_with_awset(MapType)
         end,
-        [?GMAP_TYPE]
+        [?GMAP_TYPE, ?ORMAP_TYPE]
     ).
 
 %% ===================================================================
