@@ -57,7 +57,8 @@ all() ->
 
 flag_test(_Config) ->
     List = [
-        {state_ewflag, true}
+        {state_ewflag, true},
+        {state_dwflag, false}
     ],
 
     lists:foreach(
