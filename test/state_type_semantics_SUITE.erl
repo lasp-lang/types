@@ -80,16 +80,22 @@ flag_mutate_concurrently(FlagType) ->
     Flag0 = FlagType:new(),
     {ok, EFlag} = FlagType:mutate(enable, ActorC, Flag0),
     {ok, DFlag} = FlagType:mutate(disable, ActorC, Flag0),
+    ?assertEqual(true, FlagType:query(EFlag)),
+    ?assertEqual(false, FlagType:query(DFlag)),
 
     %% concurrent mutations in enabled flag
     {ok, EFlagA} = FlagType:mutate(enable, ActorA, EFlag),
     {ok, EFlagB} = FlagType:mutate(disable, ActorB, EFlag),
+    ?assertEqual(true, FlagType:query(EFlagA)),
+    ?assertEqual(false, FlagType:query(EFlagB)),
     %% merge them
     EFlagMerged = FlagType:merge(EFlagA, EFlagB),
 
     %% concurrent mutations in disabled flag
     {ok, DFlagA} = FlagType:mutate(enable, ActorA, DFlag),
     {ok, DFlagB} = FlagType:mutate(disable, ActorB, DFlag),
+    ?assertEqual(true, FlagType:query(DFlagA)),
+    ?assertEqual(false, FlagType:query(DFlagB)),
     %% merge them
     DFlagMerged = FlagType:merge(DFlagA, DFlagB),
 
