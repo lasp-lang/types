@@ -20,6 +20,13 @@
 %% @doc Disable-Wins Flag CRDT.
 %%      Starts enabled.
 %%
+%%      Follows the same strategy used in Enable-Wins Flag but,
+%%      instead of creating a new dot when enabling the flag,
+%%      we create a new dot when disabling it.
+%%
+%% @reference Paulo Sérgio Almeida, Ali Shoker, and Carlos Baquero
+%%      Delta State Replicated Data Types (2016)
+%%      [http://arxiv.org/pdf/1603.01529v1.pdf]
 
 -module(state_dwflag).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
