@@ -35,7 +35,7 @@
                      pure_gset |
                      pure_mvregister |
                      pure_pncounter |
-                     pure_rworset |
+                     pure_rwset |
                      pure_twopset.
 -type crdt() :: {pure_type(), payload()}.
 -type payload() :: {polog(), term()}.

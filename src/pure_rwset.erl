@@ -23,7 +23,7 @@
 %%      Making Operation-based CRDTs Operation-based (2014)
 %%      [http://haslab.uminho.pt/ashoker/files/opbaseddais14.pdf]
 
--module(pure_rworset).
+-module(pure_rwset).
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
 -behaviour(type).
@@ -42,23 +42,23 @@
 -export([mutate/3, query/1, equal/2, reset/2]).
 -export([redundant/2, remove_redundant_crystal/2, remove_redundant_polog/2, check_stability/2]).
 
--export_type([pure_rworset/0, pure_rworset_op/0]).
+-export_type([pure_rwset/0, pure_rwset_op/0]).
 
--opaque pure_rworset() :: {?TYPE, payload()}.
+-opaque pure_rwset() :: {?TYPE, payload()}.
 -type payload() :: {pure_type:polog(), ordsets:set()}.
--type pure_rworset_op() :: {add, pure_type:element()} | {rmv, pure_type:element()}.
+-type pure_rwset_op() :: {add, pure_type:element()} | {rmv, pure_type:element()}.
 
-%% @doc Create a new, empty `pure_rworset()'
--spec new() -> pure_rworset().
+%% @doc Create a new, empty `pure_rwset()'
+-spec new() -> pure_rwset().
 new() ->
     {?TYPE, {orddict:new(), ordsets:new()}}.
 
-%% @doc Create a new, empty `pure_rworset()'
--spec new([term()]) -> pure_rworset().
+%% @doc Create a new, empty `pure_rwset()'
+-spec new([term()]) -> pure_rwset().
 new([]) ->
     new().
 
--spec redundant({pure_type:id(), pure_rworset_op()}, {pure_type:id(), pure_rworset_op()}) ->
+-spec redundant({pure_type:id(), pure_rwset_op()}, {pure_type:id(), pure_rwset_op()}) ->
     atom().
 redundant({VV1, {add, Elem1}}, {VV2, {X, Elem2}}) ->
     case Elem1 =:= Elem2 of
@@ -101,9 +101,9 @@ redundant({VV1, {rmv, Elem1}}, {VV2, {X, Elem2}}) ->
             ?AA
     end.
 
-%% @doc Removes redundant operations from POLog of `pure_rworset()'
-%% Called upon updating (add, rmv) the `pure_rworset()'
--spec remove_redundant_polog({pure_type:id(), pure_rworset_op()}, pure_rworset()) -> {boolean(), pure_rworset()}.
+%% @doc Removes redundant operations from POLog of `pure_rwset()'
+%% Called upon updating (add, rmv) the `pure_rwset()'
+-spec remove_redundant_polog({pure_type:id(), pure_rwset_op()}, pure_rwset()) -> {boolean(), pure_rwset()}.
 remove_redundant_polog({VV1, Op}, {?TYPE, {POLog0, ORSet}}) ->
     case orddict:is_empty(POLog0) of
         true ->
@@ -126,9 +126,9 @@ remove_redundant_polog({VV1, Op}, {?TYPE, {POLog0, ORSet}}) ->
             {Add1, {?TYPE, {POLog1, ORSet}}}
     end.
 
-%% @doc Removes redundant operations from POLog of `pure_rworset()'
-%% Called upon updating (add, rmv) the `pure_rworset()'
--spec remove_redundant_crystal({pure_type:id(), pure_rworset_op()}, pure_rworset()) -> {boolean(), pure_rworset()}.
+%% @doc Removes redundant operations from POLog of `pure_rwset()'
+%% Called upon updating (add, rmv) the `pure_rwset()'
+-spec remove_redundant_crystal({pure_type:id(), pure_rwset_op()}, pure_rwset()) -> {boolean(), pure_rwset()}.
 remove_redundant_crystal({_VV1, {_X, Elem}}, {?TYPE, {POLog, RWORSet}}) ->
     case ordsets:is_element(Elem, RWORSet) of
         true ->
@@ -137,8 +137,8 @@ remove_redundant_crystal({_VV1, {_X, Elem}}, {?TYPE, {POLog, RWORSet}}) ->
             {true, {?TYPE, {POLog, RWORSet}}}
     end.
 
-%% @doc Checks stable operations and remove them from POLog of `pure_rworset()'
--spec check_stability(pure_type:id(), pure_rworset()) -> pure_rworset().
+%% @doc Checks stable operations and remove them from POLog of `pure_rwset()'
+-spec check_stability(pure_type:id(), pure_rwset()) -> pure_rwset().
 check_stability(StableVV, {?TYPE, {POLog0, RWORSet0}}) ->
     {POLog1, RWORSet1} = orddict:fold(
         fun(Key, {Op, Elem}=Value, {AccPOLog, AccORSet}) ->
@@ -159,40 +159,40 @@ check_stability(StableVV, {?TYPE, {POLog0, RWORSet0}}) ->
     ),
     {?TYPE, {POLog1, RWORSet1}}.
 
-%% @doc Update a `pure_rworset()'.
--spec mutate(pure_rworset_op(), pure_type:id(), pure_rworset()) ->
-    {ok, pure_rworset()}.
-mutate({add, Elem}, VV, {?TYPE, {POLog, PureRWORSet}}) ->
-    {Add, {?TYPE, {POLog0, PureRWORSet0}}} = pure_polog:remove_redundant({VV, {add, Elem}}, {?TYPE, {POLog, PureRWORSet}}),
+%% @doc Update a `pure_rwset()'.
+-spec mutate(pure_rwset_op(), pure_type:id(), pure_rwset()) ->
+    {ok, pure_rwset()}.
+mutate({add, Elem}, VV, {?TYPE, {POLog, RWSet}}) ->
+    {Add, {?TYPE, {POLog0, RWSet0}}} = pure_polog:remove_redundant({VV, {add, Elem}}, {?TYPE, {POLog, RWSet}}),
     case Add of
         false ->
-            {ok, {?TYPE, {POLog0, PureRWORSet0}}};
+            {ok, {?TYPE, {POLog0, RWSet0}}};
         true ->
-            {ok, {?TYPE, {orddict:store(VV, {add, Elem}, POLog0), PureRWORSet0}}}
+            {ok, {?TYPE, {orddict:store(VV, {add, Elem}, POLog0), RWSet0}}}
     end;
-mutate({rmv, Elem}, VV, {?TYPE, {POLog, PureRWORSet}}) ->
-    {_, {?TYPE, {POLog0, PureRWORSet0}}} = pure_polog:remove_redundant({VV, {rmv, Elem}}, {?TYPE, {POLog, PureRWORSet}}),
-    {ok, {?TYPE, {orddict:store(VV, {rmv, Elem}, POLog0), PureRWORSet0}}}.
+mutate({rmv, Elem}, VV, {?TYPE, {POLog, RWSet}}) ->
+    {_, {?TYPE, {POLog0, RWSet0}}} = pure_polog:remove_redundant({VV, {rmv, Elem}}, {?TYPE, {POLog, RWSet}}),
+    {ok, {?TYPE, {orddict:store(VV, {rmv, Elem}, POLog0), RWSet0}}}.
 
 %% @doc Clear/reset the state to initial state.
--spec reset(pure_type:id(), pure_rworset()) -> pure_rworset().
+-spec reset(pure_type:id(), pure_rwset()) -> pure_rwset().
 reset(VV, {?TYPE, _}=CRDT) ->
     pure_type:reset(VV, CRDT).
 
-%% @doc Returns the value of the `pure_rworset()'.
-%%      This value is a set with all the elements in the `pure_rworset()'.
--spec query(pure_rworset()) -> sets:set(pure_type:element()).
-query({?TYPE, {POLog0, PureRWORSet0}}) ->
-    Elements0 = ordsets:to_list(PureRWORSet0),
+%% @doc Returns the value of the `pure_rwset()'.
+%%      This value is a set with all the elements in the `pure_rwset()'.
+-spec query(pure_rwset()) -> sets:set(pure_type:element()).
+query({?TYPE, {POLog0, RWSet0}}) ->
+    Elements0 = ordsets:to_list(RWSet0),
     Elements1 = [El || {_Key, {Op, El}} <- orddict:to_list(POLog0), Op == add],
     sets:from_list(lists:append(Elements0, Elements1)).
 
 
-%% @doc Equality for `pure_rworset()'.
--spec equal(pure_rworset(), pure_rworset()) -> boolean().
-equal({?TYPE, {POLog1, PureRWORSet1}}, {?TYPE, {POLog2, PureRWORSet2}}) ->
+%% @doc Equality for `pure_rwset()'.
+-spec equal(pure_rwset(), pure_rwset()) -> boolean().
+equal({?TYPE, {POLog1, RWSet1}}, {?TYPE, {POLog2, RWSet2}}) ->
     Fun = fun(Value1, Value2) -> Value1 == Value2 end,
-    ordsets_ext:equal(PureRWORSet1, PureRWORSet2) andalso orddict_ext:equal(POLog1, POLog2, Fun).
+    ordsets_ext:equal(RWSet1, RWSet2) andalso orddict_ext:equal(POLog1, POLog2, Fun).
 
 
 %% ===================================================================
