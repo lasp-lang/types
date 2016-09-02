@@ -142,7 +142,7 @@ delta_mutate({add, Elem},
                           ordsets:new(),
                           ordsets:add_element(NewEvent, ordsets:new())}}}};
 
-%% Adds a list of elemenets to `state_awset_ps()'.
+%% Adds a list of elements to `state_awset_ps()'.
 delta_mutate({add_all, Elems},
              EventId,
              {?TYPE, {_DataStore, _FilteredOutEvents, AllEvents}}) ->
@@ -179,7 +179,7 @@ delta_mutate({rmv, Elem},
             {error, {precondition, {not_present, Elem}}}
     end;
 
-%% Removes a list of elemenets in `state_awset_ps()'.
+%% Removes a list of elements in `state_awset_ps()'.
 delta_mutate({rmv_all, Elems},
              _EventId,
              {?TYPE, {{ElemDataStore, _EventDataStore},
@@ -237,11 +237,11 @@ is_inflation({?TYPE, AWSet1}, {?TYPE, AWSet2}) ->
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
-%% @todo
 %% @doc Join decomposition for `state_awset_ps()'.
+%% @todo
 -spec join_decomposition(state_awset_ps()) -> [state_awset_ps()].
-join_decomposition({?TYPE, AWSet}) ->
-    [AWSet].
+join_decomposition({?TYPE, _}=CRDT) ->
+    [CRDT].
 
 -spec encode(state_type:format(), delta_or_state()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->

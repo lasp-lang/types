@@ -200,9 +200,10 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
 %% @doc Join decomposition for `state_lexcounter()'.
-%% @todo Check how to do this.
+%% @todo
 -spec join_decomposition(state_lexcounter()) -> [state_lexcounter()].
-join_decomposition({?TYPE, _LexCounter}) -> [].
+join_decomposition({?TYPE, _}=CRDT) ->
+    [CRDT].
 
 -spec encode(state_type:format(), delta_or_state()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->

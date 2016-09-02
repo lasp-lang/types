@@ -31,12 +31,17 @@
                       state_awset_ps |
                       state_bcounter |
                       state_boolean |
+                      state_dwflag |
+                      state_ewflag |
                       state_gcounter |
                       state_gmap |
                       state_gset |
                       state_ivar |
                       state_lexcounter |
+                      state_lwwregister |
                       state_max_int |
+                      state_mvregister |
+                      state_ormap |
                       state_orset |
                       state_pair |
                       state_pncounter |

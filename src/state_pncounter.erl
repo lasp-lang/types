@@ -276,8 +276,8 @@ merge_idempotent_test() ->
     Counter2 = {?TYPE, [{<<"6">>, {6, 3}}, {<<"7">>, {7, 4}}]},
     Counter3 = merge(Counter1, Counter1),
     Counter4 = merge(Counter2, Counter2),
-    ?assertEqual({?TYPE, [{<<"5">>, {5, 2}}]}, Counter3),
-    ?assertEqual({?TYPE, [{<<"6">>, {6, 3}}, {<<"7">>, {7, 4}}]}, Counter4).
+    ?assertEqual(Counter1, Counter3),
+    ?assertEqual(Counter2, Counter4).
 
 merge_commutative_test() ->
     Counter1 = {?TYPE, [{<<"5">>, {5, 2}}]},

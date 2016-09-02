@@ -93,7 +93,7 @@ query({pure_twopset, {POLog0, _Crystal}}) ->
         POLog0
     ),
     sets:from_list(ordsets:subtract(Add, Rmv));
-query({pure_aworset, {POLog0, _Crystal}}) ->
+query({pure_awset, {POLog0, _Crystal}}) ->
     POLog1 = orddict:fold(
         fun(Key0, {Op0, El0}, Acc0) ->
             case orddict:fold(
@@ -118,7 +118,7 @@ query({pure_aworset, {POLog0, _Crystal}}) ->
         POLog0
     ),
     sets:from_list([El || {_Key, {Op, El}} <- orddict:to_list(POLog1), Op =:= add]);
-query({pure_rworset, {POLog0, _Crystal}}) ->
+query({pure_rwset, {POLog0, _Crystal}}) ->
     POLog1 = orddict:fold(
         fun(Key0, {Op0, El0}, Acc0) ->
             case orddict:fold(
@@ -203,7 +203,7 @@ query({pure_dwflag, {POLog0, _Crystal}}) ->
                     true
             end
     end;
-query({pure_mvreg, {POLog0, _Crystal}}) ->
+query({pure_mvregister, {POLog0, _Crystal}}) ->
     POLog1 = orddict:fold(
         fun(Key0, Op0, Acc0) ->
             case orddict:fold(
@@ -230,28 +230,28 @@ query({pure_mvreg, {POLog0, _Crystal}}) ->
 -ifdef(TEST).
 
 query_test() ->
-    AWORSet1 = {pure_aworset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {add, <<"b">>}}, {[{0, 2}, {1, 3}], {add, <<"c">>}}], []}},
-    AWORSet2 = {pure_aworset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {add, <<"b">>}}, {[{0, 2}, {1, 3}], {add, <<"a">>}}], []}},
-    AWORSet3 = {pure_aworset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {rmv, <<"a">>}}, {[{0, 2}, {1, 3}], {add, <<"b">>}}], []}},
-    AWORSet4 = {pure_aworset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 0}], {rmv, <<"a">>}}, {[{0, 2}, {1, 3}], {rmv, <<"b">>}}], []}},
-    AWORSet5 = {pure_aworset, {[], []}},
-    AWORSet6 = {pure_aworset, {[{[{0, 5}, {1, 1}], {add, <<"a">>}}, {[{0, 6}, {1, 1}], {rmv, <<"a">>}}, {[{0, 1}, {1, 5}], {add, <<"a">>}}], []}},
-    ?assertEqual(sets:from_list([<<"a">>, <<"b">>, <<"c">>]), query(AWORSet1)),
-    ?assertEqual(sets:from_list([<<"a">>, <<"b">>]), query(AWORSet2)),
-    ?assertEqual(sets:from_list([<<"b">>]), query(AWORSet3)),
-    ?assertEqual(sets:from_list([<<"a">>]), query(AWORSet4)),
-    ?assertEqual(sets:from_list([]), query(AWORSet5)),
-    ?assertEqual(sets:from_list([<<"a">>]), query(AWORSet6)),
-    RWORSet1 = {pure_rworset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {add, <<"b">>}}, {[{0, 2}, {1, 3}], {add, <<"c">>}}], []}},
-    RWORSet2 = {pure_rworset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {add, <<"b">>}}, {[{0, 2}, {1, 3}], {add, <<"a">>}}], []}},
-    RWORSet3 = {pure_rworset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {rmv, <<"a">>}}, {[{0, 2}, {1, 3}], {add, <<"b">>}}], []}},
-    RWORSet4 = {pure_rworset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 0}], {rmv, <<"a">>}}, {[{0, 2}, {1, 3}], {rmv, <<"b">>}}], []}},
-    RWORSet5 = {pure_rworset, {[], []}},
-    ?assertEqual(sets:from_list([<<"a">>, <<"b">>, <<"c">>]), query(RWORSet1)),
-    ?assertEqual(sets:from_list([<<"a">>, <<"b">>]), query(RWORSet2)),
-    ?assertEqual(sets:from_list([<<"b">>]), query(RWORSet3)),
-    ?assertEqual(sets:from_list([]), query(RWORSet4)),
-    ?assertEqual(sets:from_list([]), query(RWORSet5)),
+    AWSet1 = {pure_awset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {add, <<"b">>}}, {[{0, 2}, {1, 3}], {add, <<"c">>}}], []}},
+    AWSet2 = {pure_awset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {add, <<"b">>}}, {[{0, 2}, {1, 3}], {add, <<"a">>}}], []}},
+    AWSet3 = {pure_awset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {rmv, <<"a">>}}, {[{0, 2}, {1, 3}], {add, <<"b">>}}], []}},
+    AWSet4 = {pure_awset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 0}], {rmv, <<"a">>}}, {[{0, 2}, {1, 3}], {rmv, <<"b">>}}], []}},
+    AWSet5 = {pure_awset, {[], []}},
+    AWSet6 = {pure_awset, {[{[{0, 5}, {1, 1}], {add, <<"a">>}}, {[{0, 6}, {1, 1}], {rmv, <<"a">>}}, {[{0, 1}, {1, 5}], {add, <<"a">>}}], []}},
+    ?assertEqual(sets:from_list([<<"a">>, <<"b">>, <<"c">>]), query(AWSet1)),
+    ?assertEqual(sets:from_list([<<"a">>, <<"b">>]), query(AWSet2)),
+    ?assertEqual(sets:from_list([<<"b">>]), query(AWSet3)),
+    ?assertEqual(sets:from_list([<<"a">>]), query(AWSet4)),
+    ?assertEqual(sets:from_list([]), query(AWSet5)),
+    ?assertEqual(sets:from_list([<<"a">>]), query(AWSet6)),
+    RWSet1 = {pure_rwset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {add, <<"b">>}}, {[{0, 2}, {1, 3}], {add, <<"c">>}}], []}},
+    RWSet2 = {pure_rwset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {add, <<"b">>}}, {[{0, 2}, {1, 3}], {add, <<"a">>}}], []}},
+    RWSet3 = {pure_rwset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 2}], {rmv, <<"a">>}}, {[{0, 2}, {1, 3}], {add, <<"b">>}}], []}},
+    RWSet4 = {pure_rwset, {[{[{0, 0}, {1, 1}], {add, <<"a">>}}, {[{0, 1}, {1, 0}], {rmv, <<"a">>}}, {[{0, 2}, {1, 3}], {rmv, <<"b">>}}], []}},
+    RWSet5 = {pure_rwset, {[], []}},
+    ?assertEqual(sets:from_list([<<"a">>, <<"b">>, <<"c">>]), query(RWSet1)),
+    ?assertEqual(sets:from_list([<<"a">>, <<"b">>]), query(RWSet2)),
+    ?assertEqual(sets:from_list([<<"b">>]), query(RWSet3)),
+    ?assertEqual(sets:from_list([]), query(RWSet4)),
+    ?assertEqual(sets:from_list([]), query(RWSet5)),
     EWFlag0 = {pure_ewflag, {[{[{0, 0}, {1, 1}], disable}, {[{0, 1}, {1, 2}], disable}, {[{0, 2}, {1, 3}], disable}], []}},
     EWFlag1 = {pure_ewflag, {[{[{0, 0}, {1, 1}], enable}, {[{0, 1}, {1, 2}], enable}, {[{0, 2}, {1, 3}], enable}], []}},
     EWFlag2 = {pure_ewflag, {[{[{0, 0}, {1, 1}], enable}, {[{0, 1}, {1, 0}], disable}], []}},
@@ -276,11 +276,11 @@ query_test() ->
     ?assertEqual(true, query(DWFlag3)),
     ?assertEqual(false, query(DWFlag4)),
     ?assertEqual(true, query(DWFlag5)),
-    MVReg0 = {pure_mvreg, {[{[{0, 1}, {1, 1}], "foo"}], []}},
-    MVReg1 = {pure_mvreg, {[{[{0, 1}, {1, 1}], "foo"}, {[{0, 1}, {1, 2}], "bar"}], []}},
-    MVReg2 = {pure_mvreg, {[{[{0, 2}, {1, 1}], "foo"}, {[{0, 1}, {1, 2}], "bar"}], []}},
-    MVReg3 = {pure_mvreg, {[{[{0, 3}, {1, 4}], "foo"}, {[{0, 1}, {1, 1}], "foo"}, {[{0, 2}, {1, 3}], "bar"}], []}},
-    MVReg4 = {pure_mvreg, {[], []}},
+    MVReg0 = {pure_mvregister, {[{[{0, 1}, {1, 1}], "foo"}], []}},
+    MVReg1 = {pure_mvregister, {[{[{0, 1}, {1, 1}], "foo"}, {[{0, 1}, {1, 2}], "bar"}], []}},
+    MVReg2 = {pure_mvregister, {[{[{0, 2}, {1, 1}], "foo"}, {[{0, 1}, {1, 2}], "bar"}], []}},
+    MVReg3 = {pure_mvregister, {[{[{0, 3}, {1, 4}], "foo"}, {[{0, 1}, {1, 1}], "foo"}, {[{0, 2}, {1, 3}], "bar"}], []}},
+    MVReg4 = {pure_mvregister, {[], []}},
     ?assertEqual(sets:from_list(["foo"]), query(MVReg0)),
     ?assertEqual(sets:from_list(["bar"]), query(MVReg1)),
     ?assertEqual(sets:from_list(["foo", "bar"]), query(MVReg2)),

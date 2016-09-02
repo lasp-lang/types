@@ -53,10 +53,10 @@
 -type element() :: term().
 -type token() :: term().
 -type state_orset_op() :: {add, element()} |
-                    {add_by_token, token(), element()} |
-                    {add_all, [element()]} |
-                    {rmv, element()} |
-                    {rmv_all, [element()]}.
+                          {add_by_token, token(), element()} |
+                          {add_all, [element()]} |
+                          {rmv, element()} |
+                          {rmv_all, [element()]}.
 
 %% @doc Create a new, empty `state_orset()'
 -spec new() -> state_orset().
@@ -135,7 +135,7 @@ delta_mutate({rmv, Elem}, _Actor, {?TYPE, ORSet}) ->
             {error, {precondition, {not_present, [Elem]}}}
     end;
 
-%% @doc Removes a list of elemenets passed as input.
+%% @doc Removes a list of elements passed as input.
 delta_mutate({rmv_all, Elems}, Actor, {?TYPE, _}=ORSet) ->
     {{?TYPE, DeltaGroup}, NotRemoved} = lists:foldl(
         fun(Elem, {DeltaGroupAcc, NotRemovedAcc}) ->
@@ -372,9 +372,9 @@ merge_idempotent_test() ->
     Set4 = merge(Set1, Set1),
     Set5 = merge(Set2, Set2),
     Set6 = merge(Set3, Set3),
-    ?assertEqual({?TYPE, [{<<"a">>, [{<<"token1">>, false}]}]}, Set4),
-    ?assertEqual({?TYPE, [{<<"b">>, [{<<"token2">>, true}]}]}, Set5),
-    ?assertEqual({?TYPE, [{<<"a">>, [{<<"token1">>, true}]}, {<<"b">>, [{<<"token2">>, false}]}]}, Set6).
+    ?assertEqual(Set1, Set4),
+    ?assertEqual(Set2, Set5),
+    ?assertEqual(Set3, Set6).
 
 merge_commutative_test() ->
     Set1 = {?TYPE, [{<<"a">>, [{<<"token1">>, false}]}]},

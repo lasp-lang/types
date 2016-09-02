@@ -235,9 +235,10 @@ is_strict_inflation({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) 
     ?GMAP_TYPE:is_strict_inflation(GMap1, GMap2)).
 
 %% @doc Join decomposition for `state_bcounter()'.
-%% @todo Check how to do this.
+%% @todo
 -spec join_decomposition(state_bcounter()) -> [state_bcounter()].
-join_decomposition({?TYPE, _}) -> [].
+join_decomposition({?TYPE, _}=CRDT) ->
+    [CRDT].
 
 -spec encode(state_type:format(), delta_or_state()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
@@ -336,7 +337,7 @@ merge_deltas_test() ->
     ?assertEqual({?TYPE, {delta, {{?PNCOUNTER_TYPE, [{1, {4, 0}}, {2, {1, 17}}]}, GMap}}}, DeltaGroup).
 
 join_decomposition_test() ->
-    %% @todo.
+    %% @todo
     ok.
 
 encode_decode_test() ->

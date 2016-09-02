@@ -3,7 +3,9 @@
 deps/*
 ebin/*
 dev
+include/*.swp
 src/*.swp
+test/*.swp
 src/.DS_Store
 .DS_Store
 tags
