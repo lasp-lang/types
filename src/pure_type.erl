@@ -28,7 +28,7 @@
 -export([reset/2]).
 
 %% Define some initial types.
--type pure_type() :: pure_aworset |
+-type pure_type() :: pure_awset |
                      pure_dwflag |
                      pure_ewflag |
                      pure_gcounter |
