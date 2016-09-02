@@ -203,7 +203,7 @@ query({pure_dwflag, {POLog0, _Crystal}}) ->
                     true
             end
     end;
-query({pure_mvreg, {POLog0, _Crystal}}) ->
+query({pure_mvregister, {POLog0, _Crystal}}) ->
     POLog1 = orddict:fold(
         fun(Key0, Op0, Acc0) ->
             case orddict:fold(
@@ -276,11 +276,11 @@ query_test() ->
     ?assertEqual(true, query(DWFlag3)),
     ?assertEqual(false, query(DWFlag4)),
     ?assertEqual(true, query(DWFlag5)),
-    MVReg0 = {pure_mvreg, {[{[{0, 1}, {1, 1}], "foo"}], []}},
-    MVReg1 = {pure_mvreg, {[{[{0, 1}, {1, 1}], "foo"}, {[{0, 1}, {1, 2}], "bar"}], []}},
-    MVReg2 = {pure_mvreg, {[{[{0, 2}, {1, 1}], "foo"}, {[{0, 1}, {1, 2}], "bar"}], []}},
-    MVReg3 = {pure_mvreg, {[{[{0, 3}, {1, 4}], "foo"}, {[{0, 1}, {1, 1}], "foo"}, {[{0, 2}, {1, 3}], "bar"}], []}},
-    MVReg4 = {pure_mvreg, {[], []}},
+    MVReg0 = {pure_mvregister, {[{[{0, 1}, {1, 1}], "foo"}], []}},
+    MVReg1 = {pure_mvregister, {[{[{0, 1}, {1, 1}], "foo"}, {[{0, 1}, {1, 2}], "bar"}], []}},
+    MVReg2 = {pure_mvregister, {[{[{0, 2}, {1, 1}], "foo"}, {[{0, 1}, {1, 2}], "bar"}], []}},
+    MVReg3 = {pure_mvregister, {[{[{0, 3}, {1, 4}], "foo"}, {[{0, 1}, {1, 1}], "foo"}, {[{0, 2}, {1, 3}], "bar"}], []}},
+    MVReg4 = {pure_mvregister, {[], []}},
     ?assertEqual(sets:from_list(["foo"]), query(MVReg0)),
     ?assertEqual(sets:from_list(["bar"]), query(MVReg1)),
     ?assertEqual(sets:from_list(["foo", "bar"]), query(MVReg2)),
