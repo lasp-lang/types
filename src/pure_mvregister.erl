@@ -46,7 +46,9 @@
 
 -opaque pure_mvregister() :: {?TYPE, payload()}.
 -type payload() :: {pure_type:polog(), []}.
--type pure_mvregister_op() :: {set, term()}.
+-type timestamp() :: non_neg_integer().
+-type value() :: term().
+-type pure_mvregister_op() :: {set, timestamp(), value()}.
 
 %% @doc Create a new, empty `pure_mvregister()'
 -spec new() -> pure_mvregister().
@@ -62,7 +64,7 @@ new([]) ->
 %% Called in remove_redundant().
 -spec redundant({pure_type:id(), pure_mvregister_op()}, {pure_type:id(), pure_mvregister_op()}) ->
     atom().
-redundant({VV1, {_Op1, _Val1}}, {VV2, {_Op2, _Val2}}) ->
+redundant({VV1, _Op1}, {VV2, _Op2}) ->
     case pure_trcb:happened_before(VV1, VV2) of
         true ->
             ?RA;
@@ -79,7 +81,8 @@ remove_redundant_polog({VV1, Op}, {?TYPE, {POLog0, MVReg}}) ->
         false ->
             {POLog1, Add1} = orddict:fold(
                 fun(Key, Value, {Acc, Add}) ->
-                    case redundant({Key, {set, Value}}, {VV1, Op}) of
+                    Timestamp = 0, %% won't be used
+                    case redundant({Key, {set, Timestamp, Value}}, {VV1, Op}) of
                         ?AA ->
                             {orddict:store(Key, Value, Acc), Add};
                         ?RA ->
@@ -104,9 +107,15 @@ check_stability(_StableVV, {?TYPE, {POLog0, MVReg0}}) ->
     {?TYPE, {POLog0, MVReg0}}.
 
 %% @doc Update a `pure_mvregister()'.
+%%      The first argument is:
+%%          - `{set, timestamp(), value()}'.
+%%          - the second component in this triple will not be used.
+%%          - in order to have an unified API for all registers
+%%          (since LWWRegister needs to receive a timestamp),
+%%          the timestamp is also supplied here
 -spec mutate(pure_mvregister_op(), pure_type:id(), pure_mvregister()) ->
     {ok, pure_mvregister()}.
-mutate({Op, Value}, VV, {?TYPE, {POLog, PureMVReg}}) ->
+mutate({Op, _Timestamp, Value}, VV, {?TYPE, {POLog, PureMVReg}}) ->
     {_Add, {?TYPE, {POLog0, PureMVReg0}}} = pure_polog:remove_redundant({VV, {Op, Value}}, {?TYPE, {POLog, PureMVReg}}),
     {ok, {?TYPE, {orddict:store(VV, Value, POLog0), PureMVReg0}}}.
 
@@ -143,8 +152,9 @@ new_test() ->
     ?assertEqual({?TYPE, {orddict:new(), []}}, new()).
 
 redundant_test() ->
-    ?assertEqual(?RA, redundant({[{0, 0}, {1, 0}], {set, "foo"}}, {[{0, 1}, {1, 1}], {set, "bar"}})),
-    ?assertEqual(?AA, redundant({[{0, 0}, {1, 1}], {set, "foo"}}, {[{0, 1}, {1, 0}], {set, "bar"}})).
+    Timestamp = 0, %% won't be used
+    ?assertEqual(?RA, redundant({[{0, 0}, {1, 0}], {set, Timestamp, "foo"}}, {[{0, 1}, {1, 1}], {set, Timestamp, "bar"}})),
+    ?assertEqual(?AA, redundant({[{0, 0}, {1, 1}], {set, Timestamp, "foo"}}, {[{0, 1}, {1, 0}], {set, Timestamp, "bar"}})).
 
 query_test() ->
     MVReg0 = new(),
@@ -159,9 +169,10 @@ query_test() ->
     ?assertEqual(["bar", "baz"], query(MVReg4)).
 
 mutate_test() ->
+    Timestamp = 0, %% won't be used
     MVReg0 = new(),
-    {ok, MVReg1} = mutate({set, "foo"}, [{0, 1}, {1, 1}], MVReg0),
-    {ok, MVReg2} = mutate({set, "bar"}, [{0, 2}, {1, 2}], MVReg1),
+    {ok, MVReg1} = mutate({set, Timestamp, "foo"}, [{0, 1}, {1, 1}], MVReg0),
+    {ok, MVReg2} = mutate({set, Timestamp, "bar"}, [{0, 2}, {1, 2}], MVReg1),
     ?assertEqual({?TYPE, {[{[{0, 1}, {1, 1}], "foo"}], []}}, MVReg1),
     ?assertEqual({?TYPE, {[{[{0, 2}, {1, 2}], "bar"}], []}}, MVReg2).
 

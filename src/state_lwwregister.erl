@@ -54,9 +54,9 @@
 -opaque state_lwwregister() :: {?TYPE, payload()}.
 -opaque delta_state_lwwregister() :: {?TYPE, {delta, payload()}}.
 -type delta_or_state() :: state_lwwregister() | delta_state_lwwregister().
+-type payload() :: {timestamp(), value()}.
 -type timestamp() :: non_neg_integer().
 -type value() :: term().
--type payload() :: {timestamp(), value()}.
 -type state_lwwregister_op() :: {set, timestamp(), value()}.
 
 %% @doc Create a new, empty `state_lwwregister()'

@@ -49,7 +49,9 @@
 -opaque delta_state_mvregister() :: {?TYPE, {delta, payload()}}.
 -type delta_or_state() :: state_mvregister() | delta_state_mvregister().
 -type payload() :: state_causal_type:causal_crdt().
--type state_mvregister_op() :: {set, state_type:crdt()}.
+-type timestamp() :: non_neg_integer().
+-type value() :: state_type:crdt(). %% @todo make this term()
+-type state_mvregister_op() :: {set, timestamp(), value()}.
 
 %% @doc Create a new, empty `state_mvregister()'
 -spec new() -> state_mvregister().
@@ -80,15 +82,19 @@ mutate(Op, Actor, {?TYPE, _Register}=CRDT) ->
     state_type:mutate(Op, Actor, CRDT).
 
 %% @doc Delta-mutate a `state_mvregister()'.
-%%      The first argument can be:
-%%          - `{set, CRDTValue}'
+%%      The first argument is:
+%%          - `{set, timestamp(), value()}'.
+%%          - the second component in this triple will not be used.
+%%          - in order to have an unified API for all registers
+%%          (since LWWRegister needs to receive a timestamp),
+%%          the timestamp is also supplied here
 %%      The second argument is the replica id.
 %%      The third argument is the `state_mvregister()' to be inflated.
 -spec delta_mutate(state_mvregister_op(), type:id(), state_mvregister()) ->
     {ok, delta_state_mvregister()}.
 
 %% @doc Sets `state_mvregister()' value.
-delta_mutate({set, {CRDTType, _}=CRDTValue}, Actor, {?TYPE, {{{dot_fun, CRDTType}, _}=DotStore, CausalContext}}) ->
+delta_mutate({set, _Timestamp, {CRDTType, _}=CRDTValue}, Actor, {?TYPE, {{{dot_fun, CRDTType}, _}=DotStore, CausalContext}}) ->
     NextDot = causal_context:next_dot(Actor, CausalContext),
 
     EmptyDotFun = dot_fun:new(),
@@ -190,16 +196,17 @@ query_test() ->
     ?assertEqual([{?MAX_INT_TYPE, 17}], query(Register1)).
 
 delta_mutate_test() ->
+    Timestamp = 0, %% won't be used
     Value1 = {?MAX_INT_TYPE, 17},
     Value2 = {?MAX_INT_TYPE, 23},
     ActorOne = 1,
     ActorTwo = 2,
     Register0 = new(),
-    {ok, {?TYPE, {delta, Delta1}}} = delta_mutate({set, Value1}, ActorOne, Register0),
+    {ok, {?TYPE, {delta, Delta1}}} = delta_mutate({set, Timestamp, Value1}, ActorOne, Register0),
     Register1 = merge({?TYPE, Delta1}, Register0),
-    {ok, {?TYPE, {delta, Delta2}}} = delta_mutate({set, Value2}, ActorTwo, Register1),
+    {ok, {?TYPE, {delta, Delta2}}} = delta_mutate({set, Timestamp, Value2}, ActorTwo, Register1),
     Register2 = merge({?TYPE, Delta2}, Register1),
-    {ok, {?TYPE, {delta, Delta3}}} = delta_mutate({set, Value1}, ActorTwo, Register2),
+    {ok, {?TYPE, {delta, Delta3}}} = delta_mutate({set, Timestamp, Value1}, ActorTwo, Register2),
     Register3 = merge({?TYPE, Delta3}, Register2),
 
     ?assertEqual({?TYPE,
@@ -246,14 +253,15 @@ delta_mutate_test() ->
     ).
 
 mutate_test() ->
+    Timestamp = 0, %% won't be used
     Value1 = {?MAX_INT_TYPE, 17},
     Value2 = {?MAX_INT_TYPE, 23},
     ActorOne = 1,
     ActorTwo = 2,
     Register0 = new(),
-    {ok, Register1} = mutate({set, Value1}, ActorOne, Register0),
-    {ok, Register2} = mutate({set, Value2}, ActorTwo, Register1),
-    {ok, Register3} = mutate({set, Value1}, ActorTwo, Register2),
+    {ok, Register1} = mutate({set, Timestamp, Value1}, ActorOne, Register0),
+    {ok, Register2} = mutate({set, Timestamp, Value2}, ActorTwo, Register1),
+    {ok, Register3} = mutate({set, Timestamp, Value1}, ActorTwo, Register2),
 
     ?assertEqual({?TYPE,
         {
