@@ -48,28 +48,28 @@
 -opaque state_mvregister() :: {?TYPE, payload()}.
 -opaque delta_state_mvregister() :: {?TYPE, {delta, payload()}}.
 -type delta_or_state() :: state_mvregister() | delta_state_mvregister().
--type payload() :: state_causal_type:causal_crdt().
+-type payload() :: {orddict:orddict(dot_store:dot(), term()), causal_context:causal_context()}.
 -type timestamp() :: non_neg_integer().
--type value() :: state_type:crdt(). %% @todo make this term()
+-type value() :: term().
 -type state_mvregister_op() :: {set, timestamp(), value()}.
 
 %% @doc Create a new, empty `state_mvregister()'
 -spec new() -> state_mvregister().
 new() ->
-    new([?MAX_INT_TYPE]).
+    {?TYPE, {orddict:new(), causal_context:new()}}.
 
 %% @doc Create a new, empty `state_mvregister()'
 -spec new([term()]) -> state_mvregister().
-new([CRDTType]) ->
-    {?TYPE, state_causal_type:new({dot_fun, CRDTType})}.
+new([]) ->
+    new().
 
 -spec new_delta() -> delta_state_mvregister().
 new_delta() ->
-    new_delta([?MAX_INT_TYPE]).
+    state_type:new_delta(?TYPE).
 
 -spec new_delta([term()]) -> delta_state_mvregister().
-new_delta(Args) ->
-    state_type:new_delta(?TYPE, Args).
+new_delta([]) ->
+    new_delta().
 
 -spec is_delta(delta_or_state()) -> boolean().
 is_delta({?TYPE, _}=CRDT) ->
@@ -94,12 +94,11 @@ mutate(Op, Actor, {?TYPE, _Register}=CRDT) ->
     {ok, delta_state_mvregister()}.
 
 %% @doc Sets `state_mvregister()' value.
-delta_mutate({set, _Timestamp, {CRDTType, _}=CRDTValue}, Actor, {?TYPE, {{{dot_fun, CRDTType}, _}=DotStore, CausalContext}}) ->
+delta_mutate({set, _Timestamp, Value}, Actor, {?TYPE, {DotStore, CausalContext}}) ->
     NextDot = causal_context:next_dot(Actor, CausalContext),
 
-    EmptyDotFun = dot_fun:new(),
-    DeltaDotStore = dot_fun:store(NextDot, CRDTValue, EmptyDotFun),
-    DeltaCausalContext0 = causal_context:to_causal_context(DotStore),
+    DeltaDotStore = orddict:store(NextDot, Value, orddict:new()),
+    DeltaCausalContext0 = to_causal_context(DotStore),
     DeltaCausalContext1 = causal_context:add_dot(NextDot, DeltaCausalContext0),
 
     Delta = {DeltaDotStore, DeltaCausalContext1},
@@ -108,24 +107,73 @@ delta_mutate({set, _Timestamp, {CRDTType, _}=CRDTValue}, Actor, {?TYPE, {{{dot_f
 %% @doc Returns the value of the `state_mvregister()'.
 -spec query(state_mvregister()) -> [state_type:crdt()].
 query({?TYPE, {DotStore, _CausalContext}}) ->
-    Dots = dot_fun:fetch_keys(DotStore),
-    lists:foldl(
-        fun(Dot, QueryResult) ->
-            Value = dot_fun:fetch(Dot, DotStore),
-            [Value | QueryResult]
-        end,
-        [],
-        Dots
-    ).
+    [Value || {_Dot, Value} <- orddict:to_list(DotStore)].
 
 %% @doc Merge two `state_mvregister()'.
-%%      Merging is handled by the `merge' function in
-%%      `state_causal_type' common library.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
 merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    MergeFun = fun({?TYPE, Register1}, {?TYPE, Register2}) ->
-        Register = state_causal_type:merge(Register1, Register2),
-        {?TYPE, Register}
+    MergeFun = fun({?TYPE, {DotStoreA, CausalContextA}},
+                   {?TYPE, {DotStoreB, CausalContextB}}) ->
+        %% This is basically a copy of state_causal_type:merge
+        %% for DotFun's that does not call merge on the values.
+        %% Since associated to some dot, will always be the same
+        %% value, no need to call merge.
+        %% This also means we support any value to be stored in
+        %% the register (as expected), otherwise, only CRDTs
+        %% could be stored.
+        DotSetA = causal_context:to_dot_set(
+            to_causal_context(DotStoreA)
+        ),
+        DotSetB = causal_context:to_dot_set(
+            to_causal_context(DotStoreB)
+        ),
+        CCDotSetA = causal_context:to_dot_set(CausalContextA),
+        CCDotSetB = causal_context:to_dot_set(CausalContextB),
+
+        CommonDotSet = dot_set:intersection(DotSetA, DotSetB),
+
+        DotStore0 = lists:foldl(
+            fun(Dot, DotStore) ->
+                %% using the same variable in the next two fetches
+                Value = orddict:fetch(Dot, DotStoreA),
+                Value = orddict:fetch(Dot, DotStoreB),
+                orddict:store(Dot, Value, DotStore)
+            end,
+            orddict:new(),
+            dot_set:to_list(CommonDotSet)
+        ),
+
+        DotStore1 = lists:foldl(
+            fun(Dot, DotStore) ->
+                case dot_set:is_element(Dot, CCDotSetB) of
+                    true ->
+                        DotStore;
+                    false ->
+                        Value = orddict:fetch(Dot, DotStoreA),
+                        orddict:store(Dot, Value, DotStore)
+                end
+            end,
+            DotStore0,
+            orddict:fetch_keys(DotStoreA)
+        ),
+
+        DotStore2 = lists:foldl(
+            fun(Dot, DotStore) ->
+                case dot_set:is_element(Dot, CCDotSetA) of
+                    true ->
+                        DotStore;
+                    false ->
+                        Value = orddict:fetch(Dot, DotStoreB),
+                        orddict:store(Dot, Value, DotStore)
+                end
+            end,
+            DotStore1,
+            orddict:fetch_keys(DotStoreB)
+        ),
+
+        CausalContext = causal_context:merge(CausalContextA, CausalContextB),
+
+        {?TYPE, {DotStore2, CausalContext}}
     end,
     state_type:merge(CRDT1, CRDT2, MergeFun).
 
@@ -172,6 +220,16 @@ decode(erlang, Binary) ->
     {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
     CRDT.
 
+%% @private
+%% Extract Causal Context from an `orddict:orddict(dot_store:dot(), term())'
+to_causal_context(Dict) ->
+    lists:foldl(
+        fun(Dot, Acc) ->
+            causal_context:add_dot(Dot, Acc)
+        end,
+        causal_context:new(),
+        orddict:fetch_keys(Dict)
+    ).
 
 %% ===================================================================
 %% EUnit tests
@@ -179,16 +237,16 @@ decode(erlang, Binary) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, {{{dot_fun, ?MAX_INT_TYPE}, orddict:new()}, ordsets:new()}},
+    ?assertEqual({?TYPE, {orddict:new(), ordsets:new()}},
                  new()),
-    ?assertEqual({?TYPE, {delta, {{{dot_fun, ?MAX_INT_TYPE}, orddict:new()}, ordsets:new()}}},
+    ?assertEqual({?TYPE, {delta, {orddict:new(), ordsets:new()}}},
                  new_delta()).
 
 query_test() ->
     Register0 = new(),
     Register1 = {?TYPE,
         {
-            {{dot_fun, ?MAX_INT_TYPE}, [{{a, 2}, {?MAX_INT_TYPE, 17}}]},
+            [{{a, 2}, {?MAX_INT_TYPE, 17}}],
             [{a, 1}, {a, 2}]
         }
     },
@@ -211,42 +269,42 @@ delta_mutate_test() ->
 
     ?assertEqual({?TYPE,
         {
-            {{dot_fun, ?MAX_INT_TYPE}, [{{ActorOne, 1}, Value1}]},
+            [{{ActorOne, 1}, Value1}],
             [{ActorOne, 1}]
         }},
         {?TYPE, Delta1}
     ),
     ?assertEqual({?TYPE,
         {
-            {{dot_fun, ?MAX_INT_TYPE}, [{{ActorOne, 1}, Value1}]},
+            [{{ActorOne, 1}, Value1}],
             [{ActorOne, 1}]
         }},
         Register1
     ),
     ?assertEqual({?TYPE,
         {
-            {{dot_fun, ?MAX_INT_TYPE}, [{{ActorTwo, 1}, Value2}]},
+            [{{ActorTwo, 1}, Value2}],
             [{ActorOne, 1}, {ActorTwo, 1}]
         }},
         {?TYPE, Delta2}
     ),
     ?assertEqual({?TYPE,
         {
-            {{dot_fun, ?MAX_INT_TYPE}, [{{ActorTwo, 1}, Value2}]},
+            [{{ActorTwo, 1}, Value2}],
             [{ActorOne, 1}, {ActorTwo, 1}]
         }},
         Register2
     ),
     ?assertEqual({?TYPE,
         {
-            {{dot_fun, ?MAX_INT_TYPE}, [{{ActorTwo, 2}, Value1}]},
+            [{{ActorTwo, 2}, Value1}],
             [{ActorTwo, 1}, {ActorTwo, 2}]
         }},
         {?TYPE, Delta3}
     ),
     ?assertEqual({?TYPE,
         {
-            {{dot_fun, ?MAX_INT_TYPE}, [{{ActorTwo, 2}, Value1}]},
+            [{{ActorTwo, 2}, Value1}],
             [{ActorOne, 1}, {ActorTwo, 1}, {ActorTwo, 2}]
         }},
         Register3
@@ -265,21 +323,21 @@ mutate_test() ->
 
     ?assertEqual({?TYPE,
         {
-            {{dot_fun, ?MAX_INT_TYPE}, [{{ActorOne, 1}, Value1}]},
+            [{{ActorOne, 1}, Value1}],
             [{ActorOne, 1}]
         }},
         Register1
     ),
     ?assertEqual({?TYPE,
         {
-            {{dot_fun, ?MAX_INT_TYPE}, [{{ActorTwo, 1}, Value2}]},
+            [{{ActorTwo, 1}, Value2}],
             [{ActorOne, 1}, {ActorTwo, 1}]
         }},
         Register2
     ),
     ?assertEqual({?TYPE,
         {
-            {{dot_fun, ?MAX_INT_TYPE}, [{{ActorTwo, 2}, Value1}]},
+            [{{ActorTwo, 2}, Value1}],
             [{ActorOne, 1}, {ActorTwo, 1}, {ActorTwo, 2}]
         }},
         Register3
@@ -291,24 +349,15 @@ merge_idempontent_test() ->
     ActorOne = 1,
     ActorTwo = 2,
     Register1 = {?TYPE, {
-                    {
-                        {dot_fun, ?MAX_INT_TYPE},
-                        [{{ActorOne, 1}, Value1}]
-                    },
+                    [{{ActorOne, 1}, Value1}],
                     [{ActorOne, 1}]
                 }},
     Register2 = {?TYPE, {
-                    {
-                        {dot_fun, ?MAX_INT_TYPE},
-                        [{{ActorOne, 1}, Value1}, {{ActorTwo, 1}, Value2}]
-                    },
+                    [{{ActorOne, 1}, Value1}, {{ActorTwo, 1}, Value2}],
                     [{ActorOne, 1}, {ActorTwo, 1}]
                 }},
     Register3 = {?TYPE, {
-                    {
-                        {dot_fun, ?MAX_INT_TYPE},
-                        [{{ActorTwo, 1}, Value2}]
-                    },
+                    [{{ActorTwo, 1}, Value2}],
                     [{ActorTwo, 1}]
                 }},
     Register4 = merge(Register1, Register1),
@@ -324,24 +373,15 @@ merge_commutative_test() ->
     ActorOne = 1,
     ActorTwo = 2,
     Register1 = {?TYPE, {
-                    {
-                        {dot_fun, ?MAX_INT_TYPE},
-                        [{{ActorOne, 1}, Value1}]
-                    },
+                    [{{ActorOne, 1}, Value1}],
                     [{ActorOne, 1}]
                 }},
     Register2 = {?TYPE, {
-                    {
-                        {dot_fun, ?MAX_INT_TYPE},
-                        [{{ActorOne, 1}, Value1}, {{ActorTwo, 1}, Value2}]
-                    },
+                    [{{ActorOne, 1}, Value1}, {{ActorTwo, 1}, Value2}],
                     [{ActorOne, 1}, {ActorTwo, 1}]
                 }},
     Register3 = {?TYPE, {
-                    {
-                        {dot_fun, ?MAX_INT_TYPE},
-                        [{{ActorTwo, 1}, Value2}]
-                    },
+                    [{{ActorTwo, 1}, Value2}],
                     [{ActorTwo, 1}]
                 }},
     Register4 = merge(Register1, Register2),
@@ -368,24 +408,15 @@ equal_test() ->
     ActorOne = 1,
     ActorTwo = 2,
     Register1 = {?TYPE, {
-                    {
-                        {dot_fun, ?MAX_INT_TYPE},
-                        [{{ActorOne, 1}, Value1}]
-                    },
+                    [{{ActorOne, 1}, Value1}],
                     [{ActorOne, 1}]
                 }},
     Register2 = {?TYPE, {
-                    {
-                        {dot_fun, ?MAX_INT_TYPE},
-                        [{{ActorOne, 1}, Value1}, {{ActorTwo, 1}, Value2}]
-                    },
+                    [{{ActorOne, 1}, Value1}, {{ActorTwo, 1}, Value2}],
                     [{ActorOne, 1}, {ActorTwo, 1}]
                 }},
     Register3 = {?TYPE, {
-                    {
-                        {dot_fun, ?MAX_INT_TYPE},
-                        [{{ActorTwo, 1}, Value2}]
-                    },
+                    [{{ActorTwo, 1}, Value2}],
                     [{ActorTwo, 1}]
                 }},
     ?assert(equal(Register1, Register1)),
@@ -398,10 +429,7 @@ equal_test() ->
 is_bottom_test() ->
     Register0 = new(),
     Register1 = {?TYPE, {
-                    {
-                        {dot_fun, ?MAX_INT_TYPE},
-                        [{{1, 1}, {?MAX_INT_TYPE, 17}}]
-                    },
+                    [{{1, 1}, {?MAX_INT_TYPE, 17}}],
                     [{1, 1}]
                 }},
     ?assert(is_bottom(Register0)),
@@ -413,24 +441,15 @@ is_inflation_test() ->
     ActorOne = 1,
     ActorTwo = 2,
     Register1 = {?TYPE, {
-                    {
-                        {dot_fun, ?MAX_INT_TYPE},
-                        [{{ActorOne, 1}, Value1}]
-                    },
+                    [{{ActorOne, 1}, Value1}],
                     [{ActorOne, 1}]
                 }},
     Register2 = {?TYPE, {
-                    {
-                        {dot_fun, ?MAX_INT_TYPE},
-                        [{{ActorOne, 1}, Value1}, {{ActorTwo, 1}, Value2}]
-                    },
+                    [{{ActorOne, 1}, Value1}, {{ActorTwo, 1}, Value2}],
                     [{ActorOne, 1}, {ActorTwo, 1}]
                 }},
     Register3 = {?TYPE, {
-                    {
-                        {dot_fun, ?MAX_INT_TYPE},
-                        [{{ActorTwo, 1}, Value2}]
-                    },
+                    [{{ActorTwo, 1}, Value2}],
                     [{ActorTwo, 1}]
                 }},
     ?assert(is_inflation(Register1, Register1)),
@@ -453,24 +472,15 @@ is_strict_inflation_test() ->
     ActorOne = 1,
     ActorTwo = 2,
     Register1 = {?TYPE, {
-                    {
-                        {dot_fun, ?MAX_INT_TYPE},
-                        [{{ActorOne, 1}, Value1}]
-                    },
+                    [{{ActorOne, 1}, Value1}],
                     [{ActorOne, 1}]
                 }},
     Register2 = {?TYPE, {
-                    {
-                        {dot_fun, ?MAX_INT_TYPE},
-                        [{{ActorOne, 1}, Value1}, {{ActorTwo, 1}, Value2}]
-                    },
+                    [{{ActorOne, 1}, Value1}, {{ActorTwo, 1}, Value2}],
                     [{ActorOne, 1}, {ActorTwo, 1}]
                 }},
     Register3 = {?TYPE, {
-                    {
-                        {dot_fun, ?MAX_INT_TYPE},
-                        [{{ActorTwo, 1}, Value2}]
-                    },
+                    [{{ActorTwo, 1}, Value2}],
                     [{ActorTwo, 1}]
                 }},
     ?assertNot(is_strict_inflation(Register1, Register1)),
@@ -486,10 +496,7 @@ join_decomposition_test() ->
 
 encode_decode_test() ->
     Register = {?TYPE, {
-                    {
-                        {dot_fun, ?MAX_INT_TYPE},
-                        [{{1, 1}, {?MAX_INT_TYPE, 17}}]
-                    },
+                    [{{1, 1}, {?MAX_INT_TYPE, 17}}],
                     [{1, 1}]
                 }},
     Binary = encode(erlang, Register),
