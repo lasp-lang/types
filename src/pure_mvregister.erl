@@ -125,16 +125,9 @@ reset(VV, {?TYPE, _}=CRDT) ->
     pure_type:reset(VV, CRDT).
 
 %% @doc Returns the value of the `pure_mvregister()'.
-%%      This value is a a boolean value in the `pure_mvregister()'.
--spec query(pure_mvregister()) -> [term()].
+-spec query(pure_mvregister()) -> sets:set(value()).
 query({?TYPE, {POLog0, _PureMVReg0}}) ->
-    case orddict:is_empty(POLog0) of
-        true ->
-            [];
-        false ->
-            [Value || {_Key, Value} <- orddict:to_list(POLog0)]
-    end.
-
+    sets:from_list([Value || {_Key, Value} <- orddict:to_list(POLog0)]).
 
 %% @doc Equality for `pure_mvregister()'.
 -spec equal(pure_mvregister(), pure_mvregister()) -> boolean().
@@ -158,15 +151,11 @@ redundant_test() ->
 
 query_test() ->
     MVReg0 = new(),
-    MVReg1 = {?TYPE, {[], []}},
-    MVReg2 = {?TYPE, {[], []}},
-    MVReg3 = {?TYPE, {[{[{1, 2}], "foo"}], []}},
-    MVReg4 = {?TYPE, {[{[{0, 1}, {1, 3}], "bar"}, {[{0, 2}, {1, 1}], "baz"}], []}},
-    ?assertEqual([], query(MVReg0)),
-    ?assertEqual([], query(MVReg1)),
-    ?assertEqual([], query(MVReg2)),
-    ?assertEqual(["foo"], query(MVReg3)),
-    ?assertEqual(["bar", "baz"], query(MVReg4)).
+    MVReg1 = {?TYPE, {[{[{1, 2}], "foo"}], []}},
+    MVReg2 = {?TYPE, {[{[{0, 1}, {1, 3}], "bar"}, {[{0, 2}, {1, 1}], "baz"}], []}},
+    ?assertEqual(sets:from_list([]), query(MVReg0)),
+    ?assertEqual(sets:from_list(["foo"]), query(MVReg1)),
+    ?assertEqual(sets:from_list(["bar", "baz"]), query(MVReg2)).
 
 mutate_test() ->
     Timestamp = 0, %% won't be used

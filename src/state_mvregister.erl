@@ -105,9 +105,9 @@ delta_mutate({set, _Timestamp, Value}, Actor, {?TYPE, {DotStore, CausalContext}}
     {ok, {?TYPE, {delta, Delta}}}.
 
 %% @doc Returns the value of the `state_mvregister()'.
--spec query(state_mvregister()) -> [state_type:crdt()].
+-spec query(state_mvregister()) -> sets:set(value()).
 query({?TYPE, {DotStore, _CausalContext}}) ->
-    [Value || {_Dot, Value} <- orddict:to_list(DotStore)].
+    sets:from_list([Value || {_Dot, Value} <- orddict:to_list(DotStore)]).
 
 %% @doc Merge two `state_mvregister()'.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
@@ -250,8 +250,8 @@ query_test() ->
             [{a, 1}, {a, 2}]
         }
     },
-    ?assertEqual([], query(Register0)),
-    ?assertEqual([{?MAX_INT_TYPE, 17}], query(Register1)).
+    ?assertEqual(sets:from_list([]), query(Register0)),
+    ?assertEqual(sets:from_list([{?MAX_INT_TYPE, 17}]), query(Register1)).
 
 delta_mutate_test() ->
     Timestamp = 0, %% won't be used
