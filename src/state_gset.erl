@@ -139,14 +139,24 @@ is_bottom({?TYPE, GSet}) ->
 is_inflation({?TYPE, {delta, GSet1}}, {?TYPE, GSet2}) ->
     is_inflation({?TYPE, GSet1}, {?TYPE, GSet2});
 is_inflation({?TYPE, GSet1}, {?TYPE, GSet2}) ->
-    ordsets:is_subset(GSet1, GSet2).
+    ordsets:is_subset(GSet1, GSet2);
+
+%% @todo get back here later
+is_inflation({cardinality, Value1}, {?TYPE, _}=GSet) ->
+    Value2 = query(GSet),
+    sets:size(Value2) >= Value1.
 
 %% @doc Check for strict inflation.
 -spec is_strict_inflation(delta_or_state(), state_gset()) -> boolean().
 is_strict_inflation({?TYPE, {delta, GSet1}}, {?TYPE, GSet2}) ->
     is_strict_inflation({?TYPE, GSet1}, {?TYPE, GSet2});
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    state_type:is_strict_inflation(CRDT1, CRDT2).
+    state_type:is_strict_inflation(CRDT1, CRDT2);
+
+%% @todo get back here later
+is_strict_inflation({cardinality, Value1}, {?TYPE, _}=GSet) ->
+    Value2 = query(GSet),
+    sets:size(Value2) > Value1.
 
 %% @doc Join decomposition for `state_gset()'.
 %%      The join decompostion for a `state_gset()' is the unique set
