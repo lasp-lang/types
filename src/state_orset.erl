@@ -355,7 +355,7 @@ remove_all_test() ->
     {ok, Set3} = mutate({rmv_all, [<<"b">>, <<"d">>]}, Actor, Set2),
     {ok, Set4} = mutate({rmv_all, [<<"b">>, <<"a">>]}, Actor, Set2),
     ?assertEqual(sets:from_list([<<"b">>]), query(Set2)),
-    ?assertEqual(sets:from_list([]), query(Set3)),
+    ?assertEqual(sets:new(), query(Set3)),
     ?assertEqual(sets:new(), query(Set4)).
 
 merge_idempotent_test() ->
