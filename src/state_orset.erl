@@ -82,7 +82,7 @@ is_delta({?TYPE, _}=CRDT) ->
 
 %% @doc Mutate a `state_orset()'.
 -spec mutate(state_orset_op(), type:id(), state_orset()) ->
-    {ok, state_orset()} | {error, {precondition, {not_present, [element()]}}}.
+    {ok, state_orset()}.
 mutate(Op, Actor, {?TYPE, _ORSet}=CRDT) ->
     state_type:mutate(Op, Actor, CRDT).
 
@@ -94,7 +94,7 @@ mutate(Op, Actor, {?TYPE, _ORSet}=CRDT) ->
 %%      The second argument is the replica id.
 %%      The third argument is the `state_orset()' to be inflated.
 -spec delta_mutate(state_orset_op(), type:id(), state_orset()) ->
-    {ok, delta_state_orset()} | {error, {precondition, {not_present, element()}}}.
+    {ok, delta_state_orset()}.
 delta_mutate({add, Elem}, Actor, {?TYPE, _}=ORSet) ->
     Token = unique(Actor),
     delta_mutate({add_by_token, Token, Elem}, Actor, ORSet);
@@ -123,8 +123,6 @@ delta_mutate({add_all, Elems}, Actor, {?TYPE, _ORSet}) ->
 
 %% @doc Returns a new `state_orset()' with only one element in
 %%      the dictionary mapping all current tokens to false (inactive).
-%%      If the element is not in the dictionary a precondition
-%%      (observed-remove) error is returned.
 delta_mutate({rmv, Elem}, _Actor, {?TYPE, ORSet}) ->
     case orddict:find(Elem, ORSet) of
         {ok, Tokens} ->
@@ -132,29 +130,23 @@ delta_mutate({rmv, Elem}, _Actor, {?TYPE, ORSet}) ->
             Delta = orddict:store(Elem, InactiveTokens, orddict:new()),
             {ok, {?TYPE, {delta, Delta}}};
         error ->
-            {error, {precondition, {not_present, [Elem]}}}
+            Delta = orddict:new(),
+            {ok, {?TYPE, {delta, Delta}}}
     end;
 
 %% @doc Removes a list of elements passed as input.
 delta_mutate({rmv_all, Elems}, Actor, {?TYPE, _}=ORSet) ->
-    {{?TYPE, DeltaGroup}, NotRemoved} = lists:foldl(
-        fun(Elem, {DeltaGroupAcc, NotRemovedAcc}) ->
+    {?TYPE, DeltaGroup} = lists:foldl(
+        fun(Elem, DeltaGroupAcc) ->
             case delta_mutate({rmv, Elem}, Actor, ORSet) of
                 {ok, {?TYPE, {delta, Delta}}} ->
-                    {merge({?TYPE, Delta}, DeltaGroupAcc), NotRemovedAcc};
-                {error, {precondition, {not_present, [ElemNotRemoved]}}} ->
-                    {DeltaGroupAcc, [ElemNotRemoved | NotRemovedAcc]}
+                    merge({?TYPE, Delta}, DeltaGroupAcc)
             end
         end,
-        {new(), []},
+        new(),
         Elems
     ),
-    case NotRemoved of
-        [] ->
-            {ok, {?TYPE, {delta, DeltaGroup}}};
-        _ ->
-            {error, {precondition, {not_present, NotRemoved}}}
-    end.
+    {ok, {?TYPE, {delta, DeltaGroup}}}.
 
 %% @doc Returns the value of the `state_orset()'.
 %%      This value is a set with all the elements in the `state_orset()'
@@ -341,7 +333,7 @@ rmv_test() ->
     Actor = 1,
     Set0 = new(),
     {ok, Set1} = mutate({add, <<"a">>}, Actor, Set0),
-    {error, _} = mutate({rmv, <<"b">>}, Actor, Set1),
+    {ok, Set1} = mutate({rmv, <<"b">>}, Actor, Set1),
     {ok, Set2} = mutate({rmv, <<"a">>}, Actor, Set1),
     ?assertEqual(sets:new(), query(Set2)).
 
@@ -360,10 +352,11 @@ remove_all_test() ->
     Set0 = new(),
     {ok, Set1} = mutate({add_all, [<<"a">>, <<"b">>, <<"c">>]}, Actor, Set0),
     {ok, Set2} = mutate({rmv_all, [<<"a">>, <<"c">>]}, Actor, Set1),
-    {error, _} = mutate({rmv_all, [<<"b">>, <<"d">>]}, Actor, Set2),
-    {ok, Set3} = mutate({rmv_all, [<<"b">>, <<"a">>]}, Actor, Set2),
+    {ok, Set3} = mutate({rmv_all, [<<"b">>, <<"d">>]}, Actor, Set2),
+    {ok, Set4} = mutate({rmv_all, [<<"b">>, <<"a">>]}, Actor, Set2),
     ?assertEqual(sets:from_list([<<"b">>]), query(Set2)),
-    ?assertEqual(sets:new(), query(Set3)).
+    ?assertEqual(sets:new(), query(Set3)),
+    ?assertEqual(sets:new(), query(Set4)).
 
 merge_idempotent_test() ->
     Set1 = {?TYPE, [{<<"a">>, [{<<"token1">>, false}]}]},

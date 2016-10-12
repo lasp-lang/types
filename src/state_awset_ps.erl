@@ -115,7 +115,7 @@ is_delta({?TYPE, _}=CRDT) ->
 
 %% @doc Mutate a `state_awset_ps()'.
 -spec mutate(state_awset_ps_op(), type:id(), state_awset_ps()) ->
-    {ok, state_awset_ps()} | {error, {precondition, {not_present, [element()]}}}.
+    {ok, state_awset_ps()}.
 mutate(Op, Actor, {?TYPE, _AWSet}=CRDT) ->
     state_type:mutate(Op, Actor, CRDT).
 
@@ -128,7 +128,7 @@ mutate(Op, Actor, {?TYPE, _AWSet}=CRDT) ->
 %% The second argument is the event id ({object_id, replica_id}).
 %% The third argument is the `state_awset_ps()' to be inflated.
 -spec delta_mutate(state_awset_ps_op(), type:id(), state_awset_ps()) ->
-    {ok, delta_state_awset_ps()} | {error, {precondition, {not_present, element()}}}.
+    {ok, delta_state_awset_ps()}.
 %% Adds a single element to `state_awset_ps()'.
 %% Delta: {{[{Elem, {{NewEvent}}}], [{NewEvent, Elem}]}, [], [NewEvent]}
 delta_mutate({add, Elem},
@@ -169,15 +169,15 @@ delta_mutate({rmv, Elem},
              {?TYPE, {{ElemDataStore, _EventDataStore},
                       _FilteredOutEvents,
                       _AllEvents}}) ->
-    case orddict:find(Elem, ElemDataStore) of
+    ElemEvents = case orddict:find(Elem, ElemDataStore) of
         {ok, Provenance} ->
-            ElemEvents = get_events_from_provenance(Provenance),
-            {ok, {?TYPE, {delta, {{orddict:new(), orddict:new()},
-                                  ordsets:new(),
-                                  ElemEvents}}}};
+            get_events_from_provenance(Provenance);
         error ->
-            {error, {precondition, {not_present, Elem}}}
-    end;
+            ordsets:new()
+    end,
+    {ok, {?TYPE, {delta, {{orddict:new(), orddict:new()},
+                          ordsets:new(),
+                          ElemEvents}}}};
 
 %% Removes a list of elements in `state_awset_ps()'.
 delta_mutate({rmv_all, Elems},
@@ -185,14 +185,10 @@ delta_mutate({rmv_all, Elems},
              {?TYPE, {{ElemDataStore, _EventDataStore},
                       _FilteredOutEvents,
                       _AllEvents}}) ->
-    case remove_all_private(Elems, ElemDataStore, ordsets:new()) of
-        {error, Error} ->
-            {error, Error};
-        ElemEventsAll ->
-            {ok, {?TYPE, {delta, {{orddict:new(), orddict:new()},
-                                  ordsets:new(),
-                                  ElemEventsAll}}}}
-    end.
+    ElemEventsAll = remove_all_private(Elems, ElemDataStore, ordsets:new()),
+    {ok, {?TYPE, {delta, {{orddict:new(), orddict:new()},
+                          ordsets:new(),
+                          ElemEventsAll}}}}.
 
 %% @doc Returns the value of the `state_awset_ps()'.
 %% This value is a set with all the keys (elements) in the ElemDataStore.
@@ -256,15 +252,15 @@ decode(erlang, Binary) ->
 remove_all_private([], _ElemDataStore, ResultEvents) ->
     ResultEvents;
 remove_all_private([Elem|RestElems], ElemDataStore, ResultEvents) ->
-    case orddict:find(Elem, ElemDataStore) of
+    ElemEvents = case orddict:find(Elem, ElemDataStore) of
         {ok, Provenance} ->
-            ElemEvents = get_events_from_provenance(Provenance),
-            remove_all_private(RestElems,
-                               ElemDataStore,
-                               ordsets:union(ResultEvents, ElemEvents));
+            get_events_from_provenance(Provenance);
         error ->
-            {error, {precondition, {not_present, Elem}}}
-    end.
+            ordsets:new()
+    end,
+    remove_all_private(RestElems,
+                       ElemDataStore,
+                       ordsets:union(ResultEvents, ElemEvents)).
 
 %% @doc Subtract a set of events from AllEvents.
 -spec subtract_all_events(ps_all_events(), ps_dot()) -> ps_dot().
@@ -740,7 +736,7 @@ rmv_test() ->
     Set0 = new(),
     {ok, Set1} = mutate({add, <<"1">>}, EventId, Set0),
     {ok, Set2} = mutate({add, <<"1">>}, EventId, Set1),
-    {error, _} = mutate({rmv, <<"2">>}, EventId, Set2),
+    {ok, Set2} = mutate({rmv, <<"2">>}, EventId, Set2),
     {ok, Set3} = mutate({rmv, <<"1">>}, EventId, Set2),
     ?assertEqual(sets:new(), query(Set3)).
 
@@ -759,7 +755,7 @@ remove_all_test() ->
     Set0 = new(),
     {ok, Set1} = mutate({add_all, [<<"a">>, <<"b">>, <<"c">>]}, EventId, Set0),
     {ok, Set2} = mutate({rmv_all, [<<"a">>, <<"c">>]}, EventId, Set1),
-    {error, _} = mutate({rmv_all, [<<"b">>, <<"d">>]}, EventId, Set2),
+    {ok, Set3} = mutate({rmv_all, [<<"b">>, <<"d">>]}, EventId, Set2),
     {ok, Set3} = mutate({rmv_all, [<<"b">>]}, EventId, Set2),
     ?assertEqual(sets:from_list([<<"b">>]), query(Set2)),
     ?assertEqual(sets:new(), query(Set3)).

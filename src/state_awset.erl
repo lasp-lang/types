@@ -78,7 +78,7 @@ is_delta({?TYPE, _}=CRDT) ->
 
 %% @doc Mutate a `state_awset()'.
 -spec mutate(state_awset_op(), type:id(), state_awset()) ->
-    {ok, state_awset()} | {error, {precondition, {not_present, [element()]}}}.
+    {ok, state_awset()}.
 mutate(Op, Actor, {?TYPE, _AWSet}=CRDT) ->
     state_type:mutate(Op, Actor, CRDT).
 
@@ -91,7 +91,7 @@ mutate(Op, Actor, {?TYPE, _AWSet}=CRDT) ->
 %%      The second argument is the replica id.
 %%      The third argument is the `state_awset()' to be inflated.
 -spec delta_mutate(state_awset_op(), type:id(), state_awset()) ->
-    {ok, delta_state_awset()} | {error, {precondition, {not_present, element()}}}.
+    {ok, delta_state_awset()}.
 
 %% @doc Adds a single element to `state_awset()'.
 delta_mutate({add, Elem}, Actor, {?TYPE, {DotStore, CausalContext}}) ->
@@ -127,39 +127,31 @@ delta_mutate({add_all, Elems}, Actor, {?TYPE, _}=AWSet) ->
 %% @doc Removes a single element in `state_awset()'.
 delta_mutate({rmv, Elem}, _Actor, {?TYPE, {DotStore, _CausalContext}}) ->
     CurrentDotSet = dot_map:fetch(Elem, DotStore),
-    case dot_set:is_empty(CurrentDotSet) of
+    DeltaDotStore = dot_map:new(dot_set),
+    DeltaCausalContext = case dot_set:is_empty(CurrentDotSet) of
         true ->
-            {error, {precondition, {not_present, [Elem]}}};
+            causal_context:new();
         false ->
-            DeltaDotStore = dot_map:new(dot_set),
-            DeltaCausalContext = causal_context:to_causal_context(CurrentDotSet),
-            Delta = {DeltaDotStore, DeltaCausalContext},
-            {ok, {?TYPE, {delta, Delta}}}
-    end;
+            causal_context:to_causal_context(CurrentDotSet)
+    end,
+    Delta = {DeltaDotStore, DeltaCausalContext},
+    {ok, {?TYPE, {delta, Delta}}};
 
 %% @doc Removes a list of elements in `state_awset()'.
 delta_mutate({rmv_all, Elems}, Actor, {?TYPE, _}=AWSet) ->
-    {_, {?TYPE, DeltaGroup}, NotRemoved} = lists:foldl(
-        fun(Elem, {AWSet0, DeltaGroup0, NotRemoved0}) ->
+    {_, {?TYPE, DeltaGroup}} = lists:foldl(
+        fun(Elem, {AWSet0, DeltaGroup0}) ->
             case delta_mutate({rmv, Elem}, Actor, AWSet0) of
                 {ok, Delta} ->
                     AWSet1 = merge(Delta, AWSet0),
                     DeltaGroup1 = merge(Delta, DeltaGroup0),
-                    {AWSet1, DeltaGroup1, NotRemoved0};
-                {error, {precondition, {not_present, [ElemNotRemoved]}}} ->
-                   {AWSet0, DeltaGroup0, [ElemNotRemoved | NotRemoved0]}
+                    {AWSet1, DeltaGroup1}
             end
         end,
-        {AWSet, new(), []},
+        {AWSet, new()},
         Elems
     ),
-
-    case NotRemoved of
-        [] ->
-            {ok, {?TYPE, {delta, DeltaGroup}}};
-        _ ->
-            {error, {precondition, {not_present, NotRemoved}}}
-    end.
+    {ok, {?TYPE, {delta, DeltaGroup}}}.
 
 %% @doc Returns the value of the `state_awset()'.
 %%      This value is a set with all the keys (elements) in the dot map.
@@ -338,7 +330,7 @@ rmv_test() ->
     Actor = 1,
     Set0 = new(),
     {ok, Set1} = mutate({add, <<"a">>}, Actor, Set0),
-    {error, _} = mutate({rmv, <<"b">>}, Actor, Set1),
+    {ok, Set1} = mutate({rmv, <<"b">>}, Actor, Set1),
     {ok, Set2} = mutate({rmv, <<"a">>}, Actor, Set1),
     ?assertEqual(sets:new(), query(Set2)).
 
@@ -357,7 +349,7 @@ remove_all_test() ->
     Set0 = new(),
     {ok, Set1} = mutate({add_all, [<<"a">>, <<"b">>, <<"c">>]}, Actor, Set0),
     {ok, Set2} = mutate({rmv_all, [<<"a">>, <<"c">>]}, Actor, Set1),
-    {error, _} = mutate({rmv_all, [<<"b">>, <<"d">>]}, Actor, Set2),
+    {ok, Set3} = mutate({rmv_all, [<<"b">>, <<"d">>]}, Actor, Set2),
     {ok, Set3} = mutate({rmv_all, [<<"b">>]}, Actor, Set2),
     ?assertEqual(sets:from_list([<<"b">>]), query(Set2)),
     ?assertEqual(sets:new(), query(Set3)).
