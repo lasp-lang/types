@@ -43,7 +43,7 @@
 -export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
--export([join_decomposition/1]).
+-export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
 -export_type([state_gset/0, delta_state_gset/0, state_gset_op/0]).
@@ -172,6 +172,26 @@ join_decomposition({?TYPE, GSet}) ->
         GSet
     ).
 
+%% @doc Return a ∆ from A that inflates B.
+%%      All s in join_decomposition(∆) strictly inflate B.
+-spec delta(term(), state_gset(), state_gset()) -> state_gset().
+delta(state_driven, {?TYPE, _}=A, {?TYPE, _}=B) ->
+    Inflations = lists:filter(
+        fun(Irreducible) ->
+            %% @todo do this strict inflation more efficiently
+            Merged = merge(B, Irreducible),
+            is_strict_inflation(B, Merged)
+        end,
+        join_decomposition(A)
+    ),
+    lists:foldl(
+        fun(Irreducible, Acc) ->
+            merge(Acc, Irreducible)
+        end,
+        new(),
+        Inflations
+    ).
+
 -spec encode(state_type:format(), delta_or_state()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
     erlang:term_to_binary(CRDT).
@@ -291,6 +311,12 @@ join_decomposition_test() ->
     Decomp2 = join_decomposition(Set2),
     ?assertEqual([{?TYPE, [<<"a">>]}], Decomp1),
     ?assertEqual(lists:sort([{?TYPE, [<<"a">>]}, {?TYPE, [<<"b">>]}]), lists:sort(Decomp2)).
+
+delta_test() ->
+    A = {?TYPE, ["a", "b", "c"]},
+    B = {?TYPE, ["b", "d"]},
+    Delta = delta(state_driven, A, B),
+    ?assertEqual({?TYPE, ["a", "c"]}, Delta).
 
 encode_decode_test() ->
     Set = {?TYPE, [<<"a">>, <<"b">>]},
