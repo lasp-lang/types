@@ -41,6 +41,7 @@
                       state_lwwregister |
                       state_max_int |
                       state_mvregister |
+                      state_mvmap |
                       state_ormap |
                       state_orset |
                       state_pair |

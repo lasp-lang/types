@@ -6,6 +6,7 @@
 -define(GSET_TYPE, state_gset).
 -define(IVAR_TYPE, state_ivar).
 -define(MAX_INT_TYPE, state_max_int).
+-define(MVREGISTER_TYPE, state_mvregister).
 -define(ORSET_TYPE, state_orset).
 -define(ORMAP_TYPE, state_ormap).
 -define(PAIR_TYPE, state_pair).
