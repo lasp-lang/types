@@ -113,8 +113,6 @@ query({?TYPE, {{{dot_map, Type}, _}=DotMap, CausalContext}}) ->
     ).
 
 %% @doc Merge two `state_mvmap()'.
-%%      Merging is handled by the `merge' function in
-%%      `state_causal_type' common library.
 -spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
 merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     MergeFun = fun({?TYPE, MVMap1}, {?TYPE, MVMap2}) ->
@@ -212,15 +210,20 @@ decode(erlang, Binary) ->
 -ifdef(TEST).
 
 set_test() ->
-    Actor = 1,
+    ActorOne = 1,
+    ActorTwo = 2,
     Map0 = new(),
-    {ok, Map1} = mutate({set, "a", "a_value"}, Actor, Map0),
-    ?debugVal(Map0),
-    ?debugVal(Map1),
-    {ok, Map2} = mutate({set, "b", "b_value"}, Actor, Map1),
-    {ok, Map3} = mutate({set, "c", "c_value"}, Actor, Map2),
+    {ok, Map1} = mutate({set, "a", "a_value"}, ActorOne, Map0),
+    {ok, Map2} = mutate({set, "b", "b_value"}, ActorOne, Map1),
+    {ok, Map3} = mutate({set, "c", "c1_value"}, ActorOne, Map2),
+    {ok, Map4} = mutate({set, "c", "c2_value"}, ActorTwo, Map2),
+    Map5 = merge(Map3, Map4),
+    {ok, Map6} = mutate({set, "c", "c_value"}, ActorOne, Map5),
     ?assertEqual([{"a", sets:from_list(["a_value"])}], query(Map1)),
     ?assertEqual([{"a", sets:from_list(["a_value"])}, {"b", sets:from_list(["b_value"])}], query(Map2)),
-    ?assertEqual([{"a", sets:from_list(["a_value"])}, {"b", sets:from_list(["b_value"])}, {"c", sets:from_list(["c_value"])}], query(Map3)).
+    ?assertEqual([{"a", sets:from_list(["a_value"])}, {"b", sets:from_list(["b_value"])}, {"c", sets:from_list(["c1_value"])}], query(Map3)),
+    ?assertEqual([{"a", sets:from_list(["a_value"])}, {"b", sets:from_list(["b_value"])}, {"c", sets:from_list(["c2_value"])}], query(Map4)),
+    ?assertEqual([{"a", sets:from_list(["a_value"])}, {"b", sets:from_list(["b_value"])}, {"c", sets:from_list(["c1_value", "c2_value"])}], query(Map5)),
+    ?assertEqual([{"a", sets:from_list(["a_value"])}, {"b", sets:from_list(["b_value"])}, {"c", sets:from_list(["c_value"])}], query(Map6)).
 
 -endif.
