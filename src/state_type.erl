@@ -45,7 +45,9 @@
                       state_orset |
                       state_pair |
                       state_pncounter |
-                      state_twopset.
+                      state_twopset |
+                      state_orset_ps |
+                      state_ormap_ps.
 -type crdt() :: {state_type(), type:payload()}.
 -type delta_crdt() :: {state_type(), {delta, type:payload()}}.
 -type delta_or_state() :: crdt() | delta_crdt().
@@ -120,7 +122,11 @@ new({state_pair, {Fst, Snd}}) ->
 new({state_pncounter, _Payload}) ->
     state_pncounter:new();
 new({state_twopset, _Payload}) ->
-    state_twopset:new().
+    state_twopset:new();
+new({state_orset_ps, _Payload}) ->
+    state_orset_ps:new();
+new({state_ormap_ps, {{ValueType, _}, _, _}}) ->
+    state_ormap_ps:new([ValueType]).
 
 %% Generic new_delta
 -spec new_delta(state_type()) -> delta_crdt().
