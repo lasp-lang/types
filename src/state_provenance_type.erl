@@ -113,6 +113,6 @@ is_inflation_all_events({ev_set, AllEventsA}, {ev_set, AllEventsB}) ->
 %% @private
 state_provenance_types() ->
     [
-        state_orset_ps,
-        state_ormap_ps
+        state_ormap_ps,
+        state_orset_ps
     ].
