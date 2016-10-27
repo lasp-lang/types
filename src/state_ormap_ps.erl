@@ -575,6 +575,7 @@ merge_sub_provenance_store({ValueType, SubValueType},
 -ifdef(TEST).
 
 new_test() ->
+    %% A default map.
     ?assertEqual({?TYPE, {{{state_orset_ps, []}, orddict:new()},
                           ordsets:new(),
                           {ev_set, ordsets:new()}}},
@@ -584,6 +585,7 @@ new_test() ->
                                   {ev_set, ordsets:new()}}}},
                  new_delta()),
 
+    %% A map with the `state_gcounter'.
     ?assertEqual({?TYPE, {{{state_gcounter, []}, orddict:new()},
                           ordsets:new(),
                           {ev_set, ordsets:new()}}},
@@ -591,11 +593,24 @@ new_test() ->
     ?assertEqual({?TYPE, {delta, {{{state_gcounter, []}, orddict:new()},
                                   ordsets:new(),
                                   {ev_set, ordsets:new()}}}},
-                 new_delta([{state_gcounter, []}])).
+                 new_delta([{state_gcounter, []}])),
+
+    %% A map with the map with the `state_orset_ps'.
+    ?assertEqual({?TYPE, {{{state_ormap_ps, [{state_orset_ps, []}]},
+                           orddict:new()},
+                          ordsets:new(),
+                          {ev_set, ordsets:new()}}},
+                 new([{state_ormap_ps, [{state_orset_ps, []}]}])),
+    ?assertEqual({?TYPE, {delta, {{{state_ormap_ps, [{state_orset_ps, []}]},
+                                   orddict:new()},
+                                  ordsets:new(),
+                                  {ev_set, ordsets:new()}}}},
+                 new_delta([{state_ormap_ps, [{state_orset_ps, []}]}])).
 
 query_test() ->
     EventId1 = {<<"object1">>, a},
     EventId2 = {<<"object1">>, b},
+    %% A default map.
     Map0 = new(),
     Map1 = {?TYPE, {{{state_orset_ps, []},
                      [{"a", [{17, [[{EventId1, 2}]]}]},
@@ -607,6 +622,7 @@ query_test() ->
     ?assertEqual([{"a", sets:from_list([17])}, {"b", sets:from_list([3, 13])}],
                  query(Map1)),
 
+    %% A map with the `state_gcounter'.
     Map2 = new([{state_gcounter, []}]),
     Map3 = {?TYPE, {{{state_gcounter, []},
                      [{"a", [{{delta, [{EventId1, 1}]},
@@ -618,10 +634,32 @@ query_test() ->
                     [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}],
                     {ev_set, [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}]}}},
     ?assertEqual(orddict:new(), query(Map2)),
-    ?assertEqual([{"a", 1}, {"b", 2}], query(Map3)).
+    ?assertEqual([{"a", 1}, {"b", 2}], query(Map3)),
+
+    %% A map with the map with the `state_orset_ps'.
+    Map4 = new([{state_ormap_ps, [{state_orset_ps, []}]}]),
+    Map5 = {?TYPE, {{{state_ormap_ps, [{state_orset_ps, []}]},
+                     [{"a", {{state_orset_ps, []},
+                             [{"a1", [{17, [[{EventId1, 2}]]}]},
+                              {"a2", [{3, [[{EventId1, 1}]]},
+                                      {13, [[{EventId2, 2}]]}]}]}},
+                      {"b", {{state_orset_ps, []},
+                             [{"b1", [{7, [[{EventId2, 1}]]}]},
+                              {"b2", [{23, [[{EventId1, 3}]]}]}]}}]},
+                    [{EventId1, 1}, {EventId1, 2}, {EventId1, 3},
+                     {EventId2, 1}, {EventId2, 2}],
+                    {ev_set, [{EventId1, 1}, {EventId1, 2}, {EventId1, 3},
+                              {EventId2, 1}, {EventId2, 2}]}}},
+    ?assertEqual(orddict:new(), query(Map4)),
+    ?assertEqual([{"a", [{"a1", sets:from_list([17])},
+                         {"a2", sets:from_list([3, 13])}]},
+                  {"b", [{"b1", sets:from_list([7])},
+                         {"b2", sets:from_list([23])}]}],
+                 query(Map5)).
 
 delta_apply_test() ->
     EventId = {<<"object1">>, a},
+    %% A default map.
     Map0 = new(),
     {ok, {?TYPE, {delta, Delta1}}} =
         delta_mutate({apply, "b", {add, 3}}, EventId, Map0),
@@ -687,6 +725,7 @@ delta_apply_test() ->
 apply_test() ->
     EventId1 = {<<"object1">>, a},
     EventId2 = {<<"object1">>, b},
+    %% A map with the `state_gcounter'.
     Map0 = new([{state_gcounter, []}]),
     {ok, Map1} = mutate({apply, "b", increment}, EventId1, Map0),
     {ok, Map2} = mutate({apply, "a", increment}, EventId1, Map1),
@@ -734,6 +773,41 @@ apply_test() ->
                                     {EventId1, 3},
                                     {EventId2, 1}]}}},
                  Map4).
+
+apply_rmv_with_nested_map_test() ->
+    EventId = {<<"object1">>, a},
+    %% A map with the map with the `state_orset_ps'.
+    Map0 = new([{state_ormap_ps, [{state_orset_ps, []}]}]),
+    {ok, Map1} = mutate({apply, "a", {apply, "a1", {add, 3}}}, EventId, Map0),
+    {ok, Map2} = mutate({apply, "a", {apply, "a2", {add, 7}}}, EventId, Map1),
+    {ok, Map3} = mutate({apply, "b", {apply, "b1", {add, 17}}}, EventId, Map2),
+    {ok, Map4} = mutate({apply, "a", {rmv, "a1"}}, EventId, Map3),
+    {ok, Map5} = mutate({rmv, "b"}, EventId, Map4),
+    {ok, Map6} = mutate({apply, "a", {apply, "a3", {add, 23}}}, EventId, Map5),
+    {ok, Map7} = mutate({apply, "a", {rmv, "a2"}}, EventId, Map6),
+    {ok, Map8} = mutate({apply, "a", {rmv, "a3"}}, EventId, Map7),
+    Query3 = query(Map3),
+    Query4 = query(Map4),
+    Query5 = query(Map5),
+    Query6 = query(Map6),
+    Query7 = query(Map7),
+    Query8 = query(Map8),
+
+    ?assertEqual([{"a", [{"a1", sets:from_list([3])},
+                         {"a2", sets:from_list([7])}]},
+                  {"b", [{"b1", sets:from_list([17])}]}],
+                 Query3),
+    ?assertEqual([{"a", [{"a2", sets:from_list([7])}]},
+                  {"b", [{"b1", sets:from_list([17])}]}],
+                 Query4),
+    ?assertEqual([{"a", [{"a2", sets:from_list([7])}]}],
+                 Query5),
+    ?assertEqual([{"a", [{"a2", sets:from_list([7])},
+                         {"a3", sets:from_list([23])}]}],
+                 Query6),
+    ?assertEqual([{"a", [{"a3", sets:from_list([23])}]}],
+                 Query7),
+    ?assertEqual(orddict:new(), Query8).
 
 equal_test() ->
     EventId = {<<"object1">>, a},
