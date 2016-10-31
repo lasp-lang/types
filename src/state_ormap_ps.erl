@@ -143,17 +143,11 @@ query({?TYPE, {{{ValueType, _SubValueType}, ValueProvenanceStore},
                                                      SubsetEvents,
                                                      AllEvents}});
                     false ->
-                        ValueTypeCRDT =
-                            ordsets:fold(
-                                fun({ValueDeltaPayload, _ValueProvenance},
-                                    AccInValueTypeCRDT) ->
-                                    ValueType:merge(
-                                        AccInValueTypeCRDT,
-                                        {ValueType, ValueDeltaPayload})
-                                end,
-                                ValueType:new(),
-                                SubProvenanceStore),
-                        ValueType:query(ValueTypeCRDT)
+                        %% Get the local payload.
+                        ValueLocalPayload =
+                            get_value_local_payload(
+                                Key, ValueType, SubProvenanceStore),
+                        ValueType:query(ValueLocalPayload)
                 end,
             orddict:store(Key, Value, AccInResultMap)
         end,
@@ -249,8 +243,12 @@ delta_mutate({apply, Key, Op},
                 ValueProvenance = ordsets:add_element(
                     ordsets:add_element(NextEvent, ordsets:new()),
                     ordsets:new()),
+                %% Get the local payload.
+                ValueLocalPayload =
+                    get_value_local_payload(
+                        Key, ValueType, SubProvenanceStore),
                 {ok, {ValueType, {delta, ValuePayload}}} =
-                    ValueType:delta_mutate(Op, Actor, ValueType:new()),
+                    ValueType:delta_mutate(Op, Actor, ValueLocalPayload),
                 DeltaProvenanceStore1 =
                     case {ValueType, {delta, ValuePayload}} ==
                          ValueType:new_delta() of
@@ -569,6 +567,19 @@ merge_sub_provenance_store({ValueType, SubValueType},
                 SubProvenanceStoreA)
     end.
 
+%% @private
+get_value_local_payload(_Key, ValueType, ProvenanceStore) ->
+    %% @todo
+    %% This is not the optimised way to get the local payload of the value.
+    %% The local payloads need to be stored to/retrieved from the storage.
+    ordsets:fold(
+        fun({ValueDeltaPayload0, _ValueProvenance0}, AccInLocalPayload) ->
+            ValueType:merge(AccInLocalPayload,
+                            {ValueType, ValueDeltaPayload0})
+        end,
+        ValueType:new(),
+        ProvenanceStore).
+
 %% ===================================================================
 %% EUnit tests
 %% ===================================================================
@@ -629,12 +640,16 @@ query_test() ->
                               [[{EventId1, 2}]]}]},
                       {"b", [{{delta, [{EventId1, 1}]},
                               [[{EventId1, 1}]]},
+                             {{delta, [{EventId1, 2}]},
+                              [[{EventId1, 3}]]},
                              {{delta, [{EventId2, 1}]},
                               [[{EventId2, 1}]]}]}]},
-                    [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}],
-                    {ev_set, [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}]}}},
+                    [{EventId1, 1}, {EventId1, 2},
+                     {EventId1, 3}, {EventId2, 1}],
+                    {ev_set, [{EventId1, 1}, {EventId1, 2},
+                              {EventId1, 3}, {EventId2, 1}]}}},
     ?assertEqual(orddict:new(), query(Map2)),
-    ?assertEqual([{"a", 1}, {"b", 2}], query(Map3)),
+    ?assertEqual([{"a", 1}, {"b", 3}], query(Map3)),
 
     %% A map with the map with the `state_orset_ps'.
     Map4 = new([{state_ormap_ps, [{state_orset_ps, []}]}]),
@@ -762,7 +777,7 @@ apply_test() ->
                                     [[{EventId1, 2}]]}]},
                             {"b", [{{delta, [{EventId1, 1}]},
                                     [[{EventId1, 1}]]},
-                                   {{delta, [{EventId1, 1}]},
+                                   {{delta, [{EventId1, 2}]},
                                     [[{EventId1, 3}]]},
                                    {{delta, [{EventId2, 1}]},
                                     [[{EventId2, 1}]]}]}]},
