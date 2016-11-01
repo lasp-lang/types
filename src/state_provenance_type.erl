@@ -31,7 +31,8 @@
          get_events_from_provenance/1,
          get_next_event/2,
          merge_all_events/2,
-         is_inflation_all_events/2]).
+         is_inflation_all_events/2,
+         cross_provenance/2]).
 
 -export_type([ps_provenance/0,
               ps_subset_events/0,
@@ -109,6 +110,20 @@ merge_all_events({ev_set, AllEventsA}, {ev_set, AllEventsB}) ->
 -spec is_inflation_all_events(ps_all_events(), ps_all_events()) -> boolean().
 is_inflation_all_events({ev_set, AllEventsA}, {ev_set, AllEventsB}) ->
     ordsets:is_subset(AllEventsA, AllEventsB).
+
+%% @doc Calculate the cross product provenance of two provenances, which
+%%      is a set of cross product dots in both provenances.
+%%      A cross product of two dots is an union set of two dots.
+-spec cross_provenance(ps_provenance(), ps_provenance()) -> ps_provenance().
+cross_provenance(ProvenanceL, ProvenanceR) ->
+    ordsets:fold(
+        fun(DotL, AccCrossProvenance0) ->
+            ordsets:fold(
+                fun(DotR, AccCrossProvenance1) ->
+                    CrossDot = ordsets:union(DotL, DotR),
+                    ordsets:add_element(CrossDot, AccCrossProvenance1)
+                end, AccCrossProvenance0, ProvenanceR)
+        end, ordsets:new(), ProvenanceL).
 
 %% @private
 state_provenance_types() ->
