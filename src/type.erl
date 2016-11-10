@@ -23,7 +23,11 @@
 -module(type).
 -author("Christopher Meiklejohn <christopher.meiklejohn@gmail.com>").
 
--export_type([crdt/0]).
+-export_type([crdt/0,
+              id/0,
+              payload/0,
+              operation/0,
+              error/0]).
 
 %% Define some initial types.
 -type type() :: state_type:state_type() | pure_type:pure_type().

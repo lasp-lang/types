@@ -30,8 +30,7 @@ PROJECT         ?= $(shell basename `find src -name "*.app.src"` .app.src)
 DEP_DIR         ?= "deps"
 EBIN_DIR        ?= "ebin"
 
-.PHONY: compile-no-deps test docs xref dialyzer-run dialyzer-quick dialyzer \
-		cleanplt upload-docs
+.PHONY: compile-no-deps docs xref dialyzer
 
 compile-no-deps:
 	${REBAR} compile skip_deps=true

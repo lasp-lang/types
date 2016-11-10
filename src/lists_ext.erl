@@ -22,7 +22,7 @@
 
 -export([iterate_until/2]).
 
--spec iterate_until(function(), lists:list()) ->
+-spec iterate_until(function(), list(any())) ->
     boolean().
 iterate_until(_Fun, []) ->
     true;

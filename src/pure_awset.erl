@@ -45,7 +45,7 @@
 -export_type([pure_awset/0, pure_awset_op/0]).
 
 -opaque pure_awset() :: {?TYPE, payload()}.
--type payload() :: {pure_type:polog(), ordsets:set()}.
+-type payload() :: {pure_type:polog(), ordsets:ordset(any())}.
 -type pure_awset_op() :: {add, pure_type:element()} | {rmv, pure_type:element()}.
 
 %% @doc Create a new, empty `pure_awset()'

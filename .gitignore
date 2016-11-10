@@ -3,6 +3,7 @@
 deps/*
 ebin/*
 dev
+*.swp
 include/*.swp
 src/*.swp
 test/*.swp
@@ -33,3 +34,4 @@ priv/plots/*.pdf
 fprof.trace
 .rebar3/
 .eqc/
+types.plt
