@@ -41,7 +41,7 @@
 -export_type([pure_twopset/0, pure_twopset_op/0]).
 
 -opaque pure_twopset() :: {?TYPE, payload()}.
--type payload() :: {pure_type:polog(), {ordsets:set(), ordsets:set()}}.
+-type payload() :: {pure_type:polog(), {ordsets:set(any()), ordsets:set(any())}}.
 -type pure_twopset_op() :: {add, pure_type:element()} | {rmv, pure_type:element()}.
 
 %% @doc Create a new, empty `pure_twopset()'
