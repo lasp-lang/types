@@ -41,7 +41,7 @@
 -export_type([pure_gset/0, pure_gset_op/0]).
 
 -opaque pure_gset() :: {?TYPE, payload()}.
--type payload() :: {pure_type:polog(), ordsets:set()}.
+-type payload() :: {pure_type:polog(), ordsets:ordset(any())}.
 -type pure_gset_op() :: {add, pure_type:element()}.
 
 %% @doc Create a new, empty `pure_gset()'

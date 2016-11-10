@@ -42,7 +42,7 @@
 
 -export_type([causal_context/0]).
 
--type causal_context() :: orddsets:ordset(dot_store:dot()).
+-type causal_context() :: ordsets:ordset(dot_store:dot()).
 
 %% @doc Create an empty Causal Context.
 -spec new() -> causal_context().

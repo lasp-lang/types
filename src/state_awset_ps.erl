@@ -69,16 +69,16 @@
 %% @doc Generally a Dot contains a single Event, but it could have multiple Events
 %% after set-related binary operations (such as intersection()/product()).
 %% This type can also be used to represent a set of Events.
--type ps_dot() :: ordsets:ordsets(ps_event()).
+-type ps_dot() :: ordsets:ordset(ps_event()).
 %% @doc A set of Dots.
--type ps_provenance() :: ordsets:ordsets(ps_dot()).
+-type ps_provenance() :: ordsets:ordset(ps_dot()).
 %% @doc A DataStore for 'Element -> Provenance' pairs.
 -type ps_data_store_elem() :: orddict:orddict(element(), ps_provenance()).
 %% @doc A DataStore for 'Event -> a set of Elements (which contains the Event
 %% in the Provenance)' pairs.
 %% This is for making merge()/is_inflation() faster.
 -type ps_data_store_event() :: orddict:orddict(ps_event(),
-                                               ordsets:ordsets(element())).
+                                               ordsets:ordset(element())).
 %% @doc DataStore section.
 -type ps_data_store() :: {ps_data_store_elem(), ps_data_store_event()}.
 %% @doc FilteredOutEvents section.

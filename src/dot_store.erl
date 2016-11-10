@@ -31,6 +31,7 @@
 
 -export_type([dot_actor/0,
               dot/0,
+              dot_store/0,
               dot_set/0,
               dot_fun/0,
               dot_map/0,

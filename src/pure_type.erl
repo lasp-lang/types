@@ -23,7 +23,11 @@
 -module(pure_type).
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
--export_type([pure_type/0, polog/0, id/0, element/0]).
+-export_type([pure_type/0,
+              crdt/0,
+              polog/0,
+              id/0,
+              element/0]).
 
 -export([reset/2]).
 
