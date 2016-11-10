@@ -46,10 +46,4 @@ ct:
 shell:
 	${REBAR} shell --apps types
 
-unknown-types:
-	dialyzer --build_plt --apps ${DIALYZER_APPS} syntax_tools --output_plt types.plt
-	dialyzer --plt types.plt --src src/
-
-DIALYZER_APPS = kernel stdlib erts sasl eunit syntax_tools compiler crypto
-
 include tools.mk
