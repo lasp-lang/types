@@ -38,7 +38,7 @@
 -export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
--export([join_decomposition/1]).
+-export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
 -export_type([state_mvmap/0, delta_state_mvmap/0, state_mvmap_op/0]).
@@ -46,7 +46,7 @@
 -opaque state_mvmap() :: {?TYPE, payload()}.
 -opaque delta_state_mvmap() :: {?TYPE, {delta, payload()}}.
 -type delta_or_state() :: state_mvmap() | delta_state_mvmap().
--type payload() :: state_causal_type:causal_crdt().
+-type payload() :: {atom(), orddict:orddict(), causal_context:causal_context()}.
 -type key() :: term().
 -type value() :: term().
 -type state_mvmap_op() :: {set, key(), value()}.
@@ -54,7 +54,7 @@
 %% @doc Create a new, empty `state_mvmap()'.
 -spec new() -> state_mvmap().
 new() ->
-    {?TYPE, state_causal_type:new({dot_map, ?MVREGISTER_TYPE})}.
+    {?TYPE, {?MVREGISTER_TYPE, orddict:new(), causal_context:new()}}.
 
 %% @doc Create a new, empty `state_mvmap()'
 -spec new([term()]) -> state_mvmap().
@@ -86,30 +86,31 @@ mutate(Op, Actor, {?TYPE, _}=CRDT) ->
 %%      The third argument is the `state_mvmap()' to be inflated.
 -spec delta_mutate(state_mvmap_op(), type:id(), state_mvmap()) ->
     {ok, delta_state_mvmap()}.
-delta_mutate({set, Key, Value}, Actor, {?TYPE, {{{dot_map, RegisterType}, _}=DotMap, CausalContext}}) ->
-    SubDotStore = dot_map:fetch(Key, DotMap),
+delta_mutate({set, Key, Value}, Actor, {?TYPE, {Type, DotMap, CausalContext}}) ->
+    SubDotStore = dot_map_fetch(Key, DotMap),
     {ok, {Type, {delta, {DeltaSubDotStore, DeltaCausalContext}}}} =
-        RegisterType:delta_mutate({set, 0, Value},
-                                  Actor,
-                                  {RegisterType, {SubDotStore, CausalContext}}),
-    EmptyDotMap = dot_map:new(Type),
-    DeltaDotStore = dot_map:store(Key, DeltaSubDotStore, EmptyDotMap),
+        Type:delta_mutate({set, 0, Value},
+                          Actor,
+                          {Type, {SubDotStore, CausalContext}}),
+    EmptyDotMap = orddict:new(),
+    DeltaDotStore = orddict:store(Key, DeltaSubDotStore, EmptyDotMap),
 
-    Delta = {DeltaDotStore, DeltaCausalContext},
+    Delta = {Type, DeltaDotStore, DeltaCausalContext},
     {ok, {?TYPE, {delta, Delta}}}.
 
 %% @doc Returns the value of the `state_mvmap()'.
 %%      This value is a dictionary where each key maps to the
 %%      result of `query/1' over the current value.
 -spec query(state_mvmap()) -> term().
-query({?TYPE, {{{dot_map, Type}, _}=DotMap, CausalContext}}) ->
+query({?TYPE, {Type, DotMap, CausalContext}}) ->
     lists:foldl(
         fun(Key, Result) ->
-            Value = dot_map:fetch(Key, DotMap),
-            orddict:store(Key, Type:query({Type, {Value, CausalContext}}), Result)
+            Value = dot_map_fetch(Key, DotMap),
+            Query = Type:query({Type, {Value, CausalContext}}),
+            orddict:store(Key, Query, Result)
         end,
         orddict:new(),
-        dot_map:fetch_keys(DotMap)
+        orddict:fetch_keys(DotMap)
     ).
 
 %% @doc Merge two `state_mvmap()'.
@@ -124,11 +125,10 @@ merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 %% @private Copied from state_causal_type.
 %%          This dot_map_merge does not call the merge recursively on the values.
 %%          Instead, it uses the merge of the mvregister.
-dot_map_merge({{{dot_map, RegisterType}, _}=DotMapA, CausalContextA},
-      {{{dot_map, RegisterType}, _}=DotMapB, CausalContextB}) ->
+dot_map_merge({Type, DotMapA, CausalContextA}, {Type, DotMapB, CausalContextB}) ->
 
-    KeysA = dot_map:fetch_keys(DotMapA),
-    KeysB = dot_map:fetch_keys(DotMapB),
+    KeysA = orddict:fetch_keys(DotMapA),
+    KeysB = orddict:fetch_keys(DotMapB),
     Keys = ordsets:union(
         ordsets:from_list(KeysA),
         ordsets:from_list(KeysB)
@@ -136,27 +136,27 @@ dot_map_merge({{{dot_map, RegisterType}, _}=DotMapA, CausalContextA},
 
     DotStore = ordsets:fold(
         fun(Key, DotMap) ->
-            KeyDotStoreA = dot_map:fetch(Key, DotMapA),
-            KeyDotStoreB = dot_map:fetch(Key, DotMapB),
+            KeyDotStoreA = dot_map_fetch(Key, DotMapA),
+            KeyDotStoreB = dot_map_fetch(Key, DotMapB),
 
-            {RegisterType, {VK, _}} = RegisterType:merge(
-                {RegisterType, {KeyDotStoreA, CausalContextA}},
-                {RegisterType, {KeyDotStoreB, CausalContextB}}
+            {Type, {VK, _}} = Type:merge(
+                {Type, {KeyDotStoreA, CausalContextA}},
+                {Type, {KeyDotStoreB, CausalContextB}}
             ),
 
             case orddict:is_empty(VK) of
                 true ->
                     DotMap;
                 false ->
-                    dot_map:store(Key, VK, DotMap)
+                    orddict:store(Key, VK, DotMap)
             end
         end,
-        dot_map:new(RegisterType),
+        orddict:new(),
         Keys
     ),
     CausalContext = causal_context:merge(CausalContextA, CausalContextB),
 
-    {DotStore, CausalContext}.
+    {Type, DotStore, CausalContext}.
 
 
 %% @doc Equality for `state_mvmap()'.
@@ -194,6 +194,12 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
 
+%% @doc Delta calculation for `state_mvmap()'.
+-spec delta(state_type:delta_method(), state_mvmap(), state_mvmap()) ->
+    state_mvmap().
+delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
+    state_type:delta(Method, A, B).
+
 -spec encode(state_type:format(), delta_or_state()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
     erlang:term_to_binary(CRDT).
@@ -203,6 +209,14 @@ decode(erlang, Binary) ->
     {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
     CRDT.
 
+%% @private
+dot_map_fetch(Key, DotMap) ->
+    case orddict:find(Key, DotMap) of
+        {ok, DotStore} ->
+            DotStore;
+        error ->
+            orddict:new()
+    end.
 
 %% ===================================================================
 %% EUnit tests

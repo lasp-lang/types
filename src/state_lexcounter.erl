@@ -42,7 +42,7 @@
 -export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
--export([join_decomposition/1]).
+-export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
 -export_type([state_lexcounter/0, delta_state_lexcounter/0, state_lexcounter_op/0]).
@@ -204,6 +204,12 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 -spec join_decomposition(state_lexcounter()) -> [state_lexcounter()].
 join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
+
+%% @doc Delta calculation for `state_lexcounter()'.
+-spec delta(state_type:delta_method(), state_lexcounter(), state_lexcounter()) ->
+    state_lexcounter().
+delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
+    state_type:delta(Method, A, B).
 
 -spec encode(state_type:format(), delta_or_state()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->

@@ -46,7 +46,7 @@
 -export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
--export([join_decomposition/1]).
+-export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
 -export_type([state_gcounter/0, delta_state_gcounter/0, state_gcounter_op/0]).
@@ -206,6 +206,12 @@ join_decomposition({?TYPE, GCounter}) ->
         [],
         GCounter
      ).
+
+%% @doc Delta calculation for `state_gcounter()'.
+-spec delta(state_type:delta_method(), state_gcounter(), state_gcounter()) ->
+    state_gcounter().
+delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
+    state_type:delta(Method, A, B).
 
 -spec encode(state_type:format(), delta_or_state()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->

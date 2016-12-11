@@ -22,11 +22,13 @@
 
 -export([new/1, new_delta/1, new_delta/2, is_delta/1]).
 -export([mutate/3, merge/3, is_inflation/2, is_strict_inflation/2]).
+-export([delta/3]).
 -export([extract_args/1]).
 
 -export_type([state_type/0,
               crdt/0,
-              format/0]).
+              format/0,
+              delta_method/0]).
 
 %% Define some initial types.
 -type state_type() :: state_awset |
@@ -52,6 +54,7 @@
 -type crdt() :: {state_type(), type:payload()}.
 -type delta_crdt() :: {state_type(), {delta, type:payload()}}.
 -type delta_or_state() :: crdt() | delta_crdt().
+-type delta_method() :: state_driven | digest_driven.
 
 %% Supported serialization formats.
 -type format() :: erlang.
@@ -82,6 +85,10 @@
 
 %% Join decomposition.
 -callback join_decomposition(crdt()) -> [crdt()].
+
+%% Return a ∆ from A that inflates B.
+%% All s in join_decomposition(∆) strictly inflate B.
+-callback delta(delta_method(), crdt(), crdt()) -> crdt().
 
 %% @todo These should be moved to type.erl
 %% Encode and Decode.
@@ -178,6 +185,25 @@ is_inflation({Type, _}=CRDT1, {Type, _}=CRDT2) ->
 is_strict_inflation({Type, _}=CRDT1, {Type, _}=CRDT2) ->
     Type:is_inflation(CRDT1, CRDT2) andalso
     not Type:equal(CRDT1, CRDT2).
+
+%% @doc Generic delta calculation.
+-spec delta(delta_method(), crdt(), crdt()) -> crdt().
+delta(state_driven, {Type, _}=A, {Type, _}=B) ->
+    Inflations = lists:filter(
+        fun(Irreducible) ->
+            %% @todo do this strict inflation more efficiently
+            Merged = Type:merge(B, Irreducible),
+            Type:is_strict_inflation(B, Merged)
+        end,
+        Type:join_decomposition(A)
+    ),
+    lists:foldl(
+        fun(Irreducible, Acc) ->
+            Type:merge(Acc, Irreducible)
+        end,
+        Type:new(),
+        Inflations
+    ).
 
 %% @doc extract arguments from complex (composite) types
 extract_args({Type, Args}) ->

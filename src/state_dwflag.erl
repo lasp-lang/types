@@ -43,7 +43,7 @@
 -export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
--export([join_decomposition/1]).
+-export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
 -export_type([state_dwflag/0, delta_state_dwflag/0, state_dwflag_op/0]).
@@ -161,6 +161,12 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 -spec join_decomposition(state_dwflag()) -> [state_dwflag()].
 join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
+
+%% @doc Delta calculation for `state_dwflag()'.
+-spec delta(state_type:delta_method(), state_dwflag(), state_dwflag()) ->
+    state_dwflag().
+delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
+    state_type:delta(Method, A, B).
 
 -spec encode(state_type:format(), delta_or_state()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->

@@ -172,25 +172,11 @@ join_decomposition({?TYPE, GSet}) ->
         GSet
     ).
 
-%% @doc Return a ∆ from A that inflates B.
-%%      All s in join_decomposition(∆) strictly inflate B.
--spec delta(term(), state_gset(), state_gset()) -> state_gset().
-delta(state_driven, {?TYPE, _}=A, {?TYPE, _}=B) ->
-    Inflations = lists:filter(
-        fun(Irreducible) ->
-            %% @todo do this strict inflation more efficiently
-            Merged = merge(B, Irreducible),
-            is_strict_inflation(B, Merged)
-        end,
-        join_decomposition(A)
-    ),
-    lists:foldl(
-        fun(Irreducible, Acc) ->
-            merge(Acc, Irreducible)
-        end,
-        new(),
-        Inflations
-    ).
+%% @doc Delta calculation for `state_gset()'.
+-spec delta(state_type:delta_method(), state_gset(), state_gset()) ->
+    state_gset().
+delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
+    state_type:delta(Method, A, B).
 
 -spec encode(state_type:format(), delta_or_state()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
