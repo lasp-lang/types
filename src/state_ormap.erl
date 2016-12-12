@@ -173,12 +173,14 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 
 %% @doc Join decomposition for `state_ormap()'.
 %% @todo
--spec join_decomposition(state_ormap()) -> [state_ormap()].
+-spec join_decomposition(delta_or_state()) -> [state_ormap()].
+join_decomposition({?TYPE, {delta, Payload}}) ->
+    join_decomposition({?TYPE, Payload});
 join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
 
 %% @doc Delta calculation for `state_ormap()'.
--spec delta(state_type:delta_method(), state_ormap(), state_ormap()) ->
+-spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
     state_ormap().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).

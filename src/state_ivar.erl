@@ -137,12 +137,14 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
 %% @doc Join decomposition for `state_ivar()'.
--spec join_decomposition(state_ivar()) -> [state_ivar()].
+-spec join_decomposition(delta_or_state()) -> [state_ivar()].
+join_decomposition({?TYPE, {delta, Payload}}) ->
+    join_decomposition({?TYPE, Payload});
 join_decomposition({?TYPE, _}=Var) ->
     [Var].
 
 %% @doc Delta calculation for `state_ivar()'.
--spec delta(state_type:delta_method(), state_ivar(), state_ivar()) ->
+-spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
     state_ivar().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).

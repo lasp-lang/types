@@ -84,11 +84,13 @@
 -callback is_strict_inflation(delta_or_state(), crdt()) -> boolean().
 
 %% Join decomposition.
--callback join_decomposition(crdt()) -> [crdt()].
+-callback join_decomposition(delta_or_state()) -> [crdt()].
 
-%% Return a ∆ from A that inflates B.
-%% All s in join_decomposition(∆) strictly inflate B.
--callback delta(delta_method(), crdt(), crdt()) -> crdt().
+%% Let A be the second argument.
+%% Let B be the third argument.
+%% This function returns a ∆ from A that inflates B.
+%% "The join of all s in join_decomposition(A) such that s strictly inflates B"
+-callback delta(delta_method(), delta_or_state(), delta_or_state()) -> crdt().
 
 %% @todo These should be moved to type.erl
 %% Encode and Decode.

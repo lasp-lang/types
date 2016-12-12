@@ -263,7 +263,9 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
 %% @doc Join decomposition for `state_orset()'.
--spec join_decomposition(state_orset()) -> [state_orset()].
+-spec join_decomposition(delta_or_state()) -> [state_orset()].
+join_decomposition({?TYPE, {delta, Payload}}) ->
+    join_decomposition({?TYPE, Payload});
 join_decomposition({?TYPE, ORSet}) ->
     orddict:fold(
         fun(Elem, Tokens, Acc) ->
@@ -275,7 +277,7 @@ join_decomposition({?TYPE, ORSet}) ->
      ).
 
 %% @doc Delta calculation for `state_orset()'.
--spec delta(state_type:delta_method(), state_orset(), state_orset()) ->
+-spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
     state_orset().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).

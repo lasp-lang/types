@@ -130,12 +130,14 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
 %% @doc Join decomposition for `state_max_int()'.
--spec join_decomposition(state_max_int()) -> [state_max_int()].
+-spec join_decomposition(delta_or_state()) -> [state_max_int()].
+join_decomposition({?TYPE, {delta, Payload}}) ->
+    join_decomposition({?TYPE, Payload});
 join_decomposition({?TYPE, _}=MaxInt) ->
     [MaxInt].
 
 %% @doc Delta calculation for `state_max_int()'.
--spec delta(state_type:delta_method(), state_max_int(), state_max_int()) ->
+-spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
     state_max_int().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).

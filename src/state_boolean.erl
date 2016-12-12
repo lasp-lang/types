@@ -129,12 +129,14 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
 %% @doc Join decomposition for `state_boolean()'.
--spec join_decomposition(state_boolean()) -> [state_boolean()].
+-spec join_decomposition(delta_or_state()) -> [state_boolean()].
+join_decomposition({?TYPE, {delta, Payload}}) ->
+    join_decomposition({?TYPE, Payload});
 join_decomposition({?TYPE, _}=Boolean) ->
     [Boolean].
 
 %% @doc Delta calculation for `state_boolean()'.
--spec delta(state_type:delta_method(), state_boolean(), state_boolean()) ->
+-spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
     state_boolean().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).

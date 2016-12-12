@@ -207,7 +207,9 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 %%      This means that for each replica id in the `state_pncounter()'
 %%      passed as a input we'll have 2 `state_pncounter()' in the
 %%      resulting join decomposition.
--spec join_decomposition(state_pncounter()) -> [state_pncounter()].
+-spec join_decomposition(delta_or_state()) -> [state_pncounter()].
+join_decomposition({?TYPE, {delta, Payload}}) ->
+    join_decomposition({?TYPE, Payload});
 join_decomposition({?TYPE, PNCounter}) ->
     lists:foldl(
         fun({Actor, {Inc, Dec}}, Acc) ->
@@ -218,7 +220,7 @@ join_decomposition({?TYPE, PNCounter}) ->
     ).
 
 %% @doc Delta calculation for `state_pncounter()'.
--spec delta(state_type:delta_method(), state_pncounter(), state_pncounter()) ->
+-spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
     state_pncounter().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).

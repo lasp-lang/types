@@ -236,12 +236,14 @@ is_strict_inflation({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) 
 
 %% @doc Join decomposition for `state_bcounter()'.
 %% @todo
--spec join_decomposition(state_bcounter()) -> [state_bcounter()].
+-spec join_decomposition(delta_or_state()) -> [state_bcounter()].
+join_decomposition({?TYPE, {delta, Payload}}) ->
+    join_decomposition({?TYPE, Payload});
 join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
 
 %% @doc Delta calculation for `state_bcounter()'.
--spec delta(state_type:delta_method(), state_bcounter(), state_bcounter()) ->
+-spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
     state_bcounter().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).

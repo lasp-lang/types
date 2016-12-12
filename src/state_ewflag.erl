@@ -154,12 +154,14 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 
 %% @doc Join decomposition for `state_ewflag()'.
 %% @todo
--spec join_decomposition(state_ewflag()) -> [state_ewflag()].
+-spec join_decomposition(delta_or_state()) -> [state_ewflag()].
+join_decomposition({?TYPE, {delta, Payload}}) ->
+    join_decomposition({?TYPE, Payload});
 join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
 
 %% @doc Delta calculation for `state_ewflag()'.
--spec delta(state_type:delta_method(), state_ewflag(), state_ewflag()) ->
+-spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
     state_ewflag().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).

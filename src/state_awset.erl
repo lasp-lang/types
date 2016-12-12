@@ -200,7 +200,9 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
 %% @doc Join decomposition for `state_awset()'.
--spec join_decomposition(state_awset()) -> [state_awset()].
+-spec join_decomposition(delta_or_state()) -> [state_awset()].
+join_decomposition({?TYPE, {delta, Payload}}) ->
+    join_decomposition({?TYPE, Payload});
 join_decomposition({?TYPE, {DotStore, CausalContext}}) ->
     Elements = dot_map:fetch_keys(DotStore),
     {DecompList, ActiveDots} = lists:foldl(
@@ -242,7 +244,7 @@ join_decomposition({?TYPE, {DotStore, CausalContext}}) ->
     ).
 
 %% @doc Delta calculation for `state_awset()'.
--spec delta(state_type:delta_method(), state_awset(), state_awset()) ->
+-spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
     state_awset().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).

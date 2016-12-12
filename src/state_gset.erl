@@ -162,7 +162,9 @@ is_strict_inflation({cardinality, Value1}, {?TYPE, _}=GSet) ->
 %%      The join decompostion for a `state_gset()' is the unique set
 %%      partition where each set of the partition has exactly one
 %%      element.
--spec join_decomposition(state_gset()) -> [state_gset()].
+-spec join_decomposition(delta_or_state()) -> [state_gset()].
+join_decomposition({?TYPE, {delta, Payload}}) ->
+    join_decomposition({?TYPE, Payload});
 join_decomposition({?TYPE, GSet}) ->
     ordsets:fold(
         fun(Elem, Acc) ->
@@ -173,7 +175,7 @@ join_decomposition({?TYPE, GSet}) ->
     ).
 
 %% @doc Delta calculation for `state_gset()'.
--spec delta(state_type:delta_method(), state_gset(), state_gset()) ->
+-spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
     state_gset().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).

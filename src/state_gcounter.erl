@@ -197,7 +197,9 @@ is_strict_inflation({value, Value1}, {?TYPE, _}=GCounter) ->
 %%      where each of the `state_gcounter()' only has one entry.
 %%      This join decomposition is a set partition where each set in
 %%      the partition has exactly the size of one.
--spec join_decomposition(state_gcounter()) -> [state_gcounter()].
+-spec join_decomposition(delta_or_state()) -> [state_gcounter()].
+join_decomposition({?TYPE, {delta, Payload}}) ->
+    join_decomposition({?TYPE, Payload});
 join_decomposition({?TYPE, GCounter}) ->
     lists:foldl(
         fun(Entry, Acc) ->
@@ -208,7 +210,7 @@ join_decomposition({?TYPE, GCounter}) ->
      ).
 
 %% @doc Delta calculation for `state_gcounter()'.
--spec delta(state_type:delta_method(), state_gcounter(), state_gcounter()) ->
+-spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
     state_gcounter().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).
