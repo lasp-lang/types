@@ -105,6 +105,8 @@
 
 %% @doc Builds a new CRDT from a given CRDT
 -spec new(crdt()) -> any(). %% @todo Fix this any()
+new({Type, {delta, Payload}}) ->
+    new({Type, Payload});
 new({state_awset, _Payload}) ->
     state_awset:new();
 new({state_awset_ps, _Payload}) ->
@@ -203,7 +205,7 @@ delta(state_driven, {Type, _}=A, {Type, _}=B) ->
         fun(Irreducible, Acc) ->
             Type:merge(Acc, Irreducible)
         end,
-        Type:new(),
+        new(A),
         Inflations
     ).
 
