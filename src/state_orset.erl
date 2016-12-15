@@ -39,7 +39,7 @@
 
 -export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
@@ -261,6 +261,12 @@ is_strict_inflation({?TYPE, {delta, ORSet1}}, {?TYPE, ORSet2}) ->
     is_strict_inflation({?TYPE, ORSet1}, {?TYPE, ORSet2});
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
+
+%% @doc Check for irreducible strict inflation.
+-spec irreducible_is_strict_inflation(state_orset(), state_orset()) ->
+    boolean().
+irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
+    state_type:irreducible_is_strict_inflation(Irreducible, CRDT).
 
 %% @doc Join decomposition for `state_orset()'.
 -spec join_decomposition(delta_or_state()) -> [state_orset()].
