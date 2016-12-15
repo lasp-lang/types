@@ -194,8 +194,13 @@ is_strict_inflation({value, Value1}, {?TYPE, _}=GCounter) ->
 %% @doc Check for irreducible strict inflation.
 -spec irreducible_is_strict_inflation(state_gcounter(), state_gcounter()) ->
     boolean().
-irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
-    state_type:irreducible_is_strict_inflation(Irreducible, CRDT).
+irreducible_is_strict_inflation({?TYPE, [{Actor, Value}]}, {?TYPE, GCounter}) ->
+    case orddict:find(Actor, GCounter) of
+        {ok, Current} ->
+            Current < Value;
+        error ->
+            true
+    end.
 
 %% @doc Join decomposition for `state_gcounter()'.
 %%      A `state_gcounter()' is a set of entries.
@@ -349,6 +354,15 @@ is_strict_inflation_test() ->
     ?assert(is_strict_inflation(DeltaCounter1, Counter2)),
     ?assert(is_strict_inflation(Counter1, Counter3)),
     ?assertNot(is_strict_inflation(Counter1, Counter4)).
+
+irreducible_is_strict_inflation_test() ->
+    Counter1 = {?TYPE, [{a, 2}, {b, 1}]},
+    Irreducible1 = {?TYPE, [{a, 2}]},
+    Irreducible2 = {?TYPE, [{a, 3}]},
+    Irreducible3 = {?TYPE, [{c, 2}]},
+    ?assertNot(irreducible_is_strict_inflation(Irreducible1, Counter1)),
+    ?assert(irreducible_is_strict_inflation(Irreducible2, Counter1)),
+    ?assert(irreducible_is_strict_inflation(Irreducible3, Counter1)).
 
 join_decomposition_test() ->
     Counter0 = new(),
