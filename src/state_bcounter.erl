@@ -46,7 +46,7 @@
 
 -export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
@@ -233,6 +233,12 @@ is_strict_inflation({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) 
     (?PNCOUNTER_TYPE:is_inflation(PNCounter1, PNCounter2)
         andalso
     ?GMAP_TYPE:is_strict_inflation(GMap1, GMap2)).
+
+%% @doc Check for irreducible strict inflation.
+-spec irreducible_is_strict_inflation(state_bcounter(), state_bcounter()) ->
+    boolean().
+irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
+    state_type:irreducible_is_strict_inflation(Irreducible, CRDT).
 
 %% @doc Join decomposition for `state_bcounter()'.
 %% @todo

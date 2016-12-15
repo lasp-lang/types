@@ -20,8 +20,15 @@
 -module(state_type).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
--export([new/1, new_delta/1, new_delta/2, is_delta/1]).
--export([mutate/3, merge/3, is_inflation/2, is_strict_inflation/2]).
+-export([new/1,
+         new_delta/1,
+         new_delta/2,
+         is_delta/1]).
+-export([mutate/3,
+         merge/3,
+         is_inflation/2,
+         is_strict_inflation/2,
+         irreducible_is_strict_inflation/2]).
 -export([delta/3]).
 -export([extract_args/1]).
 
@@ -82,6 +89,13 @@
 %% Inflation testing.
 -callback is_inflation(delta_or_state(), crdt()) -> boolean().
 -callback is_strict_inflation(delta_or_state(), crdt()) -> boolean().
+
+%% Let A be the first argument.
+%% Let B be the second argument.
+%% A is a join-irreducible state.
+%% This functions checks if A will strictly inflate B.
+%% "B < A \join B"
+-callback irreducible_is_strict_inflation(crdt(), crdt()) -> boolean().
 
 %% Join decomposition.
 -callback join_decomposition(delta_or_state()) -> [crdt()].
@@ -177,7 +191,7 @@ merge({Type, CRDT1}, {Type, CRDT2}, MergeFun) ->
     MergeFun({Type, CRDT1}, {Type, CRDT2}).
 
 %% @doc Generic check for inflation.
--spec is_inflation(crdt(), crdt()) -> boolean().
+-spec is_inflation(delta_or_state(), crdt()) -> boolean().
 is_inflation({Type, _}=CRDT1, {Type, _}=CRDT2) ->
     Type:equal(Type:merge(CRDT1, CRDT2), CRDT2).
 
@@ -185,19 +199,23 @@ is_inflation({Type, _}=CRDT1, {Type, _}=CRDT2) ->
 %%      We have a strict inflation if:
 %%          - we have an inflation
 %%          - we have different CRDTs
--spec is_strict_inflation(crdt(), crdt()) -> boolean().
+-spec is_strict_inflation(delta_or_state(), crdt()) -> boolean().
 is_strict_inflation({Type, _}=CRDT1, {Type, _}=CRDT2) ->
     Type:is_inflation(CRDT1, CRDT2) andalso
     not Type:equal(CRDT1, CRDT2).
+
+%% @doc Generic check for irreducible strict inflation.
+-spec irreducible_is_strict_inflation(crdt(), crdt()) -> boolean().
+irreducible_is_strict_inflation({Type, _}=Irreducible, {Type, _}=CRDT) ->
+    Merged = Type:merge(Irreducible, CRDT),
+    Type:is_strict_inflation(CRDT, Merged).
 
 %% @doc Generic delta calculation.
 -spec delta(delta_method(), crdt(), crdt()) -> crdt().
 delta(state_driven, {Type, _}=A, {Type, _}=B) ->
     Inflations = lists:filter(
         fun(Irreducible) ->
-            %% @todo do this strict inflation more efficiently
-            Merged = Type:merge(B, Irreducible),
-            Type:is_strict_inflation(B, Merged)
+            Type:irreducible_is_strict_inflation(Irreducible, B)
         end,
         Type:join_decomposition(A)
     ),
