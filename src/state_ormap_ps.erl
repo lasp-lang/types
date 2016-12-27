@@ -46,7 +46,9 @@
          is_bottom/1,
          is_inflation/2,
          is_strict_inflation/2,
+         irreducible_is_strict_inflation/2,
          join_decomposition/1,
+         delta/3,
          encode/2,
          decode/2]).
 
@@ -78,7 +80,7 @@ new_provenance_store([{ValueType, SubValueType}]) ->
 
 %% @doc Return all events in a provenance store.
 -spec get_events_from_provenance_store(ps_provenance_store()) ->
-    ordsets:ordsets(state_provenance_type:ps_event()).
+    ordsets:ordset(state_provenance_type:ps_event()).
 get_events_from_provenance_store({{ValueType, _SubValueType},
                                   ValueProvenanceStore}) ->
     orddict:fold(
@@ -339,10 +341,23 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
 %% @todo
+%% @doc Check for irreducible strict inflation.
+-spec irreducible_is_strict_inflation(state_ormap_ps(), state_ormap_ps()) ->
+    boolean().
+irreducible_is_strict_inflation({?TYPE, _}=_CRDT1, {?TYPE, _}=_CRDT2) ->
+    false.
+
+%% @todo
 %% @doc Join decomposition for `state_ormap_ps()'.
 -spec join_decomposition(state_ormap_ps()) -> [state_ormap_ps()].
 join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
+
+%% @doc Delta calculation for `state_orset_ps()'.
+-spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
+    state_ormap_ps().
+delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
+    state_type:delta(Method, A, B).
 
 -spec encode(state_type:format(), delta_or_state()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->

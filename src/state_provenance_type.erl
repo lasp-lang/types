@@ -34,7 +34,8 @@
          is_inflation_all_events/2,
          cross_provenance/2]).
 
--export_type([ps_provenance/0,
+-export_type([ps_event/0,
+              ps_provenance/0,
               ps_subset_events/0,
               ps_all_events/0,
               ps_payload/0]).
@@ -48,14 +49,14 @@
 %% @doc Generally a Dot contains a single Event, but it could have multiple
 %%      Events after binary operations (such as product() in set-related
 %%      operations).
--type ps_dot() :: ordsets:ordsets(ps_event()).
+-type ps_dot() :: ordsets:ordset(ps_event()).
 %% @doc A provenance: a set of Dots.
--type ps_provenance() :: ordsets:ordsets(ps_dot()).
+-type ps_provenance() :: ordsets:ordset(ps_dot()).
 
 -type ps_provenance_store() :: term().
--type ps_subset_events() :: ordsets:ordsets(ps_event()).
--type ps_all_events() :: {ev_set, ordsets:ordsets(ps_event())}
-                       | {vv_set, ordsets:ordsets(ps_event())}.
+-type ps_subset_events() :: ordsets:ordset(ps_event()).
+-type ps_all_events() :: {ev_set, ordsets:ordset(ps_event())}
+                       | {vv_set, ordsets:ordset(ps_event())}.
 
 -type ps_payload() :: {ps_provenance_store(),
                        ps_subset_events(),
@@ -63,7 +64,7 @@
 
 -callback new_provenance_store([term()]) -> ps_provenance_store().
 -callback get_events_from_provenance_store(ps_provenance_store()) ->
-    ordsets:ordsets(ps_event()).
+    ordsets:ordset(ps_event()).
 
 %% @doc Check if the Type is provenance CRDT.
 -spec is_provenance_type(state_type:state_type()) -> boolean().
@@ -76,7 +77,7 @@ equal_all_events({TypeA, AllEventsA}, {TypeB, AllEventsB}) ->
     TypeA == TypeB andalso AllEventsA == AllEventsB.
 
 %% @doc Return all events in a provenance.
--spec get_events_from_provenance(ps_provenance()) -> ordsets:ordsets(ps_event()).
+-spec get_events_from_provenance(ps_provenance()) -> ordsets:ordset(ps_event()).
 get_events_from_provenance(Provenance) ->
     ordsets:fold(
         fun(Dot, AccInEvents) ->
