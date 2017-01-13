@@ -43,17 +43,15 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
+-export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
--export_type([state_lwwregister/0, delta_state_lwwregister/0, state_lwwregister_op/0]).
+-export_type([state_lwwregister/0, state_lwwregister_op/0]).
 
 -opaque state_lwwregister() :: {?TYPE, payload()}.
--opaque delta_state_lwwregister() :: {?TYPE, {delta, payload()}}.
--type delta_or_state() :: state_lwwregister() | delta_state_lwwregister().
 -type payload() :: {timestamp(), value()}.
 -type timestamp() :: non_neg_integer().
 -type value() :: term().
@@ -69,18 +67,6 @@ new() ->
 new([]) ->
     new().
 
--spec new_delta() -> delta_state_lwwregister().
-new_delta() ->
-    state_type:new_delta(?TYPE).
-
--spec new_delta([term()]) -> delta_state_lwwregister().
-new_delta([]) ->
-    new_delta().
-
--spec is_delta(delta_or_state()) -> boolean().
-is_delta({?TYPE, _}=CRDT) ->
-    state_type:is_delta(CRDT).
-
 %% @doc Mutate a `state_lwwregister()'.
 -spec mutate(state_lwwregister_op(), type:id(), state_lwwregister()) ->
     {ok, state_lwwregister()}.
@@ -92,9 +78,9 @@ mutate(Op, Actor, {?TYPE, _Register}=CRDT) ->
 %%      The second argument is the replica id (unused).
 %%      The third argument is the `state_lwwregister()' to be inflated.
 -spec delta_mutate(state_lwwregister_op(), type:id(), state_lwwregister()) ->
-    {ok, delta_state_lwwregister()}.
+    {ok, state_lwwregister()}.
 delta_mutate({set, Timestamp, Value}, _Actor, {?TYPE, _Register}) when is_integer(Timestamp) ->
-    {ok, {?TYPE, {delta, {Timestamp, Value}}}}.
+    {ok, {?TYPE, {Timestamp, Value}}}.
 
 %% @doc Returns the value of the `state_lwwregister()'.
 -spec query(state_lwwregister()) -> value().
@@ -104,7 +90,7 @@ query({?TYPE, {_Timestamp, Value}}) ->
 %% @doc Merge two `state_lwwregister()'.
 %%      The result is the set union of both sets in the
 %%      `state_lwwregister()' passed as argument.
--spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
+-spec merge(state_lwwregister(), state_lwwregister()) -> state_lwwregister().
 merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     MergeFun = fun({?TYPE, {Timestamp1, Value1}}, {?TYPE, {Timestamp2, Value2}}) ->
         Register = case Timestamp1 > Timestamp2 of
@@ -123,9 +109,7 @@ equal({?TYPE, Register1}, {?TYPE, Register2}) ->
     Register1 == Register2.
 
 %% @doc Check if a Register is bottom.
--spec is_bottom(delta_or_state()) -> boolean().
-is_bottom({?TYPE, {delta, Register}}) ->
-    is_bottom({?TYPE, Register});
+-spec is_bottom(state_lwwregister()) -> boolean().
 is_bottom({?TYPE, _}=CRDT) ->
     CRDT == new().
 
@@ -133,16 +117,12 @@ is_bottom({?TYPE, _}=CRDT) ->
 %%      of the first.
 %%      The second `state_lwwregister()' it has a higher timestamp or the same
 %%      timstamp (and in this case, they are equal).
--spec is_inflation(delta_or_state(), state_lwwregister()) -> boolean().
-is_inflation({?TYPE, {delta, Register1}}, {?TYPE, Register2}) ->
-    is_inflation({?TYPE, Register1}, {?TYPE, Register2});
+-spec is_inflation(state_lwwregister(), state_lwwregister()) -> boolean().
 is_inflation({?TYPE, {Timestamp1, _}}, {?TYPE, {Timestamp2, _}}) ->
     Timestamp2 >= Timestamp1.
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(delta_or_state(), state_lwwregister()) -> boolean().
-is_strict_inflation({?TYPE, {delta, Register1}}, {?TYPE, Register2}) ->
-    is_strict_inflation({?TYPE, Register1}, {?TYPE, Register2});
+-spec is_strict_inflation(state_lwwregister(), state_lwwregister()) -> boolean().
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
@@ -153,23 +133,21 @@ irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
     state_type:irreducible_is_strict_inflation(Irreducible, CRDT).
 
 %% @doc Join decomposition for `state_lwwregister()'.
--spec join_decomposition(delta_or_state()) -> [state_lwwregister()].
-join_decomposition({?TYPE, {delta, Payload}}) ->
-    join_decomposition({?TYPE, Payload});
+-spec join_decomposition(state_lwwregister()) -> [state_lwwregister()].
 join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
 
 %% @doc Delta calculation for `state_lwwregister()'.
--spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
+-spec delta(state_type:delta_method(), state_lwwregister(), state_lwwregister()) ->
     state_lwwregister().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).
 
--spec encode(state_type:format(), delta_or_state()) -> binary().
+-spec encode(state_type:format(), state_lwwregister()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
     erlang:term_to_binary(CRDT).
 
--spec decode(state_type:format(), binary()) -> delta_or_state().
+-spec decode(state_type:format(), binary()) -> state_lwwregister().
 decode(erlang, Binary) ->
     {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
     CRDT.
@@ -182,8 +160,7 @@ decode(erlang, Binary) ->
 
 new_test() ->
     Bottom = {0, undefined},
-    ?assertEqual({?TYPE, Bottom}, new()),
-    ?assertEqual({?TYPE, {delta, Bottom}}, new_delta()).
+    ?assertEqual({?TYPE, Bottom}, new()).
 
 query_test() ->
     Register0 = new(),
@@ -194,9 +171,9 @@ query_test() ->
 delta_set_test() ->
     Actor = 1,
     Register0 = new(),
-    {ok, {?TYPE, {delta, Delta1}}} = delta_mutate({set, 1234, "a"}, Actor, Register0),
+    {ok, {?TYPE, Delta1}} = delta_mutate({set, 1234, "a"}, Actor, Register0),
     Register1 = merge({?TYPE, Delta1}, Register0),
-    {ok, {?TYPE, {delta, Delta2}}} = delta_mutate({set, 1235, "b"}, Actor, Register1),
+    {ok, {?TYPE, Delta2}} = delta_mutate({set, 1235, "b"}, Actor, Register1),
     Register2 = merge({?TYPE, Delta2}, Register1),
     ?assertEqual({?TYPE, {1234, "a"}}, {?TYPE, Delta1}),
     ?assertEqual({?TYPE, {1234, "a"}}, Register1),
@@ -241,12 +218,9 @@ is_bottom_test() ->
 
 is_inflation_test() ->
     Register1 = {?TYPE, {1234, "a"}},
-    DeltaRegister1 = {?TYPE, {delta, {1234, "a"}}},
     Register2 =  {?TYPE, {1235, "b"}},
     ?assert(is_inflation(Register1, Register1)),
     ?assert(is_inflation(Register1, Register2)),
-    ?assert(is_inflation(DeltaRegister1, Register1)),
-    ?assert(is_inflation(DeltaRegister1, Register2)),
     ?assertNot(is_inflation(Register2, Register1)),
     %% check inflation with merge
     ?assert(state_type:is_inflation(Register1, Register1)),
@@ -255,12 +229,9 @@ is_inflation_test() ->
 
 is_strict_inflation_test() ->
     Register1 =  {?TYPE, {1234, "a"}},
-    DeltaRegister1 = {?TYPE, {delta, {1234, "a"}}},
     Register2 =  {?TYPE, {1235, "b"}},
     ?assertNot(is_strict_inflation(Register1, Register1)),
     ?assert(is_strict_inflation(Register1, Register2)),
-    ?assertNot(is_strict_inflation(DeltaRegister1, Register1)),
-    ?assert(is_strict_inflation(DeltaRegister1, Register2)),
     ?assertNot(is_strict_inflation(Register2, Register1)).
 
 join_decomposition_test() ->

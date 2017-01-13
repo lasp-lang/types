@@ -32,17 +32,15 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
+-export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
--export_type([state_ivar/0, delta_state_ivar/0, state_ivar_op/0]).
+-export_type([state_ivar/0, state_ivar_op/0]).
 
 -opaque state_ivar() :: {?TYPE, payload()}.
--opaque delta_state_ivar() :: {?TYPE, {delta, payload()}}.
--type delta_or_state() :: state_ivar() | delta_state_ivar().
 -type payload() :: term().
 -type state_ivar_op() :: {set, term()}.
 
@@ -56,18 +54,6 @@ new() ->
 new([]) ->
     new().
 
--spec new_delta() -> delta_state_ivar().
-new_delta() ->
-    state_type:new_delta(?TYPE).
-
--spec new_delta([term()]) -> delta_state_ivar().
-new_delta([]) ->
-    new_delta().
-
--spec is_delta(delta_or_state()) -> boolean().
-is_delta({?TYPE, _}=CRDT) ->
-    state_type:is_delta(CRDT).
-
 %% @doc Mutate a `state_ivar()'.
 -spec mutate(state_ivar_op(), type:id(), state_ivar()) ->
     {ok, state_ivar()}.
@@ -76,10 +62,10 @@ mutate({set, Value}, _Actor, {?TYPE, undefined}) ->
 
 %% @doc Delta-mutate a `state_ivar()'.
 -spec delta_mutate(state_ivar_op(), type:id(), state_ivar()) ->
-    {ok, delta_state_ivar()}.
+    {ok, state_ivar()}.
 delta_mutate(Op, Actor, {?TYPE, _}=Var) ->
     {ok, {?TYPE, Value}} = mutate(Op, Actor, Var),
-    {ok, {?TYPE, {delta, Value}}}.
+    {ok, {?TYPE, Value}}.
 
 %% @doc Returns the value of the `state_ivar()'.
 -spec query(state_ivar()) -> term().
@@ -87,14 +73,10 @@ query({?TYPE, Value}) ->
     Value.
 
 %% @doc Merge two `state_ivar()'.
--spec merge(delta_or_state(), delta_or_state()) -> state_ivar().
+-spec merge(state_ivar(), state_ivar()) -> state_ivar().
 merge({?TYPE, undefined}, {?TYPE, undefined}) ->
     {?TYPE, undefined};
-merge({?TYPE, {delta, Value}}, {?TYPE, undefined}) ->
-    {?TYPE, Value};
 merge({?TYPE, Value}, {?TYPE, undefined}) ->
-    {?TYPE, Value};
-merge({?TYPE, undefined}, {?TYPE, {delta, Value}}) ->
     {?TYPE, Value};
 merge({?TYPE, undefined}, {?TYPE, Value}) ->
     {?TYPE, Value};
@@ -107,9 +89,7 @@ equal({?TYPE, Value1}, {?TYPE, Value2}) ->
     Value1 == Value2.
 
 %% @doc Check if an IVar is bottom.
--spec is_bottom(delta_or_state()) -> boolean().
-is_bottom({?TYPE, {delta, Value}}) ->
-    is_bottom({?TYPE, Value});
+-spec is_bottom(state_ivar()) -> boolean().
 is_bottom({?TYPE, Value}) ->
     Value == undefined.
 
@@ -117,9 +97,7 @@ is_bottom({?TYPE, Value}) ->
 %%      of the first.
 %%      The second `state_ivar()' is and inflation if the first set is
 %%      a subset of the second.
--spec is_inflation(delta_or_state(), state_ivar()) -> boolean().
-is_inflation({?TYPE, {delta, Value1}}, {?TYPE, Value2}) ->
-    is_inflation({?TYPE, Value1}, {?TYPE, Value2});
+-spec is_inflation(state_ivar(), state_ivar()) -> boolean().
 is_inflation({?TYPE, undefined}, {?TYPE, undefined}) ->
     true;
 is_inflation({?TYPE, undefined}, {?TYPE, _Value}) ->
@@ -130,9 +108,7 @@ is_inflation({?TYPE, _}=Var1, {?TYPE, _}=Var2) ->
     equal(Var1, Var2).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(delta_or_state(), state_ivar()) -> boolean().
-is_strict_inflation({?TYPE, {delta, Value1}}, {?TYPE, Value2}) ->
-    is_strict_inflation({?TYPE, Value1}, {?TYPE, Value2});
+-spec is_strict_inflation(state_ivar(), state_ivar()) -> boolean().
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
@@ -143,23 +119,21 @@ irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
     state_type:irreducible_is_strict_inflation(Irreducible, CRDT).
 
 %% @doc Join decomposition for `state_ivar()'.
--spec join_decomposition(delta_or_state()) -> [state_ivar()].
-join_decomposition({?TYPE, {delta, Payload}}) ->
-    join_decomposition({?TYPE, Payload});
+-spec join_decomposition(state_ivar()) -> [state_ivar()].
 join_decomposition({?TYPE, _}=Var) ->
     [Var].
 
 %% @doc Delta calculation for `state_ivar()'.
--spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
+-spec delta(state_type:delta_method(), state_ivar(), state_ivar()) ->
     state_ivar().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).
 
--spec encode(state_type:format(), delta_or_state()) -> binary().
+-spec encode(state_type:format(), state_ivar()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
     erlang:term_to_binary(CRDT).
 
--spec decode(state_type:format(), binary()) -> delta_or_state().
+-spec decode(state_type:format(), binary()) -> state_ivar().
 decode(erlang, Binary) ->
     {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
     CRDT.
@@ -171,8 +145,7 @@ decode(erlang, Binary) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, undefined}, new()),
-    ?assertEqual({?TYPE, {delta, undefined}}, new_delta()).
+    ?assertEqual({?TYPE, undefined}, new()).
 
 query_test() ->
     Var0 = new(),
@@ -216,14 +189,11 @@ is_bottom_test() ->
 is_inflation_test() ->
     Var0 = new(),
     Var1 = {?TYPE, [<<"a">>]},
-    DeltaVar1 = {?TYPE, {delta, [<<"a">>]}},
     Var2 = {?TYPE, [<<"b">>]},
     ?assert(is_inflation(Var0, Var0)),
     ?assert(is_inflation(Var0, Var1)),
     ?assert(is_inflation(Var1, Var1)),
     ?assertNot(is_inflation(Var1, Var2)),
-    ?assert(is_inflation(DeltaVar1, Var1)),
-    ?assertNot(is_inflation(DeltaVar1, Var2)),
     ?assertNot(is_inflation(Var2, Var1)),
     %% check inflation with merge
     ?assert(state_type:is_inflation(Var0, Var0)),
@@ -233,14 +203,11 @@ is_inflation_test() ->
 is_strict_inflation_test() ->
     Var0 = new(),
     Var1 = {?TYPE, [<<"a">>]},
-    DeltaVar1 = {?TYPE, {delta, [<<"a">>]}},
     Var2 = {?TYPE, [<<"b">>]},
     ?assertNot(is_strict_inflation(Var0, Var0)),
     ?assert(is_strict_inflation(Var0, Var1)),
     ?assertNot(is_strict_inflation(Var1, Var1)),
     ?assertNot(is_strict_inflation(Var1, Var2)),
-    ?assertNot(is_strict_inflation(DeltaVar1, Var1)),
-    ?assertNot(is_strict_inflation(DeltaVar1, Var2)),
     ?assertNot(is_strict_inflation(Var2, Var1)).
 
 join_decomposition_test() ->

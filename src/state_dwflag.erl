@@ -40,17 +40,15 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
+-export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
--export_type([state_dwflag/0, delta_state_dwflag/0, state_dwflag_op/0]).
+-export_type([state_dwflag/0, state_dwflag_op/0]).
 
 -opaque state_dwflag() :: {?TYPE, payload()}.
--opaque delta_state_dwflag() :: {?TYPE, {delta, payload()}}.
--type delta_or_state() :: state_dwflag() | delta_state_dwflag().
 -type payload() :: state_causal_type:causal_crdt().
 -type state_dwflag_op() :: enable | disable.
 
@@ -63,18 +61,6 @@ new() ->
 -spec new([term()]) -> state_dwflag().
 new([]) ->
     new().
-
--spec new_delta() -> delta_state_dwflag().
-new_delta() ->
-    state_type:new_delta(?TYPE).
-
--spec new_delta([term()]) -> delta_state_dwflag().
-new_delta([]) ->
-    new_delta().
-
--spec is_delta(delta_or_state()) -> boolean().
-is_delta({?TYPE, _}=CRDT) ->
-    state_type:is_delta(CRDT).
 
 %% @doc Mutate a `state_dwflag()'.
 -spec mutate(state_dwflag_op(), type:id(), state_dwflag()) ->
@@ -89,7 +75,7 @@ mutate(Op, Actor, {?TYPE, _Flag}=CRDT) ->
 %%      The second argument is the replica id.
 %%      The third argument is the `state_dwflag()' to be inflated.
 -spec delta_mutate(state_dwflag_op(), type:id(), state_dwflag()) ->
-    {ok, delta_state_dwflag()}.
+    {ok, state_dwflag()}.
 
 %% @doc Enables `state_dwflag()'.
 delta_mutate(enable, _Actor, {?TYPE, {DotStore, _CausalContext}}) ->
@@ -97,7 +83,7 @@ delta_mutate(enable, _Actor, {?TYPE, {DotStore, _CausalContext}}) ->
     DeltaCausalContext = causal_context:to_causal_context(DotStore),
 
     Delta = {DeltaDotStore, DeltaCausalContext},
-    {ok, {?TYPE, {delta, Delta}}};
+    {ok, {?TYPE, Delta}};
 
 %% @doc Disables `state_dwflag()'.
 delta_mutate(disable, Actor, {?TYPE, {DotStore, CausalContext}}) ->
@@ -110,7 +96,7 @@ delta_mutate(disable, Actor, {?TYPE, {DotStore, CausalContext}}) ->
     ),
 
     Delta = {DeltaDotStore, DeltaCausalContext},
-    {ok, {?TYPE, {delta, Delta}}}.
+    {ok, {?TYPE, Delta}}.
 
 %% @doc Returns the value of the `state_dwflag()'.
 -spec query(state_dwflag()) -> boolean().
@@ -120,7 +106,7 @@ query({?TYPE, {DotStore, _CausalContext}}) ->
 %% @doc Merge two `state_dwflag()'.
 %%      Merging is handled by the `merge' function in
 %%      `state_causal_type' common library.
--spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
+-spec merge(state_dwflag(), state_dwflag()) -> state_dwflag().
 merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     MergeFun = fun({?TYPE, Flag1}, {?TYPE, Flag2}) ->
         Flag = state_causal_type:merge(Flag1, Flag2),
@@ -135,24 +121,18 @@ equal({?TYPE, Flag1}, {?TYPE, Flag2}) ->
     Flag1 == Flag2.
 
 %% @doc Check if an `state_dwflag()' is bottom.
--spec is_bottom(delta_or_state()) -> boolean().
-is_bottom({?TYPE, {delta, Flag}}) ->
-    is_bottom({?TYPE, Flag});
+-spec is_bottom(state_dwflag()) -> boolean().
 is_bottom({?TYPE, _}=CRDT) ->
     CRDT == new().
 
 %% @doc Given two `state_dwflag()', check if the second is and inflation of the first.
 %% @todo
--spec is_inflation(delta_or_state(), state_dwflag()) -> boolean().
-is_inflation({?TYPE, {delta, Flag1}}, {?TYPE, Flag2}) ->
-    is_inflation({?TYPE, Flag1}, {?TYPE, Flag2});
+-spec is_inflation(state_dwflag(), state_dwflag()) -> boolean().
 is_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_inflation(CRDT1, CRDT2).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(delta_or_state(), state_dwflag()) -> boolean().
-is_strict_inflation({?TYPE, {delta, Flag1}}, {?TYPE, Flag2}) ->
-    is_strict_inflation({?TYPE, Flag1}, {?TYPE, Flag2});
+-spec is_strict_inflation(state_dwflag(), state_dwflag()) -> boolean().
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
@@ -164,23 +144,21 @@ irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
 
 %% @doc Join decomposition for `state_dwflag()'.
 %% @todo
--spec join_decomposition(delta_or_state()) -> [state_dwflag()].
-join_decomposition({?TYPE, {delta, Payload}}) ->
-    join_decomposition({?TYPE, Payload});
+-spec join_decomposition(state_dwflag()) -> [state_dwflag()].
 join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
 
 %% @doc Delta calculation for `state_dwflag()'.
--spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
+-spec delta(state_type:delta_method(), state_dwflag(), state_dwflag()) ->
     state_dwflag().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).
 
--spec encode(state_type:format(), delta_or_state()) -> binary().
+-spec encode(state_type:format(), state_dwflag()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
     erlang:term_to_binary(CRDT).
 
--spec decode(state_type:format(), binary()) -> delta_or_state().
+-spec decode(state_type:format(), binary()) -> state_dwflag().
 decode(erlang, Binary) ->
     {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
     CRDT.
@@ -193,9 +171,7 @@ decode(erlang, Binary) ->
 
 new_test() ->
     ?assertEqual({?TYPE, {{dot_set, ordsets:new()}, ordsets:new()}},
-                 new()),
-    ?assertEqual({?TYPE, {delta, {{dot_set, ordsets:new()}, ordsets:new()}}},
-                 new_delta()).
+                 new()).
 
 query_test() ->
     Flag0 = new(),
@@ -211,11 +187,11 @@ query_test() ->
 delta_mutate_test() ->
     ActorOne = 1,
     Flag0 = new(),
-    {ok, {?TYPE, {delta, Delta1}}} = delta_mutate(enable, ActorOne, Flag0),
+    {ok, {?TYPE, Delta1}} = delta_mutate(enable, ActorOne, Flag0),
     Flag1 = merge({?TYPE, Delta1}, Flag0),
-    {ok, {?TYPE, {delta, Delta2}}} = delta_mutate(disable, ActorOne, Flag1),
+    {ok, {?TYPE, Delta2}} = delta_mutate(disable, ActorOne, Flag1),
     Flag2 = merge({?TYPE, Delta2}, Flag1),
-    {ok, {?TYPE, {delta, Delta3}}} = delta_mutate(enable, ActorOne, Flag2),
+    {ok, {?TYPE, Delta3}} = delta_mutate(enable, ActorOne, Flag2),
     Flag3 = merge({?TYPE, Delta3}, Flag2),
 
     ?assertEqual({?TYPE,
@@ -325,14 +301,14 @@ merge_commutative_test() ->
 
 merge_delta_test() ->
     Flag1 = {?TYPE, {{dot_set, [{1, 1}, {2, 3}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}},
-    Delta1 = {?TYPE, {delta, {{dot_set, []}, [{1, 1}]}}},
-    Delta2 = {?TYPE, {delta, {{dot_set, []}, [{2, 3}]}}},
+    Delta1 = {?TYPE, {{dot_set, []}, [{1, 1}]}},
+    Delta2 = {?TYPE, {{dot_set, []}, [{2, 3}]}},
     Flag2 = merge(Delta1, Flag1),
     Flag3 = merge(Flag1, Delta2),
     DeltaGroup = merge(Delta1, Delta2),
     ?assertEqual({?TYPE, {{dot_set, [{2, 3}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}}, Flag2),
     ?assertEqual({?TYPE, {{dot_set, [{1, 1}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}}, Flag3),
-    ?assertEqual({?TYPE, {delta, {{dot_set, []}, [{1, 1}, {2, 3}]}}}, DeltaGroup).
+    ?assertEqual({?TYPE, {{dot_set, []}, [{1, 1}, {2, 3}]}}, DeltaGroup).
 
 equal_test() ->
     Flag1 = {?TYPE, {{dot_set, [{1, 1}, {2, 3}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}},

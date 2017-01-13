@@ -46,18 +46,15 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
+-export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
--export([extract_delta/1]).
 
--export_type([state_pncounter/0, delta_state_pncounter/0, state_pncounter_op/0]).
+-export_type([state_pncounter/0, state_pncounter_op/0]).
 
 -opaque state_pncounter() :: {?TYPE, payload()}.
--opaque delta_state_pncounter() :: {?TYPE, {delta, payload()}}.
--type delta_or_state() :: state_pncounter() | delta_state_pncounter().
 -type payload() :: orddict:orddict().
 -type state_pncounter_op() :: increment | decrement.
 
@@ -71,19 +68,6 @@ new() ->
 new([]) ->
     new().
 
--spec new_delta() -> delta_state_pncounter().
-new_delta() ->
-    state_type:new_delta(?TYPE).
-
--spec new_delta([term()]) -> delta_state_pncounter().
-new_delta([]) ->
-    new_delta().
-
--spec is_delta(delta_or_state()) -> boolean().
-is_delta({?TYPE, _}=CRDT) ->
-    state_type:is_delta(CRDT).
-
-%% @doc Mutate a `state_pncounter()'.
 -spec mutate(state_pncounter_op(), type:id(), state_pncounter()) ->
     {ok, state_pncounter()}.
 mutate(Op, Actor, {?TYPE, _PNCounter}=CRDT) ->
@@ -100,7 +84,7 @@ mutate(Op, Actor, {?TYPE, _PNCounter}=CRDT) ->
 %%          increments plus 1 and the second component will be zero
 %%          - vice versa for `decrement'
 -spec delta_mutate(state_pncounter_op(), type:id(), state_pncounter()) ->
-    {ok, delta_state_pncounter()}.
+    {ok, state_pncounter()}.
 delta_mutate(increment, Actor, {?TYPE, PNCounter}) ->
     Value = case orddict:find(Actor, PNCounter) of
         {ok, {Inc, _Dec}} ->
@@ -109,7 +93,7 @@ delta_mutate(increment, Actor, {?TYPE, PNCounter}) ->
             0
     end,
     Delta = orddict:store(Actor, {Value + 1, 0}, orddict:new()),
-    {ok, {?TYPE, {delta, Delta}}};
+    {ok, {?TYPE, Delta}};
 
 delta_mutate(decrement, Actor, {?TYPE, PNCounter}) ->
     Value = case orddict:find(Actor, PNCounter) of
@@ -119,7 +103,7 @@ delta_mutate(decrement, Actor, {?TYPE, PNCounter}) ->
             0
     end,
     Delta = orddict:store(Actor, {0, Value + 1}, orddict:new()),
-    {ok, {?TYPE, {delta, Delta}}}.
+    {ok, {?TYPE, Delta}}.
 
 %% @doc Returns the value of the `state_pncounter()'.
 %%      This value is the sum of all increments minus the sum of all
@@ -136,7 +120,7 @@ query({?TYPE, PNCounter}) ->
 %%      If a key is present in both `state_pncounter()', the new value
 %%      will be the componenet wise max of both values.
 %%      Return the join of the two `state_pncounter()'.
--spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
+-spec merge(state_pncounter(), state_pncounter()) -> state_pncounter().
 merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     MergeFun = fun({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
         PNCounter = orddict:merge(
@@ -162,9 +146,7 @@ equal({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
     orddict_ext:equal(PNCounter1, PNCounter2, Fun).
 
 %% @doc Check if a PNCounter is bottom.
--spec is_bottom(delta_or_state()) -> boolean().
-is_bottom({?TYPE, {delta, PNCounter}}) ->
-    is_bottom({?TYPE, PNCounter});
+-spec is_bottom(state_pncounter()) -> boolean().
 is_bottom({?TYPE, PNCounter}) ->
     orddict:is_empty(PNCounter).
 
@@ -176,9 +158,7 @@ is_bottom({?TYPE, PNCounter}) ->
 %%          - component wise the value for each replica in the first
 %%          `state_pncounter()' should be less or equal than the value
 %%          for the same replica in the second `state_pncounter()'
--spec is_inflation(delta_or_state(), state_pncounter()) -> boolean().
-is_inflation({?TYPE, {delta, PNCounter1}}, {?TYPE, PNCounter2}) ->
-    is_inflation({?TYPE, PNCounter1}, {?TYPE, PNCounter2});
+-spec is_inflation(state_pncounter(), state_pncounter()) -> boolean().
 is_inflation({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
     lists_ext:iterate_until(
         fun({Key, {Inc1, Dec1}}) ->
@@ -193,9 +173,7 @@ is_inflation({?TYPE, PNCounter1}, {?TYPE, PNCounter2}) ->
      ).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(delta_or_state(), state_pncounter()) -> boolean().
-is_strict_inflation({?TYPE, {delta, PNCounter1}}, {?TYPE, PNCounter2}) ->
-    is_strict_inflation({?TYPE, PNCounter1}, {?TYPE, PNCounter2});
+-spec is_strict_inflation(state_pncounter(), state_pncounter()) -> boolean().
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
@@ -213,9 +191,7 @@ irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
 %%      This means that for each replica id in the `state_pncounter()'
 %%      passed as a input we'll have 2 `state_pncounter()' in the
 %%      resulting join decomposition.
--spec join_decomposition(delta_or_state()) -> [state_pncounter()].
-join_decomposition({?TYPE, {delta, Payload}}) ->
-    join_decomposition({?TYPE, Payload});
+-spec join_decomposition(state_pncounter()) -> [state_pncounter()].
 join_decomposition({?TYPE, PNCounter}) ->
     lists:foldl(
         fun({Actor, {Inc, Dec}}, Acc) ->
@@ -226,24 +202,19 @@ join_decomposition({?TYPE, PNCounter}) ->
     ).
 
 %% @doc Delta calculation for `state_pncounter()'.
--spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
+-spec delta(state_type:delta_method(), state_pncounter(), state_pncounter()) ->
     state_pncounter().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).
 
--spec encode(state_type:format(), delta_or_state()) -> binary().
+-spec encode(state_type:format(), state_pncounter()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
     erlang:term_to_binary(CRDT).
 
--spec decode(state_type:format(), binary()) -> delta_or_state().
+-spec decode(state_type:format(), binary()) -> state_pncounter().
 decode(erlang, Binary) ->
     {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
     CRDT.
-
-%% @doc Given the result of `delta_mutate/3', extract the delta.
--spec extract_delta(delta_state_pncounter()) -> payload().
-extract_delta({?TYPE, {delta, Delta}}) ->
-    Delta.
 
 
 %% ===================================================================
@@ -252,8 +223,7 @@ extract_delta({?TYPE, {delta, Delta}}) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, []}, new()),
-    ?assertEqual({?TYPE, {delta, []}}, new_delta()).
+    ?assertEqual({?TYPE, []}, new()).
 
 query_test() ->
     Counter0 = new(),
@@ -263,11 +233,11 @@ query_test() ->
 
 delta_increment_test() ->
     Counter0 = new(),
-    {ok, {?TYPE, {delta, Delta1}}} = delta_mutate(increment, 1, Counter0),
+    {ok, {?TYPE, Delta1}} = delta_mutate(increment, 1, Counter0),
     Counter1 = merge({?TYPE, Delta1}, Counter0),
-    {ok, {?TYPE, {delta, Delta2}}} = delta_mutate(decrement, 2, Counter1),
+    {ok, {?TYPE, Delta2}} = delta_mutate(decrement, 2, Counter1),
     Counter2 = merge({?TYPE, Delta2}, Counter1),
-    {ok, {?TYPE, {delta, Delta3}}} = delta_mutate(increment, 1, Counter2),
+    {ok, {?TYPE, Delta3}} = delta_mutate(increment, 1, Counter2),
     Counter3 = merge({?TYPE, Delta3}, Counter2),
     ?assertEqual({?TYPE, [{1, {1, 0}}]}, {?TYPE, Delta1}),
     ?assertEqual({?TYPE, [{1, {1, 0}}]}, Counter1),
@@ -309,14 +279,14 @@ merge_same_id_test() ->
 
 merge_delta_test() ->
     Counter1 = {?TYPE, [{<<"1">>, {2, 3}}, {<<"2">>, {5, 2}}]},
-    Delta1 = {?TYPE, {delta, [{<<"1">>, {3, 2}}]}},
-    Delta2 = {?TYPE, {delta, [{<<"3">>, {1, 2}}]}},
+    Delta1 = {?TYPE, [{<<"1">>, {3, 2}}]},
+    Delta2 = {?TYPE, [{<<"3">>, {1, 2}}]},
     Counter2 = merge(Delta1, Counter1),
     Counter3 = merge(Counter1, Delta1),
     DeltaGroup = merge(Delta1, Delta2),
     ?assertEqual({?TYPE, [{<<"1">>, {3, 3}}, {<<"2">>, {5, 2}}]}, Counter2),
     ?assertEqual({?TYPE, [{<<"1">>, {3, 3}}, {<<"2">>, {5, 2}}]}, Counter3),
-    ?assertEqual({?TYPE, {delta, [{<<"1">>, {3, 2}}, {<<"3">>, {1, 2}}]}}, DeltaGroup).
+    ?assertEqual({?TYPE, [{<<"1">>, {3, 2}}, {<<"3">>, {1, 2}}]}, DeltaGroup).
 
 equal_test() ->
     Counter1 = {?TYPE, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}]},
@@ -336,14 +306,11 @@ is_bottom_test() ->
 
 is_inflation_test() ->
     Counter1 = {?TYPE, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}]},
-    DeltaCounter1 = {?TYPE, {delta, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}]}},
     Counter2 = {?TYPE, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}, {5, {6, 3}}]},
     Counter3 = {?TYPE, [{1, {2, 0}}, {2, {2, 2}}, {4, {1, 2}}]},
     Counter4 = {?TYPE, [{1, {2, 1}}, {2, {1, 1}}, {4, {1, 2}}]},
     ?assert(is_inflation(Counter1, Counter1)),
     ?assert(is_inflation(Counter1, Counter2)),
-    ?assert(is_inflation(DeltaCounter1, Counter1)),
-    ?assert(is_inflation(DeltaCounter1, Counter2)),
     ?assert(is_inflation(Counter1, Counter3)),
     ?assertNot(is_inflation(Counter1, Counter4)),
     %% check inflation with merge
@@ -354,14 +321,11 @@ is_inflation_test() ->
 
 is_strict_inflation_test() ->
     Counter1 = {?TYPE, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}]},
-    DeltaCounter1 = {?TYPE, {delta, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}]}},
     Counter2 = {?TYPE, [{1, {2, 0}}, {2, {1, 2}}, {4, {1, 2}}, {5, {6, 3}}]},
     Counter3 = {?TYPE, [{1, {2, 0}}, {2, {2, 2}}, {4, {1, 2}}]},
     Counter4 = {?TYPE, [{1, {2, 1}}, {2, {1, 1}}, {4, {1, 2}}]},
     ?assertNot(is_strict_inflation(Counter1, Counter1)),
     ?assert(is_strict_inflation(Counter1, Counter2)),
-    ?assertNot(is_strict_inflation(DeltaCounter1, Counter1)),
-    ?assert(is_strict_inflation(DeltaCounter1, Counter2)),
     ?assert(is_strict_inflation(Counter1, Counter3)),
     ?assertNot(is_strict_inflation(Counter1, Counter4)).
 

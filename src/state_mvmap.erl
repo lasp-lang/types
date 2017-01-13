@@ -35,17 +35,15 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
+-export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
--export_type([state_mvmap/0, delta_state_mvmap/0, state_mvmap_op/0]).
+-export_type([state_mvmap/0, state_mvmap_op/0]).
 
 -opaque state_mvmap() :: {?TYPE, payload()}.
--opaque delta_state_mvmap() :: {?TYPE, {delta, payload()}}.
--type delta_or_state() :: state_mvmap() | delta_state_mvmap().
 -type payload() :: {atom(), orddict:orddict(), causal_context:causal_context()}.
 -type key() :: term().
 -type value() :: term().
@@ -61,18 +59,6 @@ new() ->
 new([]) ->
     new().
 
--spec new_delta() -> delta_state_mvmap().
-new_delta() ->
-    state_type:new_delta(?TYPE).
-
--spec new_delta([term()]) -> delta_state_mvmap().
-new_delta([]) ->
-    new_delta().
-
--spec is_delta(delta_or_state()) -> boolean().
-is_delta({?TYPE, _}=CRDT) ->
-    state_type:is_delta(CRDT).
-
 %% @doc Mutate a `state_mvmap()'.
 -spec mutate(state_mvmap_op(), type:id(), state_mvmap()) ->
     {ok, state_mvmap()}.
@@ -85,10 +71,10 @@ mutate(Op, Actor, {?TYPE, _}=CRDT) ->
 %%      The second argument is the replica id.
 %%      The third argument is the `state_mvmap()' to be inflated.
 -spec delta_mutate(state_mvmap_op(), type:id(), state_mvmap()) ->
-    {ok, delta_state_mvmap()}.
+    {ok, state_mvmap()}.
 delta_mutate({set, Key, Value}, Actor, {?TYPE, {Type, DotMap, CausalContext}}) ->
     SubDotStore = dot_map_fetch(Key, DotMap),
-    {ok, {Type, {delta, {DeltaSubDotStore, DeltaCausalContext}}}} =
+    {ok, {Type, {DeltaSubDotStore, DeltaCausalContext}}} =
         Type:delta_mutate({set, 0, Value},
                           Actor,
                           {Type, {SubDotStore, CausalContext}}),
@@ -96,7 +82,7 @@ delta_mutate({set, Key, Value}, Actor, {?TYPE, {Type, DotMap, CausalContext}}) -
     DeltaDotStore = orddict:store(Key, DeltaSubDotStore, EmptyDotMap),
 
     Delta = {Type, DeltaDotStore, DeltaCausalContext},
-    {ok, {?TYPE, {delta, Delta}}}.
+    {ok, {?TYPE, Delta}}.
 
 %% @doc Returns the value of the `state_mvmap()'.
 %%      This value is a dictionary where each key maps to the
@@ -114,7 +100,7 @@ query({?TYPE, {Type, DotMap, CausalContext}}) ->
     ).
 
 %% @doc Merge two `state_mvmap()'.
--spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
+-spec merge(state_mvmap(), state_mvmap()) -> state_mvmap().
 merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     MergeFun = fun({?TYPE, MVMap1}, {?TYPE, MVMap2}) ->
         Map = dot_map_merge(MVMap1, MVMap2),
@@ -166,25 +152,19 @@ equal({?TYPE, MVMap1}, {?TYPE, MVMap2}) ->
     MVMap1 == MVMap2.
 
 %% @doc Check if a `state_mvmap()' is bottom
--spec is_bottom(delta_or_state()) -> boolean().
-is_bottom({?TYPE, {delta, Map}}) ->
-    is_bottom({?TYPE, Map});
+-spec is_bottom(state_mvmap()) -> boolean().
 is_bottom({?TYPE, _}=CRDT) ->
     CRDT == new().
 
 %% @doc Given two `state_mvmap()', check if the second is an inflation
 %%      of the first.
 %% @todo
--spec is_inflation(delta_or_state(), state_mvmap()) -> boolean().
-is_inflation({?TYPE, {delta, Map1}}, {?TYPE, Map2}) ->
-    is_inflation({?TYPE, Map1}, {?TYPE, Map2});
+-spec is_inflation(state_mvmap(), state_mvmap()) -> boolean().
 is_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_inflation(CRDT1, CRDT2).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(delta_or_state(), state_mvmap()) -> boolean().
-is_strict_inflation({?TYPE, {delta, Map1}}, {?TYPE, Map2}) ->
-    is_strict_inflation({?TYPE, Map1}, {?TYPE, Map2});
+-spec is_strict_inflation(state_mvmap(), state_mvmap()) -> boolean().
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
@@ -196,23 +176,21 @@ irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
 
 %% @doc Join decomposition for `state_mvmap()'.
 %% @todo
--spec join_decomposition(delta_or_state()) -> [state_mvmap()].
-join_decomposition({?TYPE, {delta, Payload}}) ->
-    join_decomposition({?TYPE, Payload});
+-spec join_decomposition(state_mvmap()) -> [state_mvmap()].
 join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
 
 %% @doc Delta calculation for `state_mvmap()'.
--spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
+-spec delta(state_type:delta_method(), state_mvmap(), state_mvmap()) ->
     state_mvmap().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).
 
--spec encode(state_type:format(), delta_or_state()) -> binary().
+-spec encode(state_type:format(), state_mvmap()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
     erlang:term_to_binary(CRDT).
 
--spec decode(state_type:format(), binary()) -> delta_or_state().
+-spec decode(state_type:format(), binary()) -> state_mvmap().
 decode(erlang, Binary) ->
     {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
     CRDT.
