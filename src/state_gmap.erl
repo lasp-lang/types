@@ -39,17 +39,15 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
+-export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
--export_type([state_gmap/0, delta_state_gmap/0, state_gmap_op/0]).
+-export_type([state_gmap/0, state_gmap_op/0]).
 
 -opaque state_gmap() :: {?TYPE, payload()}.
--opaque delta_state_gmap() :: {?TYPE, {delta, payload()}}.
--type delta_or_state() :: state_gmap() | delta_state_gmap().
 -type ctype() :: state_type:state_type() | {state_type:state_type(), [term()]}.
 -type payload() :: {ctype(), orddict:orddict()}.
 -type key() :: term().
@@ -67,18 +65,6 @@ new() ->
 new([CType]) ->
     {?TYPE, {CType, orddict:new()}}.
 
--spec new_delta() -> delta_state_gmap().
-new_delta() ->
-    new_delta([?MAX_INT_TYPE]).
-
--spec new_delta([term()]) -> delta_state_gmap().
-new_delta(Args) ->
-    state_type:new_delta(?TYPE, Args).
-
--spec is_delta(delta_or_state()) -> boolean().
-is_delta({?TYPE, _}=CRDT) ->
-    state_type:is_delta(CRDT).
-
 %% @doc Mutate a `state_gmap()'.
 -spec mutate(state_gmap_op(), type:id(), state_gmap()) ->
     {ok, state_gmap()}.
@@ -91,7 +77,7 @@ mutate(Op, Actor, {?TYPE, _}=CRDT) ->
 %%      operation to be performed on the correspondent value of that
 %%      key.
 -spec delta_mutate(state_gmap_op(), type:id(), state_gmap()) ->
-    {ok, delta_state_gmap()}.
+    {ok, state_gmap()}.
 delta_mutate({apply, Key, Op}, Actor, {?TYPE, {CType, GMap}}) ->
     {Type, Args} = state_type:extract_args(CType),
 
@@ -101,9 +87,9 @@ delta_mutate({apply, Key, Op}, Actor, {?TYPE, {CType, GMap}}) ->
         error ->
             Type:new(Args)
     end,
-    {ok, {Type, {delta, KeyDelta}}} = Type:delta_mutate(Op, Actor, Current),
+    {ok, {Type, KeyDelta}} = Type:delta_mutate(Op, Actor, Current),
     Delta = orddict:store(Key, {Type, KeyDelta}, orddict:new()),
-    {ok, {?TYPE, {delta, {CType, Delta}}}}.
+    {ok, {?TYPE, {CType, Delta}}}.
 
 %% @doc Returns the value of the `state_gmap()'.
 %%      This value is a dictionary where each key maps to the
@@ -125,7 +111,7 @@ query({?TYPE, {CType, GMap}}) ->
 %%      its correspondent value is preserved.
 %%      If a key is present in both `state_gmap()', the new value
 %%      will be the `merge/2' of both values.
--spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
+-spec merge(state_gmap(), state_gmap()) -> state_gmap().
 merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     MergeFun = fun({?TYPE, {CType, GMap1}}, {?TYPE, {CType, GMap2}}) ->
         {Type, _Args} = state_type:extract_args(CType),
@@ -152,9 +138,7 @@ equal({?TYPE, {CType, GMap1}}, {?TYPE, {CType, GMap2}}) ->
     orddict_ext:equal(GMap1, GMap2, Fun).
 
 %% @doc Check if a `state_gmap()' is bottom
--spec is_bottom(delta_or_state()) -> boolean().
-is_bottom({?TYPE, {delta, GMap}}) ->
-    is_bottom({?TYPE, GMap});
+-spec is_bottom(state_gmap()) -> boolean().
 is_bottom({?TYPE, {_CType, GMap}}) ->
     orddict:is_empty(GMap).
 
@@ -166,9 +150,7 @@ is_bottom({?TYPE, {_CType, GMap}}) ->
 %%          - for each key in the first `state_gmap()',
 %%          the correspondent value in the second `state_gmap()'
 %%          should be an inflation of the value in the first.
--spec is_inflation(delta_or_state(), state_gmap()) -> boolean().
-is_inflation({?TYPE, {delta, {CType, _GMap1}=G1}}, {?TYPE, {CType, _GMap2}=G2}) ->
-    is_inflation({?TYPE, G1}, {?TYPE, G2});
+-spec is_inflation(state_gmap(), state_gmap()) -> boolean().
 is_inflation({?TYPE, {CType, GMap1}}, {?TYPE, {CType, GMap2}}) ->
     {Type, _Args} = state_type:extract_args(CType),
     lists_ext:iterate_until(
@@ -184,9 +166,7 @@ is_inflation({?TYPE, {CType, GMap1}}, {?TYPE, {CType, GMap2}}) ->
      ).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(delta_or_state(), state_gmap()) -> boolean().
-is_strict_inflation({?TYPE, {delta, {CType, _GMap1}=G1}}, {?TYPE, {CType, _GMap2}=G2}) ->
-    is_strict_inflation({?TYPE, G1}, {?TYPE, G2});
+-spec is_strict_inflation(state_gmap(), state_gmap()) -> boolean().
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
@@ -198,23 +178,21 @@ irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
 
 %% @doc Join decomposition for `state_gmap()'.
 %% @todo
--spec join_decomposition(delta_or_state()) -> [state_gmap()].
-join_decomposition({?TYPE, {delta, Payload}}) ->
-    join_decomposition({?TYPE, Payload});
+-spec join_decomposition(state_gmap()) -> [state_gmap()].
 join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
 
 %% @doc Delta calculation for `state_gmap()'.
--spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
+-spec delta(state_type:delta_method(), state_gmap(), state_gmap()) ->
     state_gmap().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).
 
--spec encode(state_type:format(), delta_or_state()) -> binary().
+-spec encode(state_type:format(), state_gmap()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
     erlang:term_to_binary(CRDT).
 
--spec decode(state_type:format(), binary()) -> delta_or_state().
+-spec decode(state_type:format(), binary()) -> state_gmap().
 decode(erlang, Binary) ->
     {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
     CRDT.
@@ -227,9 +205,7 @@ decode(erlang, Binary) ->
 
 new_test() ->
     ?assertEqual({?TYPE, {?MAX_INT_TYPE, []}}, new()),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, []}}, new([?GCOUNTER_TYPE])),
-    ?assertEqual({?TYPE, {delta, {?MAX_INT_TYPE, []}}}, new_delta()),
-    ?assertEqual({?TYPE, {delta, {?GCOUNTER_TYPE, []}}}, new_delta([?GCOUNTER_TYPE])).
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, []}}, new([?GCOUNTER_TYPE])).
 
 query_test() ->
     Counter1 = {?GCOUNTER_TYPE, [{1, 1}, {2, 13}, {3, 1}]},
@@ -241,11 +217,11 @@ query_test() ->
 
 delta_apply_test() ->
     Map0 = new([?GCOUNTER_TYPE]),
-    {ok, {?TYPE, {delta, Delta1}}} = delta_mutate({apply, <<"key1">>, increment}, 1, Map0),
+    {ok, {?TYPE, Delta1}} = delta_mutate({apply, <<"key1">>, increment}, 1, Map0),
     Map1 = merge({?TYPE, Delta1}, Map0),
-    {ok, {?TYPE, {delta, Delta2}}} = delta_mutate({apply, <<"key1">>, increment}, 2, Map1),
+    {ok, {?TYPE, Delta2}} = delta_mutate({apply, <<"key1">>, increment}, 2, Map1),
     Map2 = merge({?TYPE, Delta2}, Map1),
-    {ok, {?TYPE, {delta, Delta3}}} = delta_mutate({apply, <<"key2">>, increment}, 1, Map2),
+    {ok, {?TYPE, Delta3}} = delta_mutate({apply, <<"key2">>, increment}, 1, Map2),
     Map3 = merge({?TYPE, Delta3}, Map2),
     ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}}, {?TYPE, Delta1}),
     ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}}, Map1),
@@ -267,15 +243,15 @@ apply_test() ->
 
 merge_deltas_test() ->
     Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
-    Delta1 = {?TYPE, {delta, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 17}]}}]}}},
-    Delta2 = {?TYPE, {delta, {?GCOUNTER_TYPE, [{<<"key2">>, {?GCOUNTER_TYPE, [{1, 17}]}}]}}},
+    Delta1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 17}]}}]}},
+    Delta2 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key2">>, {?GCOUNTER_TYPE, [{1, 17}]}}]}},
     Map2 = merge(Delta1, Map1),
     Map3 = merge(Map1, Delta1),
     DeltaGroup = merge(Delta1, Delta2),
     ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 17}]}}]}}, Map2),
     ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 17}]}}]}}, Map3),
-    ?assertEqual({?TYPE, {delta, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 17}]}},
-                                                   {<<"key2">>, {?GCOUNTER_TYPE, [{1, 17}]}}]}}}, DeltaGroup).
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 17}]}},
+                                                   {<<"key2">>, {?GCOUNTER_TYPE, [{1, 17}]}}]}}, DeltaGroup).
 
 equal_test() ->
     Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
@@ -293,13 +269,10 @@ is_bottom_test() ->
 
 is_inflation_test() ->
     Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
-    DeltaMap1 = {?TYPE, {delta, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}}},
     Map2 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 2}]}}]}},
     Map3 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
     ?assert(is_inflation(Map1, Map1)),
     ?assert(is_inflation(Map1, Map2)),
-    ?assert(is_inflation(DeltaMap1, Map1)),
-    ?assert(is_inflation(DeltaMap1, Map2)),
     ?assertNot(is_inflation(Map1, Map3)),
     %% check inflation with merge
     ?assert(state_type:is_inflation(Map1, Map1)),
@@ -308,13 +281,10 @@ is_inflation_test() ->
 
 is_strict_inflation_test() ->
     Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
-    DeltaMap1 = {?TYPE, {delta, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}}},
     Map2 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 2}]}}]}},
     Map3 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
     ?assertNot(is_strict_inflation(Map1, Map1)),
     ?assert(is_strict_inflation(Map1, Map2)),
-    ?assertNot(is_strict_inflation(DeltaMap1, Map1)),
-    ?assert(is_strict_inflation(DeltaMap1, Map2)),
     ?assertNot(is_strict_inflation(Map1, Map3)).
 
 join_decomposition_test() ->

@@ -39,17 +39,15 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
+-export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
--export_type([state_ormap/0, delta_state_ormap/0, state_ormap_op/0]).
+-export_type([state_ormap/0, state_ormap_op/0]).
 
 -opaque state_ormap() :: {?TYPE, payload()}.
--opaque delta_state_ormap() :: {?TYPE, {delta, payload()}}.
--type delta_or_state() :: state_ormap() | delta_state_ormap().
 -type payload() :: state_causal_type:causal_crdt().
 -type key() :: term().
 -type key_op() :: term().
@@ -66,18 +64,6 @@ new() ->
 -spec new([term()]) -> state_ormap().
 new([CType]) ->
     {?TYPE, state_causal_type:new({dot_map, CType})}.
-
--spec new_delta() -> delta_state_ormap().
-new_delta() ->
-    new_delta([?AWSET_TYPE]).
-
--spec new_delta([term()]) -> delta_state_ormap().
-new_delta(Args) ->
-    state_type:new_delta(?TYPE, Args).
-
--spec is_delta(delta_or_state()) -> boolean().
-is_delta({?TYPE, _}=CRDT) ->
-    state_type:is_delta(CRDT).
 
 %% @doc Mutate a `state_ormap()'.
 -spec mutate(state_ormap_op(), type:id(), state_ormap()) ->
@@ -96,16 +82,16 @@ mutate(Op, Actor, {?TYPE, _}=CRDT) ->
 %%      The second argument is the replica id.
 %%      The third argument is the `state_ormap()' to be inflated.
 -spec delta_mutate(state_ormap_op(), type:id(), state_ormap()) ->
-    {ok, delta_state_ormap()}.
+    {ok, state_ormap()}.
 delta_mutate({apply, Key, Op}, Actor, {?TYPE, {{{dot_map, CType}, _}=DotMap, CausalContext}}) ->
     {Type, _} = state_type:extract_args(CType),
     SubDotStore = dot_map:fetch(Key, DotMap),
-    {ok, {Type, {delta, {DeltaSubDotStore, DeltaCausalContext}}}} = Type:delta_mutate(Op, Actor, {Type, {SubDotStore, CausalContext}}),
+    {ok, {Type, {DeltaSubDotStore, DeltaCausalContext}}} = Type:delta_mutate(Op, Actor, {Type, {SubDotStore, CausalContext}}),
     EmptyDotMap = dot_map:new(CType),
     DeltaDotStore = dot_map:store(Key, DeltaSubDotStore, EmptyDotMap),
 
     Delta = {DeltaDotStore, DeltaCausalContext},
-    {ok, {?TYPE, {delta, Delta}}};
+    {ok, {?TYPE, Delta}};
 
 delta_mutate({rmv, Key}, _Actor, {?TYPE, {{{dot_map, CType}, _}=DotMap, _CausalContext}}) ->
     SubDotStore = dot_map:fetch(Key, DotMap),
@@ -113,7 +99,7 @@ delta_mutate({rmv, Key}, _Actor, {?TYPE, {{{dot_map, CType}, _}=DotMap, _CausalC
     DeltaDotStore = dot_map:new(CType),
 
     Delta = {DeltaDotStore, DeltaCausalContext},
-    {ok, {?TYPE, {delta, Delta}}}.
+    {ok, {?TYPE, Delta}}.
 
 %% @doc Returns the value of the `state_ormap()'.
 %%      This value is a dictionary where each key maps to the
@@ -134,7 +120,7 @@ query({?TYPE, {{{dot_map, CType}, _}=DotMap, CausalContext}}) ->
 %% @doc Merge two `state_ormap()'.
 %%      Merging is handled by the `merge' function in
 %%      `state_causal_type' common library.
--spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
+-spec merge(state_ormap(), state_ormap()) -> state_ormap().
 merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     MergeFun = fun({?TYPE, ORMap1}, {?TYPE, ORMap2}) ->
         Map = state_causal_type:merge(ORMap1, ORMap2),
@@ -149,25 +135,19 @@ equal({?TYPE, ORMap1}, {?TYPE, ORMap2}) ->
     ORMap1 == ORMap2.
 
 %% @doc Check if a `state_ormap()' is bottom
--spec is_bottom(delta_or_state()) -> boolean().
-is_bottom({?TYPE, {delta, Map}}) ->
-    is_bottom({?TYPE, Map});
+-spec is_bottom(state_ormap()) -> boolean().
 is_bottom({?TYPE, _}=CRDT) ->
     CRDT == new().
 
 %% @doc Given two `state_ormap()', check if the second is an inflation
 %%      of the first.
 %% @todo
--spec is_inflation(delta_or_state(), state_ormap()) -> boolean().
-is_inflation({?TYPE, {delta, Map1}}, {?TYPE, Map2}) ->
-    is_inflation({?TYPE, Map1}, {?TYPE, Map2});
+-spec is_inflation(state_ormap(), state_ormap()) -> boolean().
 is_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_inflation(CRDT1, CRDT2).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(delta_or_state(), state_ormap()) -> boolean().
-is_strict_inflation({?TYPE, {delta, Map1}}, {?TYPE, Map2}) ->
-    is_strict_inflation({?TYPE, Map1}, {?TYPE, Map2});
+-spec is_strict_inflation(state_ormap(), state_ormap()) -> boolean().
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
@@ -179,23 +159,21 @@ irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
 
 %% @doc Join decomposition for `state_ormap()'.
 %% @todo
--spec join_decomposition(delta_or_state()) -> [state_ormap()].
-join_decomposition({?TYPE, {delta, Payload}}) ->
-    join_decomposition({?TYPE, Payload});
+-spec join_decomposition(state_ormap()) -> [state_ormap()].
 join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
 
 %% @doc Delta calculation for `state_ormap()'.
--spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
+-spec delta(state_type:delta_method(), state_ormap(), state_ormap()) ->
     state_ormap().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).
 
--spec encode(state_type:format(), delta_or_state()) -> binary().
+-spec encode(state_type:format(), state_ormap()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
     erlang:term_to_binary(CRDT).
 
--spec decode(state_type:format(), binary()) -> delta_or_state().
+-spec decode(state_type:format(), binary()) -> state_ormap().
 decode(erlang, Binary) ->
     {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
     CRDT.
@@ -207,8 +185,7 @@ decode(erlang, Binary) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, {{{dot_map, ?AWSET_TYPE}, []}, []}}, new()),
-    ?assertEqual({?TYPE, {delta, {{{dot_map, ?AWSET_TYPE}, []}, []}}}, new_delta()).
+    ?assertEqual({?TYPE, {{{dot_map, ?AWSET_TYPE}, []}, []}}, new()).
 
 query_test() ->
     Actor = 1,
@@ -224,13 +201,13 @@ query_test() ->
 delta_apply_test() ->
     Actor = 1,
     Map0 = new([?AWSET_TYPE]),
-    {ok, {?TYPE, {delta, Delta1}}} = delta_mutate({apply, "b", {add, 3}}, Actor, Map0),
+    {ok, {?TYPE, Delta1}} = delta_mutate({apply, "b", {add, 3}}, Actor, Map0),
     Map1 = merge({?TYPE, Delta1}, Map0),
-    {ok, {?TYPE, {delta, Delta2}}} = delta_mutate({apply, "a", {add, 17}}, Actor, Map1),
+    {ok, {?TYPE, Delta2}} = delta_mutate({apply, "a", {add, 17}}, Actor, Map1),
     Map2 = merge({?TYPE, Delta2}, Map1),
-    {ok, {?TYPE, {delta, Delta3}}} = delta_mutate({apply, "b", {add, 13}}, Actor, Map2),
+    {ok, {?TYPE, Delta3}} = delta_mutate({apply, "b", {add, 13}}, Actor, Map2),
     Map3 = merge({?TYPE, Delta3}, Map2),
-    {ok, {?TYPE, {delta, Delta4}}} = delta_mutate({apply, "b", {rmv, 3}}, Actor, Map3),
+    {ok, {?TYPE, Delta4}} = delta_mutate({apply, "b", {rmv, 3}}, Actor, Map3),
     Map4 = merge({?TYPE, Delta4}, Map3),
     ?assertEqual({?TYPE, {{{dot_map, ?AWSET_TYPE},
                      [{"b", {{dot_map, dot_set}, [{3,  {dot_set, [{Actor, 1}]}}]}}]},

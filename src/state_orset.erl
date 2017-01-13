@@ -37,18 +37,15 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
+-export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
--export_type([state_orset/0, delta_state_orset/0, state_orset_op/0]).
+-export_type([state_orset/0, state_orset_op/0]).
 
 -opaque state_orset() :: {?TYPE, payload()}.
--opaque delta_state_orset() :: {?TYPE, {delta, payload()}}.
--type delta_or_state() :: state_orset() | delta_state_orset().
-
 -type payload() :: orddict:orddict().
 -type element() :: term().
 -type token() :: term().
@@ -68,18 +65,6 @@ new() ->
 new([]) ->
     new().
 
--spec new_delta() -> delta_state_orset().
-new_delta() ->
-    state_type:new_delta(?TYPE).
-
--spec new_delta([term()]) -> delta_state_orset().
-new_delta([]) ->
-    new_delta().
-
--spec is_delta(delta_or_state()) -> boolean().
-is_delta({?TYPE, _}=CRDT) ->
-    state_type:is_delta(CRDT).
-
 %% @doc Mutate a `state_orset()'.
 -spec mutate(state_orset_op(), type:id(), state_orset()) ->
     {ok, state_orset()}.
@@ -94,7 +79,7 @@ mutate(Op, Actor, {?TYPE, _ORSet}=CRDT) ->
 %%      The second argument is the replica id.
 %%      The third argument is the `state_orset()' to be inflated.
 -spec delta_mutate(state_orset_op(), type:id(), state_orset()) ->
-    {ok, delta_state_orset()}.
+    {ok, state_orset()}.
 delta_mutate({add, Elem}, Actor, {?TYPE, _}=ORSet) ->
     Token = unique(Actor),
     delta_mutate({add_by_token, Token, Elem}, Actor, ORSet);
@@ -105,7 +90,7 @@ delta_mutate({add, Elem}, Actor, {?TYPE, _}=ORSet) ->
 delta_mutate({add_by_token, Token, Elem}, _Actor, {?TYPE, _ORSet}) ->
     Tokens = orddict:store(Token, true, orddict:new()),
     Delta = orddict:store(Elem, Tokens, orddict:new()),
-    {ok, {?TYPE, {delta, Delta}}};
+    {ok, {?TYPE, Delta}};
 
 %% @doc Returns a new `state_orset()' with the elements passed as argument
 %%      as keys in the dictionary.
@@ -119,7 +104,7 @@ delta_mutate({add_all, Elems}, Actor, {?TYPE, _ORSet}) ->
         orddict:new(),
         Elems
     ),
-    {ok, {?TYPE, {delta, Delta}}};
+    {ok, {?TYPE, Delta}};
 
 %% @doc Returns a new `state_orset()' with only one element in
 %%      the dictionary mapping all current tokens to false (inactive).
@@ -128,10 +113,10 @@ delta_mutate({rmv, Elem}, _Actor, {?TYPE, ORSet}) ->
         {ok, Tokens} ->
             InactiveTokens = [{Token, false} || {Token, _Active} <- orddict:to_list(Tokens)],
             Delta = orddict:store(Elem, InactiveTokens, orddict:new()),
-            {ok, {?TYPE, {delta, Delta}}};
+            {ok, {?TYPE, Delta}};
         error ->
             Delta = orddict:new(),
-            {ok, {?TYPE, {delta, Delta}}}
+            {ok, {?TYPE, Delta}}
     end;
 
 %% @doc Removes a list of elements passed as input.
@@ -139,14 +124,14 @@ delta_mutate({rmv_all, Elems}, Actor, {?TYPE, _}=ORSet) ->
     {?TYPE, DeltaGroup} = lists:foldl(
         fun(Elem, DeltaGroupAcc) ->
             case delta_mutate({rmv, Elem}, Actor, ORSet) of
-                {ok, {?TYPE, {delta, Delta}}} ->
+                {ok, {?TYPE, Delta}} ->
                     merge({?TYPE, Delta}, DeltaGroupAcc)
             end
         end,
         new(),
         Elems
     ),
-    {ok, {?TYPE, {delta, DeltaGroup}}}.
+    {ok, {?TYPE, DeltaGroup}}.
 
 %% @doc Returns the value of the `state_orset()'.
 %%      This value is a set with all the elements in the `state_orset()'
@@ -177,7 +162,7 @@ query({?TYPE, ORSet}) ->
 %%          - if a token is present in both `state_orset()' its value will be:
 %%              * active (true) if both were active before
 %%              * inactive (false) otherwise
--spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
+-spec merge(state_orset(), state_orset()) -> state_orset().
 merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     MergeFun = fun({?TYPE, ORSet1}, {?TYPE, ORSet2}) ->
         ORSet = orddict:merge(
@@ -204,9 +189,7 @@ equal({?TYPE, ORSet1}, {?TYPE, ORSet2}) ->
     ORSet1 == ORSet2.
 
 %% @doc Check if an ORSet is bottom.
--spec is_bottom(delta_or_state()) -> boolean().
-is_bottom({?TYPE, {delta, ORSet}}) ->
-    is_bottom({?TYPE, ORSet});
+-spec is_bottom(state_orset()) -> boolean().
 is_bottom({?TYPE, ORSet}) ->
     orddict:is_empty(ORSet).
 
@@ -220,9 +203,7 @@ is_bottom({?TYPE, ORSet}) ->
 %%          - active on both
 %%          - inactive on both
 %%          - first active and second inactive
--spec is_inflation(delta_or_state(), state_orset()) -> boolean().
-is_inflation({?TYPE, {delta, ORSet1}}, {?TYPE, ORSet2}) ->
-    is_inflation({?TYPE, ORSet1}, {?TYPE, ORSet2});
+-spec is_inflation(state_orset(), state_orset()) -> boolean().
 is_inflation({?TYPE, ORSet1}, {?TYPE, ORSet2}) ->
     lists_ext:iterate_until(
         fun({Elem, Tokens1}) ->
@@ -256,9 +237,7 @@ is_inflation({?TYPE, ORSet1}, {?TYPE, ORSet2}) ->
     ).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(delta_or_state(), state_orset()) -> boolean().
-is_strict_inflation({?TYPE, {delta, ORSet1}}, {?TYPE, ORSet2}) ->
-    is_strict_inflation({?TYPE, ORSet1}, {?TYPE, ORSet2});
+-spec is_strict_inflation(state_orset(), state_orset()) -> boolean().
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
@@ -285,9 +264,7 @@ irreducible_is_strict_inflation({?TYPE, [{Elem, [{Token, Active}]}]}, {?TYPE, OR
     end.
 
 %% @doc Join decomposition for `state_orset()'.
--spec join_decomposition(delta_or_state()) -> [state_orset()].
-join_decomposition({?TYPE, {delta, Payload}}) ->
-    join_decomposition({?TYPE, Payload});
+-spec join_decomposition(state_orset()) -> [state_orset()].
 join_decomposition({?TYPE, ORSet}) ->
     orddict:fold(
         fun(Elem, Tokens, Acc) ->
@@ -299,16 +276,16 @@ join_decomposition({?TYPE, ORSet}) ->
      ).
 
 %% @doc Delta calculation for `state_orset()'.
--spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
+-spec delta(state_type:delta_method(), state_orset(), state_orset()) ->
     state_orset().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).
 
--spec encode(state_type:format(), delta_or_state()) -> binary().
+-spec encode(state_type:format(), state_orset()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
     erlang:term_to_binary(CRDT).
 
--spec decode(state_type:format(), binary()) -> delta_or_state().
+-spec decode(state_type:format(), binary()) -> state_orset().
 decode(erlang, Binary) ->
     {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
     CRDT.
@@ -324,8 +301,7 @@ unique(_Actor) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, orddict:new()}, new()),
-    ?assertEqual({?TYPE, {delta, orddict:new()}}, new_delta()).
+    ?assertEqual({?TYPE, orddict:new()}, new()).
 
 query_test() ->
     Set0 = new(),
@@ -336,11 +312,11 @@ query_test() ->
 delta_add_test() ->
     Actor = 1,
     Set0 = new(),
-    {ok, {?TYPE, {delta, Delta1}}} = delta_mutate({add_by_token, <<"token1">>, <<"a">>}, Actor, Set0),
+    {ok, {?TYPE, Delta1}} = delta_mutate({add_by_token, <<"token1">>, <<"a">>}, Actor, Set0),
     Set1 = merge({?TYPE, Delta1}, Set0),
-    {ok, {?TYPE, {delta, Delta2}}} = delta_mutate({add_by_token, <<"token2">>, <<"a">>}, Actor, Set1),
+    {ok, {?TYPE, Delta2}} = delta_mutate({add_by_token, <<"token2">>, <<"a">>}, Actor, Set1),
     Set2 = merge({?TYPE, Delta2}, Set1),
-    {ok, {?TYPE, {delta, Delta3}}} = delta_mutate({add_by_token, <<"token3">>, <<"b">>}, Actor, Set2),
+    {ok, {?TYPE, Delta3}} = delta_mutate({add_by_token, <<"token3">>, <<"b">>}, Actor, Set2),
     Set3 = merge({?TYPE, Delta3}, Set2),
     ?assertEqual({?TYPE, [{<<"a">>, [{<<"token1">>, true}]}]}, {?TYPE, Delta1}),
     ?assertEqual({?TYPE, [{<<"a">>, [{<<"token1">>, true}]}]}, Set1),
@@ -423,14 +399,14 @@ merge_commutative_test() ->
 
 merge_delta_test() ->
     Set1 = {?TYPE, [{<<"a">>, [{<<"token1">>, true}]}]},
-    Delta1 = {?TYPE, {delta, [{<<"a">>, [{<<"token1">>, false}]}]}},
-    Delta2 = {?TYPE, {delta, [{<<"b">>, [{<<"token2">>, true}]}]}},
+    Delta1 = {?TYPE, [{<<"a">>, [{<<"token1">>, false}]}]},
+    Delta2 = {?TYPE, [{<<"b">>, [{<<"token2">>, true}]}]},
     Set2 = merge(Delta1, Set1),
     Set3 = merge(Set1, Delta1),
     DeltaGroup = merge(Delta1, Delta2),
     ?assertEqual({?TYPE, [{<<"a">>, [{<<"token1">>, false}]}]}, Set2),
     ?assertEqual({?TYPE, [{<<"a">>, [{<<"token1">>, false}]}]}, Set3),
-    ?assertEqual({?TYPE, {delta, [{<<"a">>, [{<<"token1">>, false}]}, {<<"b">>, [{<<"token2">>, true}]}]}}, DeltaGroup).
+    ?assertEqual({?TYPE, [{<<"a">>, [{<<"token1">>, false}]}, {<<"b">>, [{<<"token2">>, true}]}]}, DeltaGroup).
 
 equal_test() ->
     Set1 = {?TYPE, [{<<"a">>, [{<<"token1">>, true}]}]},
@@ -451,13 +427,10 @@ is_bottom_test() ->
 
 is_inflation_test() ->
     Set1 = {?TYPE, [{<<"a">>, [{<<"token1">>, true}]}]},
-    DeltaSet1 = {?TYPE, {delta, [{<<"a">>, [{<<"token1">>, true}]}]}},
     Set2 = {?TYPE, [{<<"a">>, [{<<"token1">>, false}]}]},
     Set3 = {?TYPE, [{<<"a">>, [{<<"token1">>, true}]}, {<<"b">>, [{<<"token2">>, false}]}]},
     ?assert(is_inflation(Set1, Set1)),
     ?assert(is_inflation(Set1, Set2)),
-    ?assert(is_inflation(DeltaSet1, Set1)),
-    ?assert(is_inflation(DeltaSet1, Set2)),
     ?assertNot(is_inflation(Set2, Set1)),
     ?assert(is_inflation(Set1, Set3)),
     ?assertNot(is_inflation(Set2, Set3)),
@@ -472,13 +445,10 @@ is_inflation_test() ->
 
 is_strict_inflation_test() ->
     Set1 = {?TYPE, [{<<"a">>, [{<<"token1">>, true}]}]},
-    DeltaSet1 = {?TYPE, {delta, [{<<"a">>, [{<<"token1">>, true}]}]}},
     Set2 = {?TYPE, [{<<"a">>, [{<<"token1">>, false}]}]},
     Set3 = {?TYPE, [{<<"a">>, [{<<"token1">>, true}]}, {<<"b">>, [{<<"token2">>, false}]}]},
     ?assertNot(is_strict_inflation(Set1, Set1)),
     ?assert(is_strict_inflation(Set1, Set2)),
-    ?assertNot(is_strict_inflation(DeltaSet1, Set1)),
-    ?assert(is_strict_inflation(DeltaSet1, Set2)),
     ?assertNot(is_strict_inflation(Set2, Set1)),
     ?assert(is_strict_inflation(Set1, Set3)),
     ?assertNot(is_strict_inflation(Set2, Set3)),

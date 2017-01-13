@@ -32,7 +32,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
+-export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
 -export([join_decomposition/1, delta/3]).
@@ -45,12 +45,9 @@
          subtract_removed/2]).
 
 -export_type([state_awset_ps/0,
-              delta_state_awset_ps/0,
               state_awset_ps_op/0]).
 
 -opaque state_awset_ps() :: {?TYPE, payload()}.
--opaque delta_state_awset_ps() :: {?TYPE, {delta, payload()}}.
--type delta_or_state() :: state_awset_ps() | delta_state_awset_ps().
 -type payload() :: {ps_data_store(), ps_filtered_out_events(), ps_all_events()}.
 -type element() :: term().
 -type state_awset_ps_op() :: {add, element()}
@@ -101,18 +98,6 @@ new() ->
 new([]) ->
     new().
 
--spec new_delta() -> delta_state_awset_ps().
-new_delta() ->
-    {?TYPE, {delta, {{orddict:new(), orddict:new()}, ordsets:new(), ordsets:new()}}}.
-
--spec new_delta([term()]) -> delta_state_awset_ps().
-new_delta([]) ->
-    new_delta().
-
--spec is_delta(delta_or_state()) -> boolean().
-is_delta({?TYPE, _}=CRDT) ->
-    state_type:is_delta(CRDT).
-
 %% @doc Mutate a `state_awset_ps()'.
 -spec mutate(state_awset_ps_op(), type:id(), state_awset_ps()) ->
     {ok, state_awset_ps()}.
@@ -128,19 +113,19 @@ mutate(Op, Actor, {?TYPE, _AWSet}=CRDT) ->
 %% The second argument is the event id ({object_id, replica_id}).
 %% The third argument is the `state_awset_ps()' to be inflated.
 -spec delta_mutate(state_awset_ps_op(), type:id(), state_awset_ps()) ->
-    {ok, delta_state_awset_ps()}.
+    {ok, state_awset_ps()}.
 %% Adds a single element to `state_awset_ps()'.
 %% Delta: {{[{Elem, {{NewEvent}}}], [{NewEvent, Elem}]}, [], [NewEvent]}
 delta_mutate({add, Elem},
              EventId,
              {?TYPE, {_DataStore, _FilteredOutEvents, AllEvents}}) ->
     {vclock, [NewEvent|_Rest]} = get_next_event(EventId, AllEvents),
-    {ok, {?TYPE, {delta, {add_elem_with_dot(
-                            Elem,
-                            ordsets:add_element(NewEvent, ordsets:new()),
-                            {orddict:new(), orddict:new()}),
-                          ordsets:new(),
-                          ordsets:add_element(NewEvent, ordsets:new())}}}};
+    {ok, {?TYPE, {add_elem_with_dot(
+                    Elem,
+                    ordsets:add_element(NewEvent, ordsets:new()),
+                    {orddict:new(), orddict:new()}),
+                  ordsets:new(),
+                  ordsets:add_element(NewEvent, ordsets:new())}}};
 
 %% Adds a list of elements to `state_awset_ps()'.
 delta_mutate({add_all, Elems},
@@ -157,10 +142,10 @@ delta_mutate({add_all, Elems},
                      {AccDeltaElemDataStore0, AccDeltaEventDataStore0}),
                    {vclock, [NewEvent|Rest]}}
           end, {{orddict:new(), orddict:new()}, AllEvents}, Elems),
-    {ok, {?TYPE, {delta, {{AccDeltaElemDataStore, AccDeltaEventDataStore},
-                          ordsets:new(),
-                          ordsets:from_list(
-                            orddict:fetch_keys(AccDeltaEventDataStore))}}}};
+    {ok, {?TYPE, {{AccDeltaElemDataStore, AccDeltaEventDataStore},
+                  ordsets:new(),
+                  ordsets:from_list(
+                    orddict:fetch_keys(AccDeltaEventDataStore))}}};
 
 %% Removes a single element in `state_awset_ps()'.
 %% Delta: {[], [], ElemEvents}
@@ -175,9 +160,9 @@ delta_mutate({rmv, Elem},
         error ->
             ordsets:new()
     end,
-    {ok, {?TYPE, {delta, {{orddict:new(), orddict:new()},
-                          ordsets:new(),
-                          ElemEvents}}}};
+    {ok, {?TYPE, {{orddict:new(), orddict:new()},
+                  ordsets:new(),
+                  ElemEvents}}};
 
 %% Removes a list of elements in `state_awset_ps()'.
 delta_mutate({rmv_all, Elems},
@@ -186,9 +171,9 @@ delta_mutate({rmv_all, Elems},
                       _FilteredOutEvents,
                       _AllEvents}}) ->
     ElemEventsAll = remove_all_private(Elems, ElemDataStore, ordsets:new()),
-    {ok, {?TYPE, {delta, {{orddict:new(), orddict:new()},
-                          ordsets:new(),
-                          ElemEventsAll}}}}.
+    {ok, {?TYPE, {{orddict:new(), orddict:new()},
+                  ordsets:new(),
+                  ElemEventsAll}}}.
 
 %% @doc Returns the value of the `state_awset_ps()'.
 %% This value is a set with all the keys (elements) in the ElemDataStore.
@@ -199,7 +184,7 @@ query({?TYPE, {{ElemDataStore, _EventDataStore}, _FilteredOutEvents, _AllEvents}
 
 %% @doc Merge two `state_awset_ps()'.
 %% Merging will be handled by the join_awset_ps().
--spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
+-spec merge(state_awset_ps(), state_awset_ps()) -> state_awset_ps().
 merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     MergeFun = fun({?TYPE, AWSet1}, {?TYPE, AWSet2}) ->
         AWSet = join_awset_ps(AWSet1, AWSet2),
@@ -216,9 +201,7 @@ equal({?TYPE, {DataStoreA, FilteredOutEventsA, {vclock, AllEventsA}}},
         lists:sort(AllEventsA) == lists:sort(AllEventsB).
 
 %% @doc Check if an AWSet is bottom.
--spec is_bottom(delta_or_state()) -> boolean().
-is_bottom({?TYPE, {delta, AWSet}}) ->
-    AWSet == {{orddict:new(), orddict:new()}, ordsets:new(), ordsets:new()};
+-spec is_bottom(state_awset_ps()) -> boolean().
 is_bottom({?TYPE, _AWSet}=FullAWSet) ->
     FullAWSet == new().
 
@@ -241,23 +224,21 @@ irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
 
 %% @doc Join decomposition for `state_awset_ps()'.
 %% @todo
--spec join_decomposition(delta_or_state()) -> [state_awset_ps()].
-join_decomposition({?TYPE, {delta, Payload}}) ->
-    join_decomposition({?TYPE, Payload});
+-spec join_decomposition(state_awset_ps()) -> [state_awset_ps()].
 join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
 
 %% @doc Delta calculation for `state_awset_ps()'.
--spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
+-spec delta(state_type:delta_method(), state_awset_ps(), state_awset_ps()) ->
     state_awset_ps().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).
 
--spec encode(state_type:format(), delta_or_state()) -> binary().
+-spec encode(state_type:format(), state_awset_ps()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
     erlang:term_to_binary(CRDT).
 
--spec decode(state_type:format(), binary()) -> delta_or_state().
+-spec decode(state_type:format(), binary()) -> state_awset_ps().
 decode(erlang, Binary) ->
     {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
     CRDT.
@@ -672,8 +653,7 @@ new_test() ->
     ?assertEqual({?TYPE, {{orddict:new(), orddict:new()},
                           ordsets:new(),
                           {vclock, []}}},
-                 new()),
-    ?assertEqual({?TYPE, {delta, {{orddict:new(), orddict:new()}, ordsets:new(), ordsets:new()}}}, new_delta()).
+                 new()).
 
 query_test() ->
     EventId = {<<"object1">>, a},
@@ -687,11 +667,11 @@ query_test() ->
 delta_add_test() ->
     EventId = {<<"object1">>, a},
     Set0 = new(),
-    {ok, {?TYPE, {delta, Delta1}}} = delta_mutate({add, <<"1">>}, EventId, Set0),
+    {ok, {?TYPE, Delta1}} = delta_mutate({add, <<"1">>}, EventId, Set0),
     Set1 = merge({?TYPE, Delta1}, Set0),
-    {ok, {?TYPE, {delta, Delta2}}} = delta_mutate({add, <<"1">>}, EventId, Set1),
+    {ok, {?TYPE, Delta2}} = delta_mutate({add, <<"1">>}, EventId, Set1),
     Set2 = merge({?TYPE, Delta2}, Set1),
-    {ok, {?TYPE, {delta, Delta3}}} = delta_mutate({add, <<"2">>}, EventId, Set2),
+    {ok, {?TYPE, Delta3}} = delta_mutate({add, <<"2">>}, EventId, Set2),
     Set3 = merge({?TYPE, Delta3}, Set2),
     ?assertEqual({?TYPE, {{[{<<"1">>, [[{EventId, 1}]]}],
                            [{{EventId, 1}, [<<"1">>]}]},
@@ -839,15 +819,15 @@ merge_test() ->
                       {{EventId2, 1}, [<<"1">>]}, {{EventId2, 2}, [<<"2">>]}]},
                     [],
                     {vclock, [{EventId1, 2}, {EventId2, 2}]}}},
-    Delta1 = {?TYPE, {delta, {{[{<<"1">>, [[{EventId1, 1}, {EventId2, 3}]]},
-                                {<<"2">>, [[{EventId1, 2}, {EventId2, 4}]]}],
-                               [{{EventId1, 1}, [<<"1">>]},
-                                {{EventId1, 2}, [<<"2">>]},
-                                {{EventId2, 3}, [<<"1">>]},
-                                {{EventId2, 4}, [<<"2">>]}]},
-                              [],
-                              [{EventId1, 1}, {EventId1, 2},
-                               {EventId2, 3}, {EventId2, 4}]}}},
+    Delta1 = {?TYPE, {{[{<<"1">>, [[{EventId1, 1}, {EventId2, 3}]]},
+                        {<<"2">>, [[{EventId1, 2}, {EventId2, 4}]]}],
+                       [{{EventId1, 1}, [<<"1">>]},
+                        {{EventId1, 2}, [<<"2">>]},
+                        {{EventId2, 3}, [<<"1">>]},
+                        {{EventId2, 4}, [<<"2">>]}]},
+                      [],
+                      [{EventId1, 1}, {EventId1, 2},
+                       {EventId2, 3}, {EventId2, 4}]}},
     Set2 = merge(Set1, Delta1),
     ?assert(equal({?TYPE, {{[{<<"1">>, [[{EventId1, 1}, {EventId2, 1}],
                                         [{EventId1, 1}, {EventId2, 3}]]},
@@ -869,13 +849,13 @@ merge_delta_test() ->
                      [{{EventId, 1}, [<<"1">>]}]},
                     [],
                     {vclock, [{EventId, 1}]}}},
-    Delta1 = {?TYPE, {delta, {{[], []},
-                              [],
-                              [{EventId, 1}]}}},
-    Delta2 = {?TYPE, {delta, {{[{<<"2">>, [[{EventId, 2}]]}],
-                               [{{EventId, 2}, [<<"2">>]}]},
-                              [],
-                              [{EventId, 2}]}}},
+    Delta1 = {?TYPE, {{[], []},
+                      [],
+                      [{EventId, 1}]}},
+    Delta2 = {?TYPE, {{[{<<"2">>, [[{EventId, 2}]]}],
+                       [{{EventId, 2}, [<<"2">>]}]},
+                      [],
+                      [{EventId, 2}]}},
     Set2 = merge(Delta1, Set1),
     Set3 = merge(Set1, Delta1),
     DeltaGroup = merge(Delta1, Delta2),
@@ -887,11 +867,11 @@ merge_delta_test() ->
                           [],
                           {vclock, [{EventId, 1}]}}},
                  Set3),
-    ?assertEqual({?TYPE, {delta, {{[{<<"2">>, [[{EventId, 2}]]}],
-                                   [{{EventId, 2}, [<<"2">>]}]},
-                                  [],
-                                  [{EventId, 1}, {EventId, 2}]}}},
-                 DeltaGroup).
+    ?assertEqual({?TYPE, {{[{<<"2">>, [[{EventId, 2}]]}],
+                           [{{EventId, 2}, [<<"2">>]}]},
+                          [],
+                          [{EventId, 1}, {EventId, 2}]}},
+                          DeltaGroup).
 
 equal_test() ->
     EventId = {<<"object1">>, a},

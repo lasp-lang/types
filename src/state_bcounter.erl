@@ -44,17 +44,15 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
+-export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
--export_type([state_bcounter/0, delta_state_bcounter/0, state_bcounter_op/0]).
+-export_type([state_bcounter/0, state_bcounter_op/0]).
 
 -opaque state_bcounter() :: {?TYPE, payload()}.
--opaque delta_state_bcounter() :: {?TYPE, {delta, payload()}}.
--type delta_or_state() :: state_bcounter() | delta_state_bcounter().
 -type payload() :: {?PNCOUNTER_TYPE:state_pncounter(), ?GMAP_TYPE:state_gmap()}.
 -type state_bcounter_op() :: {move, pos_integer(), term()} |
                              increment |
@@ -69,18 +67,6 @@ new() ->
 -spec new([term()]) -> state_bcounter().
 new([]) ->
     new().
-
--spec new_delta() -> delta_state_bcounter().
-new_delta() ->
-    state_type:new_delta(?TYPE).
-
--spec new_delta([term()]) -> delta_state_bcounter().
-new_delta([]) ->
-    new_delta().
-
--spec is_delta(delta_or_state()) -> boolean().
-is_delta({?TYPE, _}=CRDT) ->
-    state_type:is_delta(CRDT).
 
 %% @doc Mutate a `state_bcounter()'.
 -spec mutate(state_bcounter_op(), type:id(), state_bcounter()) ->
@@ -97,7 +83,7 @@ mutate(Op, Actor, {?TYPE, _BCounter}=CRDT) ->
 %%          local increments, or has permissions received from
 %%          other replicas
 -spec delta_mutate(state_bcounter_op(), type:id(), state_bcounter()) ->
-    {ok, delta_state_bcounter()} | {error, {precondition, non_enough_permissions}}.
+    {ok, state_bcounter()} | {error, {precondition, non_enough_permissions}}.
 delta_mutate({move, Count, To}, Actor, {?TYPE, {PNCounter, GMap}}=BCounter) ->
     {?GMAP_TYPE, {?MAX_INT_TYPE, Map0}} = GMap,
     case Count =< permissions(BCounter, Actor) of
@@ -110,24 +96,22 @@ delta_mutate({move, Count, To}, Actor, {?TYPE, {PNCounter, GMap}}=BCounter) ->
             end,
             Map1 = orddict:store({Actor, To}, Current + Count, orddict:new()),
             Delta = {state_type:new(PNCounter), {?GMAP_TYPE, {?MAX_INT_TYPE, Map1}}},
-            {ok, {?TYPE, {delta, Delta}}};
+            {ok, {?TYPE, Delta}};
         false ->
             {error, {precondition, non_enough_permissions}}
     end;
 
 delta_mutate(increment, Actor, {?TYPE, {PNCounter, GMap}}) ->
-    {ok, DM} = ?PNCOUNTER_TYPE:delta_mutate(increment, Actor, PNCounter),
-    IncDelta = ?PNCOUNTER_TYPE:extract_delta(DM),
+    {ok, {?PNCOUNTER_TYPE, IncDelta}} = ?PNCOUNTER_TYPE:delta_mutate(increment, Actor, PNCounter),
     Delta = {{?PNCOUNTER_TYPE, IncDelta}, state_type:new(GMap)},
-    {ok, {?TYPE, {delta, Delta}}};
+    {ok, {?TYPE, Delta}};
 
 delta_mutate(decrement, Actor, {?TYPE, {PNCounter, GMap}}=BCounter) ->
     case 0 < permissions(BCounter, Actor) of
         true ->
-            {ok, DM} = ?PNCOUNTER_TYPE:delta_mutate(decrement, Actor, PNCounter),
-            DecDelta = ?PNCOUNTER_TYPE:extract_delta(DM),
+            {ok, {?PNCOUNTER_TYPE, DecDelta}} = ?PNCOUNTER_TYPE:delta_mutate(decrement, Actor, PNCounter),
             Delta = {{?PNCOUNTER_TYPE, DecDelta}, state_type:new(GMap)},
-            {ok, {?TYPE, {delta, Delta}}};
+            {ok, {?TYPE, Delta}};
         false ->
             {error, {precondition, non_enough_permissions}}
     end.
@@ -177,7 +161,7 @@ query({?TYPE, {PNCounter, _GMap}}) ->
 %%      The result is the merge of both `state_pncounter()'
 %%      in the first component, and the merge of both
 %%      `state_gmap()' in the second component.
--spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
+-spec merge(state_bcounter(), state_bcounter()) -> state_bcounter().
 merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     MergeFun = fun({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) ->
         PNCounter = ?PNCOUNTER_TYPE:merge(PNCounter1, PNCounter2),
@@ -197,9 +181,7 @@ equal({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) ->
 %% @doc Some BCounter state is bottom is both components
 %%      of the pair (the PNCounter and the GMap)
 %%      are bottom.
--spec is_bottom(delta_or_state()) -> boolean().
-is_bottom({?TYPE, {delta, BCounter}}) ->
-    is_bottom({?TYPE, BCounter});
+-spec is_bottom(state_bcounter()) -> boolean().
 is_bottom({?TYPE, {PNCounter, GMap}}) ->
     ?PNCOUNTER_TYPE:is_bottom(PNCounter) andalso
     ?GMAP_TYPE:is_bottom(GMap).
@@ -207,9 +189,7 @@ is_bottom({?TYPE, {PNCounter, GMap}}) ->
 %% @doc Given two `state_bcounter()', check if the second is an
 %%      inflation of the first.
 %%      We have and inflation if we have an inflation component wise.
--spec is_inflation(delta_or_state(), state_bcounter()) -> boolean().
-is_inflation({?TYPE, {delta, BCounter1}}, {?TYPE, BCounter2}) ->
-    is_inflation({?TYPE, BCounter1}, {?TYPE, BCounter2});
+-spec is_inflation(state_bcounter(), state_bcounter()) -> boolean().
 is_inflation({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) ->
     ?PNCOUNTER_TYPE:is_inflation(PNCounter1, PNCounter2) andalso
     ?GMAP_TYPE:is_inflation(GMap1, GMap2).
@@ -222,9 +202,7 @@ is_inflation({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) ->
 %%      Composition of State-based CRDTs (2015)
 %%      [http://haslab.uminho.pt/cbm/files/crdtcompositionreport.pdf]
 %%
--spec is_strict_inflation(delta_or_state(), state_bcounter()) -> boolean().
-is_strict_inflation({?TYPE, {delta, BCounter1}}, {?TYPE, BCounter2}) ->
-    is_strict_inflation({?TYPE, BCounter1}, {?TYPE, BCounter2});
+-spec is_strict_inflation(state_bcounter(), state_bcounter()) -> boolean().
 is_strict_inflation({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) ->
     (?PNCOUNTER_TYPE:is_strict_inflation(PNCounter1, PNCounter2)
         andalso
@@ -242,23 +220,21 @@ irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
 
 %% @doc Join decomposition for `state_bcounter()'.
 %% @todo
--spec join_decomposition(delta_or_state()) -> [state_bcounter()].
-join_decomposition({?TYPE, {delta, Payload}}) ->
-    join_decomposition({?TYPE, Payload});
+-spec join_decomposition(state_bcounter()) -> [state_bcounter()].
 join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
 
 %% @doc Delta calculation for `state_bcounter()'.
--spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
+-spec delta(state_type:delta_method(), state_bcounter(), state_bcounter()) ->
     state_bcounter().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).
 
--spec encode(state_type:format(), delta_or_state()) -> binary().
+-spec encode(state_type:format(), state_bcounter()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
     erlang:term_to_binary(CRDT).
 
--spec decode(state_type:format(), binary()) -> delta_or_state().
+-spec decode(state_type:format(), binary()) -> state_bcounter().
 decode(erlang, Binary) ->
     {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
     CRDT.
@@ -270,8 +246,7 @@ decode(erlang, Binary) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, {?PNCOUNTER_TYPE:new(), ?GMAP_TYPE:new([?MAX_INT_TYPE])}}, new()),
-    ?assertEqual({?TYPE, {delta, {?PNCOUNTER_TYPE:new(), ?GMAP_TYPE:new([?MAX_INT_TYPE])}}}, new_delta()).
+    ?assertEqual({?TYPE, {?PNCOUNTER_TYPE:new(), ?GMAP_TYPE:new([?MAX_INT_TYPE])}}, new()).
 
 query_test() ->
     BCounter0 = new(),
@@ -281,11 +256,11 @@ query_test() ->
 
 delta_increment_test() ->
     BCounter0 = new(),
-    {ok, {?TYPE, {delta, Delta1}}} = delta_mutate(increment, 1, BCounter0),
+    {ok, {?TYPE, Delta1}} = delta_mutate(increment, 1, BCounter0),
     BCounter1 = merge({?TYPE, Delta1}, BCounter0),
-    {ok, {?TYPE, {delta, Delta2}}} = delta_mutate(increment, 1, BCounter1),
+    {ok, {?TYPE, Delta2}} = delta_mutate(increment, 1, BCounter1),
     BCounter2 = merge({?TYPE, Delta2}, BCounter1),
-    {ok, {?TYPE, {delta, Delta3}}} = delta_mutate(increment, 2, BCounter2),
+    {ok, {?TYPE, Delta3}} = delta_mutate(increment, 2, BCounter2),
     BCounter3 = merge({?TYPE, Delta3}, BCounter2),
     ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {1, 0}}]}, {?GMAP_TYPE, {?MAX_INT_TYPE, []}}}}, {?TYPE, Delta1}),
     ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {1, 0}}]}, {?GMAP_TYPE, {?MAX_INT_TYPE, []}}}}, BCounter1),
@@ -308,7 +283,7 @@ delta_decrement_test() ->
     BCounter0 = new(),
     {error, _} = delta_mutate(decrement, Actor, BCounter0),
     {ok, BCounter1} = mutate(increment, Actor, BCounter0),
-    {ok, {?TYPE, {delta, Delta1}}} = delta_mutate(decrement, Actor, BCounter1),
+    {ok, {?TYPE, Delta1}} = delta_mutate(decrement, Actor, BCounter1),
     BCounter2 = merge({?TYPE, Delta1}, BCounter1),
     {error, _} = delta_mutate(decrement, Actor, BCounter2),
     ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{Actor, {1, 1}}]}, {?GMAP_TYPE, {?MAX_INT_TYPE, []}}}}, BCounter2).
@@ -322,16 +297,16 @@ delta_move_test() ->
     {ok, BCounter2} = mutate(increment, From, BCounter1),
     {error, _} = delta_mutate({move, 3, To}, From, BCounter0),
     {error, _} = delta_mutate(decrement, To, BCounter2),
-    {ok, {?TYPE, {delta, Delta1}}} = delta_mutate({move, 2, To}, From, BCounter2),
+    {ok, {?TYPE, Delta1}} = delta_mutate({move, 2, To}, From, BCounter2),
     BCounter3 = merge({?TYPE, Delta1}, BCounter2),
     {error, _} = delta_mutate({move, 1, To}, From, BCounter3),
-    {ok, {?TYPE, {delta, Delta2}}} = delta_mutate(decrement, To, BCounter3),
+    {ok, {?TYPE, Delta2}} = delta_mutate(decrement, To, BCounter3),
     BCounter4 = merge({?TYPE, Delta2}, BCounter3),
     {error, _} = delta_mutate(decrement, From, BCounter4),
     {error, _} = delta_mutate({move, 2, From}, To, BCounter4),
-    {ok, {?TYPE, {delta, Delta3}}} = delta_mutate({move, 1, From}, To, BCounter4),
+    {ok, {?TYPE, Delta3}} = delta_mutate({move, 1, From}, To, BCounter4),
     BCounter5 = merge({?TYPE, Delta3}, BCounter4),
-    {ok, {?TYPE, {delta, Delta4}}} = delta_mutate(decrement, From, BCounter5),
+    {ok, {?TYPE, Delta4}} = delta_mutate(decrement, From, BCounter5),
     BCounter6 = merge({?TYPE, Delta4}, BCounter5),
     ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{From, {2, 0}}]},
                           {?GMAP_TYPE, {?MAX_INT_TYPE, [{{From, To}, 2}]}}}}, BCounter3),
@@ -341,14 +316,14 @@ delta_move_test() ->
 merge_deltas_test() ->
     GMap = {?GMAP_TYPE, {?MAX_INT_TYPE, []}},
     BCounter1 = {?TYPE, {{?PNCOUNTER_TYPE, [{1, {2, 0}}, {2, {1, 0}}]}, GMap}},
-    Delta1 = {?TYPE, {delta, {{?PNCOUNTER_TYPE, [{1, {4, 0}}]}, GMap}}},
-    Delta2 = {?TYPE, {delta, {{?PNCOUNTER_TYPE, [{2, {1, 17}}]}, GMap}}},
+    Delta1 = {?TYPE, {{?PNCOUNTER_TYPE, [{1, {4, 0}}]}, GMap}},
+    Delta2 = {?TYPE, {{?PNCOUNTER_TYPE, [{2, {1, 17}}]}, GMap}},
     BCounter2 = merge(Delta1, BCounter1),
     BCounter3 = merge(BCounter1, Delta1),
     DeltaGroup = merge(Delta1, Delta2),
     ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {4, 0}}, {2, {1, 0}}]}, GMap}}, BCounter2),
     ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {4, 0}}, {2, {1, 0}}]}, GMap}}, BCounter3),
-    ?assertEqual({?TYPE, {delta, {{?PNCOUNTER_TYPE, [{1, {4, 0}}, {2, {1, 17}}]}, GMap}}}, DeltaGroup).
+    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {4, 0}}, {2, {1, 17}}]}, GMap}}, DeltaGroup).
 
 join_decomposition_test() ->
     %% @todo

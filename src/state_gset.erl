@@ -40,17 +40,15 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
+-export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
--export_type([state_gset/0, delta_state_gset/0, state_gset_op/0]).
+-export_type([state_gset/0, state_gset_op/0]).
 
 -opaque state_gset() :: {?TYPE, payload()}.
--opaque delta_state_gset() :: {?TYPE, {delta, payload()}}.
--type delta_or_state() :: state_gset() | delta_state_gset().
 -type payload() :: ordsets:ordset(any()).
 -type element() :: term().
 -type state_gset_op() :: {add, element()}.
@@ -64,18 +62,6 @@ new() ->
 -spec new([term()]) -> state_gset().
 new([]) ->
     new().
-
--spec new_delta() -> delta_state_gset().
-new_delta() ->
-    state_type:new_delta(?TYPE).
-
--spec new_delta([term()]) -> delta_state_gset().
-new_delta([]) ->
-    new_delta().
-
--spec is_delta(delta_or_state()) -> boolean().
-is_delta({?TYPE, _}=CRDT) ->
-    state_type:is_delta(CRDT).
 
 %% @doc Mutate a `state_gset()'.
 -spec mutate(state_gset_op(), type:id(), state_gset()) ->
@@ -92,7 +78,7 @@ mutate(Op, Actor, {?TYPE, _GSet}=CRDT) ->
 %%      the set. If the element is already in the set
 %%      the resulting delta will be an empty `state_gset()'.
 -spec delta_mutate(state_gset_op(), type:id(), state_gset()) ->
-    {ok, delta_state_gset()}.
+    {ok, state_gset()}.
 delta_mutate({add, Elem}, _Actor, {?TYPE, GSet}) ->
     Delta = case ordsets:is_element(Elem, GSet) of
         true ->
@@ -100,7 +86,7 @@ delta_mutate({add, Elem}, _Actor, {?TYPE, GSet}) ->
         false ->
             ordsets:add_element(Elem, ordsets:new())
     end,
-    {ok, {?TYPE, {delta, Delta}}}.
+    {ok, {?TYPE, Delta}}.
 
 %% @doc Returns the value of the `state_gset()'.
 %%      This value is a set with all the elements in the `state_gset()'.
@@ -111,7 +97,7 @@ query({?TYPE, GSet}) ->
 %% @doc Merge two `state_gset()'.
 %%      The result is the set union of both sets in the
 %%      `state_gset()' passed as argument.
--spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
+-spec merge(state_gset(), state_gset()) -> state_gset().
 merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     MergeFun = fun({?TYPE, GSet1}, {?TYPE, GSet2}) ->
         GSet = ordsets:union(GSet1, GSet2),
@@ -125,9 +111,7 @@ equal({?TYPE, GSet1}, {?TYPE, GSet2}) ->
     ordsets_ext:equal(GSet1, GSet2).
 
 %% @doc Check if a GSet is bottom.
--spec is_bottom(delta_or_state()) -> boolean().
-is_bottom({?TYPE, {delta, GSet}}) ->
-    is_bottom({?TYPE, GSet});
+-spec is_bottom(state_gset()) -> boolean().
 is_bottom({?TYPE, GSet}) ->
     ordsets:size(GSet) == 0.
 
@@ -135,9 +119,7 @@ is_bottom({?TYPE, GSet}) ->
 %%      of the first.
 %%      The second `state_gset()' is an inflation if the first set is
 %%      a subset of the second.
--spec is_inflation(delta_or_state(), state_gset()) -> boolean().
-is_inflation({?TYPE, {delta, GSet1}}, {?TYPE, GSet2}) ->
-    is_inflation({?TYPE, GSet1}, {?TYPE, GSet2});
+-spec is_inflation(state_gset(), state_gset()) -> boolean().
 is_inflation({?TYPE, GSet1}, {?TYPE, GSet2}) ->
     ordsets:is_subset(GSet1, GSet2);
 
@@ -147,9 +129,7 @@ is_inflation({cardinality, Value1}, {?TYPE, _}=GSet) ->
     sets:size(Value2) >= Value1.
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(delta_or_state(), state_gset()) -> boolean().
-is_strict_inflation({?TYPE, {delta, GSet1}}, {?TYPE, GSet2}) ->
-    is_strict_inflation({?TYPE, GSet1}, {?TYPE, GSet2});
+-spec is_strict_inflation(state_gset(), state_gset()) -> boolean().
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2);
 
@@ -168,9 +148,7 @@ irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
 %%      The join decompostion for a `state_gset()' is the unique set
 %%      partition where each set of the partition has exactly one
 %%      element.
--spec join_decomposition(delta_or_state()) -> [state_gset()].
-join_decomposition({?TYPE, {delta, Payload}}) ->
-    join_decomposition({?TYPE, Payload});
+-spec join_decomposition(state_gset()) -> [state_gset()].
 join_decomposition({?TYPE, GSet}) ->
     ordsets:fold(
         fun(Elem, Acc) ->
@@ -181,16 +159,16 @@ join_decomposition({?TYPE, GSet}) ->
     ).
 
 %% @doc Delta calculation for `state_gset()'.
--spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
+-spec delta(state_type:delta_method(), state_gset(), state_gset()) ->
     state_gset().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).
 
--spec encode(state_type:format(), delta_or_state()) -> binary().
+-spec encode(state_type:format(), state_gset()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
     erlang:term_to_binary(CRDT).
 
--spec decode(state_type:format(), binary()) -> delta_or_state().
+-spec decode(state_type:format(), binary()) -> state_gset().
 decode(erlang, Binary) ->
     {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
     CRDT.
@@ -202,8 +180,7 @@ decode(erlang, Binary) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, ordsets:new()}, new()),
-    ?assertEqual({?TYPE, {delta, ordsets:new()}}, new_delta()).
+    ?assertEqual({?TYPE, ordsets:new()}, new()).
 
 query_test() ->
     Set0 = new(),
@@ -214,11 +191,11 @@ query_test() ->
 delta_add_test() ->
     Actor = 1,
     Set0 = new(),
-    {ok, {?TYPE, {delta, Delta1}}} = delta_mutate({add, <<"a">>}, Actor, Set0),
+    {ok, {?TYPE, Delta1}} = delta_mutate({add, <<"a">>}, Actor, Set0),
     Set1 = merge({?TYPE, Delta1}, Set0),
-    {ok, {?TYPE, {delta, Delta2}}} = delta_mutate({add, <<"a">>}, Actor, Set1),
+    {ok, {?TYPE, Delta2}} = delta_mutate({add, <<"a">>}, Actor, Set1),
     Set2 = merge({?TYPE, Delta2}, Set1),
-    {ok, {?TYPE, {delta, Delta3}}} = delta_mutate({add, <<"b">>}, Actor, Set2),
+    {ok, {?TYPE, Delta3}} = delta_mutate({add, <<"b">>}, Actor, Set2),
     Set3 = merge({?TYPE, Delta3}, Set2),
     ?assertEqual({?TYPE, [<<"a">>]}, {?TYPE, Delta1}),
     ?assertEqual({?TYPE, [<<"a">>]}, Set1),
@@ -253,14 +230,14 @@ merge_commutative_test() ->
 
 merge_deltas_test() ->
     Set1 = {?TYPE, [<<"a">>]},
-    Delta1 = {?TYPE, {delta, [<<"a">>, <<"b">>]}},
-    Delta2 = {?TYPE, {delta, [<<"c">>]}},
+    Delta1 = {?TYPE, [<<"a">>, <<"b">>]},
+    Delta2 = {?TYPE, [<<"c">>]},
     Set2 = merge(Delta1, Set1),
     Set3 = merge(Set1, Delta1),
     DeltaGroup = merge(Delta1, Delta2),
     ?assertEqual({?TYPE, [<<"a">>, <<"b">>]}, Set2),
     ?assertEqual({?TYPE, [<<"a">>, <<"b">>]}, Set3),
-    ?assertEqual({?TYPE, {delta, [<<"a">>, <<"b">>, <<"c">>]}}, DeltaGroup).
+    ?assertEqual({?TYPE, [<<"a">>, <<"b">>, <<"c">>]}, DeltaGroup).
 
 equal_test() ->
     Set1 = {?TYPE, [<<"a">>]},
@@ -276,12 +253,9 @@ is_bottom_test() ->
 
 is_inflation_test() ->
     Set1 = {?TYPE, [<<"a">>]},
-    DeltaSet1 = {?TYPE, {delta, [<<"a">>]}},
     Set2 = {?TYPE, [<<"a">>, <<"b">>]},
     ?assert(is_inflation(Set1, Set1)),
     ?assert(is_inflation(Set1, Set2)),
-    ?assert(is_inflation(DeltaSet1, Set1)),
-    ?assert(is_inflation(DeltaSet1, Set2)),
     ?assertNot(is_inflation(Set2, Set1)),
     %% check inflation with merge
     ?assert(state_type:is_inflation(Set1, Set1)),
@@ -290,12 +264,9 @@ is_inflation_test() ->
 
 is_strict_inflation_test() ->
     Set1 = {?TYPE, [<<"a">>]},
-    DeltaSet1 = {?TYPE, {delta, [<<"a">>]}},
     Set2 = {?TYPE, [<<"a">>, <<"b">>]},
     ?assertNot(is_strict_inflation(Set1, Set1)),
     ?assert(is_strict_inflation(Set1, Set2)),
-    ?assertNot(is_strict_inflation(DeltaSet1, Set1)),
-    ?assert(is_strict_inflation(DeltaSet1, Set2)),
     ?assertNot(is_strict_inflation(Set2, Set1)).
 
 join_decomposition_test() ->

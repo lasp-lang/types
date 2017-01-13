@@ -37,17 +37,15 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
+-export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
--export_type([state_mvregister/0, delta_state_mvregister/0, state_mvregister_op/0]).
+-export_type([state_mvregister/0, state_mvregister_op/0]).
 
 -opaque state_mvregister() :: {?TYPE, payload()}.
--opaque delta_state_mvregister() :: {?TYPE, {delta, payload()}}.
--type delta_or_state() :: state_mvregister() | delta_state_mvregister().
 -type payload() :: {orddict:orddict(dot_store:dot(), term()), causal_context:causal_context()}.
 -type timestamp() :: non_neg_integer().
 -type value() :: term().
@@ -62,18 +60,6 @@ new() ->
 -spec new([term()]) -> state_mvregister().
 new([]) ->
     new().
-
--spec new_delta() -> delta_state_mvregister().
-new_delta() ->
-    state_type:new_delta(?TYPE).
-
--spec new_delta([term()]) -> delta_state_mvregister().
-new_delta([]) ->
-    new_delta().
-
--spec is_delta(delta_or_state()) -> boolean().
-is_delta({?TYPE, _}=CRDT) ->
-    state_type:is_delta(CRDT).
 
 %% @doc Mutate a `state_mvregister()'.
 -spec mutate(state_mvregister_op(), type:id(), state_mvregister()) ->
@@ -91,7 +77,7 @@ mutate(Op, Actor, {?TYPE, _Register}=CRDT) ->
 %%      The second argument is the replica id.
 %%      The third argument is the `state_mvregister()' to be inflated.
 -spec delta_mutate(state_mvregister_op(), type:id(), state_mvregister()) ->
-    {ok, delta_state_mvregister()}.
+    {ok, state_mvregister()}.
 
 %% @doc Sets `state_mvregister()' value.
 delta_mutate({set, _Timestamp, Value}, Actor, {?TYPE, {DotStore, CausalContext}}) ->
@@ -102,7 +88,7 @@ delta_mutate({set, _Timestamp, Value}, Actor, {?TYPE, {DotStore, CausalContext}}
     DeltaCausalContext1 = causal_context:add_dot(NextDot, DeltaCausalContext0),
 
     Delta = {DeltaDotStore, DeltaCausalContext1},
-    {ok, {?TYPE, {delta, Delta}}}.
+    {ok, {?TYPE, Delta}}.
 
 %% @doc Returns the value of the `state_mvregister()'.
 -spec query(state_mvregister()) -> sets:set(value()).
@@ -110,7 +96,7 @@ query({?TYPE, {DotStore, _CausalContext}}) ->
     sets:from_list([Value || {_Dot, Value} <- orddict:to_list(DotStore)]).
 
 %% @doc Merge two `state_mvregister()'.
--spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
+-spec merge(state_mvregister(), state_mvregister()) -> state_mvregister().
 merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     MergeFun = fun({?TYPE, {DotStoreA, CausalContextA}},
                    {?TYPE, {DotStoreB, CausalContextB}}) ->
@@ -184,24 +170,18 @@ equal({?TYPE, Register1}, {?TYPE, Register2}) ->
     Register1 == Register2.
 
 %% @doc Check if an `state_mvregister()' is bottom.
--spec is_bottom(delta_or_state()) -> boolean().
-is_bottom({?TYPE, {delta, Register}}) ->
-    is_bottom({?TYPE, Register});
+-spec is_bottom(state_mvregister()) -> boolean().
 is_bottom({?TYPE, _}=CRDT) ->
     CRDT == new().
 
 %% @doc Given two `state_mvregister()', check if the second is and inflation of the first.
 %% @todo
--spec is_inflation(delta_or_state(), state_mvregister()) -> boolean().
-is_inflation({?TYPE, {delta, Register1}}, {?TYPE, Register2}) ->
-    is_inflation({?TYPE, Register1}, {?TYPE, Register2});
+-spec is_inflation(state_mvregister(), state_mvregister()) -> boolean().
 is_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_inflation(CRDT1, CRDT2).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(delta_or_state(), state_mvregister()) -> boolean().
-is_strict_inflation({?TYPE, {delta, Register1}}, {?TYPE, Register2}) ->
-    is_strict_inflation({?TYPE, Register1}, {?TYPE, Register2});
+-spec is_strict_inflation(state_mvregister(), state_mvregister()) -> boolean().
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
@@ -213,23 +193,21 @@ irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
 
 %% @doc Join decomposition for `state_mvregister()'.
 %% @todo
--spec join_decomposition(delta_or_state()) -> [state_mvregister()].
-join_decomposition({?TYPE, {delta, Payload}}) ->
-    join_decomposition({?TYPE, Payload});
+-spec join_decomposition(state_mvregister()) -> [state_mvregister()].
 join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
 
 %% @doc Delta calculation for `state_mvregister()'.
--spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
+-spec delta(state_type:delta_method(), state_mvregister(), state_mvregister()) ->
     state_mvregister().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).
 
--spec encode(state_type:format(), delta_or_state()) -> binary().
+-spec encode(state_type:format(), state_mvregister()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
     erlang:term_to_binary(CRDT).
 
--spec decode(state_type:format(), binary()) -> delta_or_state().
+-spec decode(state_type:format(), binary()) -> state_mvregister().
 decode(erlang, Binary) ->
     {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
     CRDT.
@@ -252,9 +230,7 @@ to_causal_context(Dict) ->
 
 new_test() ->
     ?assertEqual({?TYPE, {orddict:new(), ordsets:new()}},
-                 new()),
-    ?assertEqual({?TYPE, {delta, {orddict:new(), ordsets:new()}}},
-                 new_delta()).
+                 new()).
 
 query_test() ->
     Register0 = new(),
@@ -274,11 +250,11 @@ delta_mutate_test() ->
     ActorOne = 1,
     ActorTwo = 2,
     Register0 = new(),
-    {ok, {?TYPE, {delta, Delta1}}} = delta_mutate({set, Timestamp, Value1}, ActorOne, Register0),
+    {ok, {?TYPE, Delta1}} = delta_mutate({set, Timestamp, Value1}, ActorOne, Register0),
     Register1 = merge({?TYPE, Delta1}, Register0),
-    {ok, {?TYPE, {delta, Delta2}}} = delta_mutate({set, Timestamp, Value2}, ActorTwo, Register1),
+    {ok, {?TYPE, Delta2}} = delta_mutate({set, Timestamp, Value2}, ActorTwo, Register1),
     Register2 = merge({?TYPE, Delta2}, Register1),
-    {ok, {?TYPE, {delta, Delta3}}} = delta_mutate({set, Timestamp, Value1}, ActorTwo, Register2),
+    {ok, {?TYPE, Delta3}} = delta_mutate({set, Timestamp, Value1}, ActorTwo, Register2),
     Register3 = merge({?TYPE, Delta3}, Register2),
 
     ?assertEqual({?TYPE,

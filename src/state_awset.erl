@@ -35,17 +35,15 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--export([new/0, new/1, new_delta/0, new_delta/1, is_delta/1]).
+-export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
--export_type([state_awset/0, delta_state_awset/0, state_awset_op/0]).
+-export_type([state_awset/0, state_awset_op/0]).
 
 -opaque state_awset() :: {?TYPE, payload()}.
--opaque delta_state_awset() :: {?TYPE, {delta, payload()}}.
--type delta_or_state() :: state_awset() | delta_state_awset().
 -type payload() :: state_causal_type:causal_crdt().
 -type element() :: term().
 -type state_awset_op() :: {add, element()} |
@@ -64,18 +62,6 @@ new() ->
 new([]) ->
     new().
 
--spec new_delta() -> delta_state_awset().
-new_delta() ->
-    state_type:new_delta(?TYPE).
-
--spec new_delta([term()]) -> delta_state_awset().
-new_delta([]) ->
-    new_delta().
-
--spec is_delta(delta_or_state()) -> boolean().
-is_delta({?TYPE, _}=CRDT) ->
-    state_type:is_delta(CRDT).
-
 %% @doc Mutate a `state_awset()'.
 -spec mutate(state_awset_op(), type:id(), state_awset()) ->
     {ok, state_awset()}.
@@ -91,7 +77,7 @@ mutate(Op, Actor, {?TYPE, _AWSet}=CRDT) ->
 %%      The second argument is the replica id.
 %%      The third argument is the `state_awset()' to be inflated.
 -spec delta_mutate(state_awset_op(), type:id(), state_awset()) ->
-    {ok, delta_state_awset()}.
+    {ok, state_awset()}.
 
 %% @doc Adds a single element to `state_awset()'.
 delta_mutate({add, Elem}, Actor, {?TYPE, {DotStore, CausalContext}}) ->
@@ -107,7 +93,7 @@ delta_mutate({add, Elem}, Actor, {?TYPE, {DotStore, CausalContext}}) ->
     DeltaCausalContext1 = causal_context:add_dot(NextDot, DeltaCausalContext0),
 
     Delta = {DeltaDotStore, DeltaCausalContext1},
-    {ok, {?TYPE, {delta, Delta}}};
+    {ok, {?TYPE, Delta}};
 
 %% @doc Adds a list of elements to `state_awset()'.
 delta_mutate({add_all, Elems}, Actor, {?TYPE, _}=AWSet) ->
@@ -122,7 +108,7 @@ delta_mutate({add_all, Elems}, Actor, {?TYPE, _}=AWSet) ->
         Elems
     ),
 
-    {ok, {?TYPE, {delta, DeltaGroup}}};
+    {ok, {?TYPE, DeltaGroup}};
 
 %% @doc Removes a single element in `state_awset()'.
 delta_mutate({rmv, Elem}, _Actor, {?TYPE, {DotStore, _CausalContext}}) ->
@@ -135,7 +121,7 @@ delta_mutate({rmv, Elem}, _Actor, {?TYPE, {DotStore, _CausalContext}}) ->
             causal_context:to_causal_context(CurrentDotSet)
     end,
     Delta = {DeltaDotStore, DeltaCausalContext},
-    {ok, {?TYPE, {delta, Delta}}};
+    {ok, {?TYPE, Delta}};
 
 %% @doc Removes a list of elements in `state_awset()'.
 delta_mutate({rmv_all, Elems}, Actor, {?TYPE, _}=AWSet) ->
@@ -151,7 +137,7 @@ delta_mutate({rmv_all, Elems}, Actor, {?TYPE, _}=AWSet) ->
         {AWSet, new()},
         Elems
     ),
-    {ok, {?TYPE, {delta, DeltaGroup}}}.
+    {ok, {?TYPE, DeltaGroup}}.
 
 %% @doc Returns the value of the `state_awset()'.
 %%      This value is a set with all the keys (elements) in the dot map.
@@ -163,7 +149,7 @@ query({?TYPE, {DotStore, _CausalContext}}) ->
 %% @doc Merge two `state_awset()'.
 %%      Merging is handled by the `merge' function in
 %%      `state_causal_type' common library.
--spec merge(delta_or_state(), delta_or_state()) -> delta_or_state().
+-spec merge(state_awset(), state_awset()) -> state_awset().
 merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     MergeFun = fun({?TYPE, AWSet1}, {?TYPE, AWSet2}) ->
         AWSet = state_causal_type:merge(AWSet1, AWSet2),
@@ -178,24 +164,18 @@ equal({?TYPE, AWSet1}, {?TYPE, AWSet2}) ->
     AWSet1 == AWSet2.
 
 %% @doc Check if an `state_awset()' is bottom.
--spec is_bottom(delta_or_state()) -> boolean().
-is_bottom({?TYPE, {delta, AWSet}}) ->
-    is_bottom({?TYPE, AWSet});
+-spec is_bottom(state_awset()) -> boolean().
 is_bottom({?TYPE, _}=CRDT) ->
     CRDT == new().
 
 %% @doc Given two `state_awset()', check if the second is and inflation of the first.
 %% @todo
--spec is_inflation(delta_or_state(), state_awset()) -> boolean().
-is_inflation({?TYPE, {delta, AWSet1}}, {?TYPE, AWSet2}) ->
-    is_inflation({?TYPE, AWSet1}, {?TYPE, AWSet2});
+-spec is_inflation(state_awset(), state_awset()) -> boolean().
 is_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_inflation(CRDT1, CRDT2).
 
 %% @doc Check for strict inflation.
--spec is_strict_inflation(delta_or_state(), state_awset()) -> boolean().
-is_strict_inflation({?TYPE, {delta, AWSet1}}, {?TYPE, AWSet2}) ->
-    is_strict_inflation({?TYPE, AWSet1}, {?TYPE, AWSet2});
+-spec is_strict_inflation(state_awset(), state_awset()) -> boolean().
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
@@ -206,9 +186,7 @@ irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
     state_type:irreducible_is_strict_inflation(Irreducible, CRDT).
 
 %% @doc Join decomposition for `state_awset()'.
--spec join_decomposition(delta_or_state()) -> [state_awset()].
-join_decomposition({?TYPE, {delta, Payload}}) ->
-    join_decomposition({?TYPE, Payload});
+-spec join_decomposition(state_awset()) -> [state_awset()].
 join_decomposition({?TYPE, {DotStore, CausalContext}}) ->
     Elements = dot_map:fetch_keys(DotStore),
     {DecompList, ActiveDots} = lists:foldl(
@@ -250,16 +228,16 @@ join_decomposition({?TYPE, {DotStore, CausalContext}}) ->
     ).
 
 %% @doc Delta calculation for `state_awset()'.
--spec delta(state_type:delta_method(), delta_or_state(), delta_or_state()) ->
+-spec delta(state_type:delta_method(), state_awset(), state_awset()) ->
     state_awset().
 delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:delta(Method, A, B).
 
--spec encode(state_type:format(), delta_or_state()) -> binary().
+-spec encode(state_type:format(), state_awset()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
     erlang:term_to_binary(CRDT).
 
--spec decode(state_type:format(), binary()) -> delta_or_state().
+-spec decode(state_type:format(), binary()) -> state_awset().
 decode(erlang, Binary) ->
     {?TYPE, _} = CRDT = erlang:binary_to_term(Binary),
     CRDT.
@@ -272,9 +250,7 @@ decode(erlang, Binary) ->
 
 new_test() ->
     ?assertEqual({?TYPE, {{{dot_map, dot_set}, orddict:new()}, ordsets:new()}},
-                 new()),
-    ?assertEqual({?TYPE, {delta, {{{dot_map, dot_set}, orddict:new()}, ordsets:new()}}},
-                 new_delta()).
+                 new()).
 
 query_test() ->
     Set0 = new(),
@@ -286,11 +262,11 @@ query_test() ->
 delta_add_test() ->
     Actor = 1,
     Set0 = new(),
-    {ok, {?TYPE, {delta, Delta1}}} = delta_mutate({add, <<"a">>}, Actor, Set0),
+    {ok, {?TYPE, Delta1}} = delta_mutate({add, <<"a">>}, Actor, Set0),
     Set1 = merge({?TYPE, Delta1}, Set0),
-    {ok, {?TYPE, {delta, Delta2}}} = delta_mutate({add, <<"a">>}, Actor, Set1),
+    {ok, {?TYPE, Delta2}} = delta_mutate({add, <<"a">>}, Actor, Set1),
     Set2 = merge({?TYPE, Delta2}, Set1),
-    {ok, {?TYPE, {delta, Delta3}}} = delta_mutate({add, <<"b">>}, Actor, Set2),
+    {ok, {?TYPE, Delta3}} = delta_mutate({add, <<"b">>}, Actor, Set2),
     Set3 = merge({?TYPE, Delta3}, Set2),
 
     ?assertEqual({?TYPE, {{{dot_map, dot_set},
@@ -409,17 +385,17 @@ merge_commutative_test() ->
 merge_delta_test() ->
     Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
                     [{1, 1}]}},
-    Delta1 = {?TYPE, {delta, {{{dot_map, dot_set}, []}, [{1, 1}]}}},
-    Delta2 = {?TYPE, {delta, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{2, 1}]}}]},
-                              [{2, 1}]}}},
+    Delta1 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}},
+    Delta2 = {?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{2, 1}]}}]},
+                              [{2, 1}]}},
     Set2 = merge(Delta1, Set1),
     Set3 = merge(Set1, Delta1),
     DeltaGroup = merge(Delta1, Delta2),
     ?assertEqual({?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}}, Set2),
     ?assertEqual({?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}}, Set3),
-    ?assertEqual({?TYPE, {delta, {{{dot_map, dot_set},
+    ?assertEqual({?TYPE, {{{dot_map, dot_set},
                                    [{<<"b">>, {dot_set, [{2, 1}]}}]},
-                                  [{1, 1}, {2, 1}]}}},
+                                  [{1, 1}, {2, 1}]}},
                  DeltaGroup).
 
 equal_test() ->
