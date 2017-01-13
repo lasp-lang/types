@@ -102,15 +102,15 @@ delta_mutate({move, Count, To}, Actor, {?TYPE, {PNCounter, GMap}}=BCounter) ->
     end;
 
 delta_mutate(increment, Actor, {?TYPE, {PNCounter, GMap}}) ->
-    {ok, {?PNCOUNTER_TYPE, IncDelta}} = ?PNCOUNTER_TYPE:delta_mutate(increment, Actor, PNCounter),
-    Delta = {{?PNCOUNTER_TYPE, IncDelta}, state_type:new(GMap)},
+    {ok, IncDelta} = ?PNCOUNTER_TYPE:delta_mutate(increment, Actor, PNCounter),
+    Delta = {IncDelta, state_type:new(GMap)},
     {ok, {?TYPE, Delta}};
 
 delta_mutate(decrement, Actor, {?TYPE, {PNCounter, GMap}}=BCounter) ->
     case 0 < permissions(BCounter, Actor) of
         true ->
-            {ok, {?PNCOUNTER_TYPE, DecDelta}} = ?PNCOUNTER_TYPE:delta_mutate(decrement, Actor, PNCounter),
-            Delta = {{?PNCOUNTER_TYPE, DecDelta}, state_type:new(GMap)},
+            {ok, DecDelta} = ?PNCOUNTER_TYPE:delta_mutate(decrement, Actor, PNCounter),
+            Delta = {DecDelta, state_type:new(GMap)},
             {ok, {?TYPE, Delta}};
         false ->
             {error, {precondition, non_enough_permissions}}
