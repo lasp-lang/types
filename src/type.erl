@@ -30,7 +30,9 @@
               error/0]).
 
 %% Define some initial types.
--type type() :: state_type:state_type() | pure_type:pure_type().
+-type type() :: state_type:state_type()
+              | state_ps_type:state_ps_type()
+              | pure_type:pure_type().
 -type payload() :: term().
 -type crdt() :: {type(), payload()}.
 -type operation() :: term().
