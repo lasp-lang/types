@@ -73,7 +73,7 @@ delta_mutate(true, _Actor, {?TYPE, _Boolean}) ->
     {ok, {?TYPE, 1}}.
 
 %% @doc Returns the value of the `state_boolean()'.
--spec query(state_boolean()) -> non_neg_integer().
+-spec query(state_boolean()) -> boolean().
 query({?TYPE, Boolean}) ->
     Boolean == 1.
 
