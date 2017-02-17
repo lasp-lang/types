@@ -44,13 +44,13 @@
 -export_type([state_boolean/0, state_boolean_op/0]).
 
 -opaque state_boolean() :: {?TYPE, payload()}.
--type payload() :: true | false.
+-type payload() :: 0 | 1.
 -type state_boolean_op() :: true.
 
 %% @doc Create a new `state_boolean()'
 -spec new() -> state_boolean().
 new() ->
-    {?TYPE, false}.
+    {?TYPE, 0}.
 
 %% @doc Create a new `state_boolean()'
 -spec new([term()]) -> state_boolean().
@@ -70,19 +70,19 @@ mutate(Op, Actor, {?TYPE, _Boolean}=CRDT) ->
 -spec delta_mutate(state_boolean_op(), type:id(), state_boolean()) ->
     {ok, state_boolean()}.
 delta_mutate(true, _Actor, {?TYPE, _Boolean}) ->
-    {ok, {?TYPE, true}}.
+    {ok, {?TYPE, 1}}.
 
 %% @doc Returns the value of the `state_boolean()'.
--spec query(state_boolean()) -> non_neg_integer().
+-spec query(state_boolean()) -> boolean().
 query({?TYPE, Boolean}) ->
-    Boolean.
+    Boolean == 1.
 
 %% @doc Merge two `state_boolean()'.
 %%      Join is the logical or.
 -spec merge(state_boolean(), state_boolean()) -> state_boolean().
 merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     MergeFun = fun({?TYPE, Boolean1}, {?TYPE, Boolean2}) ->
-        {?TYPE, Boolean1 orelse Boolean2}
+        {?TYPE, max(Boolean1, Boolean2)}
     end,
     state_type:merge(CRDT1, CRDT2, MergeFun).
 
@@ -94,14 +94,14 @@ equal({?TYPE, Boolean1}, {?TYPE, Boolean2}) ->
 %% @doc Check if a Boolean is bottom.
 -spec is_bottom(state_boolean()) -> boolean().
 is_bottom({?TYPE, Boolean}) ->
-    Boolean == false.
+    Boolean == 0.
 
 %% @doc Given two `state_boolean()', check if the second is an inflation
 %%      of the first.
 -spec is_inflation(state_boolean(), state_boolean()) -> boolean().
 is_inflation({?TYPE, Boolean1}, {?TYPE, Boolean2}) ->
     Boolean1 == Boolean2 orelse
-    (Boolean1 == false andalso Boolean2 == true).
+    (Boolean1 == 0 andalso Boolean2 == 1).
 
 %% @doc Check for strict inflation.
 -spec is_strict_inflation(state_boolean(), state_boolean()) -> boolean().
@@ -141,62 +141,62 @@ decode(erlang, Binary) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, false}, new()).
+    ?assertEqual({?TYPE, 0}, new()).
 
 query_test() ->
     Boolean0 = new(),
-    Boolean1 = {?TYPE, true},
+    Boolean1 = {?TYPE, 1},
     ?assertEqual(false, query(Boolean0)),
     ?assertEqual(true, query(Boolean1)).
 
 delta_true_test() ->
     Boolean0 = new(),
     {ok, {?TYPE, Delta1}} = delta_mutate(true, 1, Boolean0),
-    ?assertEqual({?TYPE, true}, {?TYPE, Delta1}).
+    ?assertEqual({?TYPE, 1}, {?TYPE, Delta1}).
 
 true_test() ->
     Boolean0 = new(),
     {ok, Boolean1} = mutate(true, 1, Boolean0),
-    ?assertEqual({?TYPE, true}, Boolean1).
+    ?assertEqual({?TYPE, 1}, Boolean1).
 
 merge_test() ->
-    Boolean1 = {?TYPE, false},
-    Boolean2 = {?TYPE, true},
+    Boolean1 = {?TYPE, 0},
+    Boolean2 = {?TYPE, 1},
     Boolean3 = merge(Boolean1, Boolean1),
     Boolean4 = merge(Boolean1, Boolean2),
     Boolean5 = merge(Boolean2, Boolean1),
     Boolean6 = merge(Boolean2, Boolean2),
-    ?assertEqual({?TYPE, false}, Boolean3),
-    ?assertEqual({?TYPE, true}, Boolean4),
-    ?assertEqual({?TYPE, true}, Boolean5),
-    ?assertEqual({?TYPE, true}, Boolean6).
+    ?assertEqual({?TYPE, 0}, Boolean3),
+    ?assertEqual({?TYPE, 1}, Boolean4),
+    ?assertEqual({?TYPE, 1}, Boolean5),
+    ?assertEqual({?TYPE, 1}, Boolean6).
 
 merge_deltas_test() ->
-    Boolean1 = {?TYPE, false},
-    Delta1 = {?TYPE, false},
-    Delta2 = {?TYPE, true},
+    Boolean1 = {?TYPE, 0},
+    Delta1 = {?TYPE, 0},
+    Delta2 = {?TYPE, 1},
     Boolean3 = merge(Delta1, Boolean1),
     Boolean4 = merge(Boolean1, Delta1),
     DeltaGroup = merge(Delta1, Delta2),
-    ?assertEqual({?TYPE, false}, Boolean3),
-    ?assertEqual({?TYPE, false}, Boolean4),
-    ?assertEqual({?TYPE, true}, DeltaGroup).
+    ?assertEqual({?TYPE, 0}, Boolean3),
+    ?assertEqual({?TYPE, 0}, Boolean4),
+    ?assertEqual({?TYPE, 1}, DeltaGroup).
 
 equal_test() ->
-    Boolean1 = {?TYPE, false},
-    Boolean2 = {?TYPE, true},
+    Boolean1 = {?TYPE, 0},
+    Boolean2 = {?TYPE, 1},
     ?assert(equal(Boolean1, Boolean1)),
     ?assertNot(equal(Boolean1, Boolean2)).
 
 is_bottom_test() ->
     Boolean0 = new(),
-    Boolean1 = {?TYPE, true},
+    Boolean1 = {?TYPE, 1},
     ?assert(is_bottom(Boolean0)),
     ?assertNot(is_bottom(Boolean1)).
 
 is_inflation_test() ->
-    Boolean1 = {?TYPE, false},
-    Boolean2 = {?TYPE, true},
+    Boolean1 = {?TYPE, 0},
+    Boolean2 = {?TYPE, 1},
     ?assert(is_inflation(Boolean1, Boolean1)),
     ?assert(is_inflation(Boolean1, Boolean2)),
     ?assertNot(is_inflation(Boolean2, Boolean1)),
@@ -208,20 +208,20 @@ is_inflation_test() ->
     ?assert(state_type:is_inflation(Boolean2, Boolean2)).
 
 is_strict_inflation_test() ->
-    Boolean1 = {?TYPE, false},
-    Boolean2 = {?TYPE, true},
+    Boolean1 = {?TYPE, 0},
+    Boolean2 = {?TYPE, 1},
     ?assertNot(is_strict_inflation(Boolean1, Boolean1)),
     ?assert(is_strict_inflation(Boolean1, Boolean2)),
     ?assertNot(is_strict_inflation(Boolean2, Boolean1)),
     ?assertNot(is_strict_inflation(Boolean2, Boolean2)).
 
 join_decomposition_test() ->
-    Boolean1 = {?TYPE, true},
+    Boolean1 = {?TYPE, 1},
     Decomp1 = join_decomposition(Boolean1),
     ?assertEqual([Boolean1], Decomp1).
 
 encode_decode_test() ->
-    Boolean = {?TYPE, true},
+    Boolean = {?TYPE, 1},
     Binary = encode(erlang, Boolean),
     EBoolean = decode(erlang, Binary),
     ?assertEqual(Boolean, EBoolean).
