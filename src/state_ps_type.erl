@@ -44,7 +44,9 @@
               state_ps_payload/0]).
 
 %% Define some initial types.
--type state_ps_type() :: state_ps_ormap_full
+-type state_ps_type() :: state_ps_gcounter_full
+                       | state_ps_gcounter_naive
+                       | state_ps_ormap_full
                        | state_ps_ormap_naive
                        | state_ps_orset_full
                        | state_ps_orset_naive.
@@ -202,6 +204,8 @@ cross_provenance(ProvenanceL, ProvenanceR) ->
 %% @private
 state_ps_types() ->
     [
+        state_ps_gcounter_full,
+        state_ps_gcounter_naive,
         state_ps_ormap_full,
         state_ps_ormap_naive,
         state_ps_orset_full,
