@@ -176,9 +176,41 @@ merge_survived_ev_set_all_events({?TYPE, {ProvenanceStoreA,
                                           {ev_set, AllEventsEVB}}}) ->
     MergedAllEventsEV = {ev_set, ordsets:union(AllEventsEVA, AllEventsEVB)},
     MergedSubsetEventsSurvived =
-        ordsets:union(SubsetEventsSurvivedA, SubsetEventsSurvivedB),
+        ordsets:union([ordsets:intersection(SubsetEventsSurvivedA,
+            SubsetEventsSurvivedB)] ++
+            [ordsets:subtract(SubsetEventsSurvivedA,
+                AllEventsEVB)] ++
+            [ordsets:subtract(SubsetEventsSurvivedB,
+                AllEventsEVA)]),
+    MergedProvenanceStore0 = ordsets:union(ProvenanceStoreA, ProvenanceStoreB),
     MergedProvenanceStore =
-        ordsets:union(ProvenanceStoreA, ProvenanceStoreB),
+        ordsets:fold(
+            fun(Provenance, AccInMergedProvenanceStore) ->
+                NewProvenance =
+                    ordsets:fold(
+                        fun(Dot, AccInNewProvenance) ->
+                            case ordsets:is_subset(
+                                Dot, MergedSubsetEventsSurvived) of
+                                true ->
+                                    ordsets:add_element(
+                                        Dot, AccInNewProvenance);
+                                false ->
+                                    AccInNewProvenance
+                            end
+                        end,
+                        ordsets:new(),
+                        Provenance),
+                case ordsets:size(NewProvenance) of
+                    0 ->
+                        AccInMergedProvenanceStore;
+                    _ ->
+                        ordsets:add_element(
+                            NewProvenance,
+                            AccInMergedProvenanceStore)
+                end
+            end,
+            ordsets:new(),
+            MergedProvenanceStore0),
     {?TYPE, {MergedProvenanceStore,
              MergedSubsetEventsSurvived,
              MergedAllEventsEV}}.
