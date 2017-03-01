@@ -1,17 +1,10 @@
-{application, types,
- [
-  {description, "Conflict-free Replicated Data Types"},
-  {vsn, "0.0.1"},
-  {registered, []},
-  {applications, [
-                  kernel,
-                  stdlib,
-                  crypto
-                 ]},
-  {mod, {types_app, []}},
-  {modules, []},
-
-   {maintainers, ["Chris Meiklejohn", "Vitor Enes Duarte"]},
-   {licenses, ["Apache 2.0"]},
-   {links, [{"Github", "https://github.com/lasp-lang/types"}]}
- ]}.
+{application,types,
+             [{description,"Conflict-free Replicated Data Types"},
+              {vsn,"0.0.4"},
+              {registered,[]},
+              {applications,[kernel,stdlib,crypto]},
+              {mod,{types_app,[]}},
+              {modules,[]},
+              {maintainers,["Chris Meiklejohn","Vitor Enes Duarte"]},
+              {licenses,["Apache 2.0"]},
+              {links,[{"Github","https://github.com/lasp-lang/types"}]}]}.
