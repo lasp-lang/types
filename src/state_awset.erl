@@ -184,7 +184,7 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2);
 
 %% @todo get back here later
-is_inflation({cardinality, Value}, {?TYPE, _}=CRDT) ->
+is_strict_inflation({cardinality, Value}, {?TYPE, _}=CRDT) ->
     length(query(CRDT)) > Value.
 
 %% @doc Check for irreducible strict inflation.
