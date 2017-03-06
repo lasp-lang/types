@@ -86,22 +86,12 @@ mutate(Op, Actor, {?TYPE, _PNCounter}=CRDT) ->
 -spec delta_mutate(state_pncounter_op(), type:id(), state_pncounter()) ->
     {ok, state_pncounter()}.
 delta_mutate(increment, Actor, {?TYPE, PNCounter}) ->
-    Value = case orddict:find(Actor, PNCounter) of
-        {ok, {Inc, _Dec}} ->
-            Inc;
-        error ->
-            0
-    end,
+    {Value, _} = orddict_ext:fetch(Actor, PNCounter, {0, 0}),
     Delta = orddict:store(Actor, {Value + 1, 0}, orddict:new()),
     {ok, {?TYPE, Delta}};
 
 delta_mutate(decrement, Actor, {?TYPE, PNCounter}) ->
-    Value = case orddict:find(Actor, PNCounter) of
-        {ok, {_Inc, Dec}} ->
-            Dec;
-        error ->
-            0
-    end,
+    {_, Value} = orddict_ext:fetch(Actor, PNCounter, {0, 0}),
     Delta = orddict:store(Actor, {0, Value + 1}, orddict:new()),
     {ok, {?TYPE, Delta}}.
 

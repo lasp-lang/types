@@ -80,13 +80,7 @@ mutate(Op, Actor, {?TYPE, _}=CRDT) ->
     {ok, state_gmap()}.
 delta_mutate({apply, Key, Op}, Actor, {?TYPE, {CType, GMap}}) ->
     {Type, Args} = state_type:extract_args(CType),
-
-    Current = case orddict:find(Key, GMap) of
-        {ok, Value} ->
-            Value;
-        error ->
-            Type:new(Args)
-    end,
+    Current = orddict_ext:fetch(Key, GMap, Type:new(Args)),
     {ok, {Type, KeyDelta}} = Type:delta_mutate(Op, Actor, Current),
     Delta = orddict:store(Key, {Type, KeyDelta}, orddict:new()),
     {ok, {?TYPE, {CType, Delta}}}.

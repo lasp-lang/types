@@ -74,22 +74,12 @@ mutate(Op, Actor, {?TYPE, _LexCounter}=CRDT) ->
 -spec delta_mutate(state_lexcounter_op(), type:id(), state_lexcounter()) ->
     {ok, state_lexcounter()}.
 delta_mutate(increment, Actor, {?TYPE, LexCounter}) ->
-    {Left, Right} = case orddict:find(Actor, LexCounter) of
-        {ok, Value} ->
-            Value;
-        error ->
-            {0, 0}
-    end,
+    {Left, Right} = orddict_ext:fetch(Actor, LexCounter, {0, 0}),
     Delta = orddict:store(Actor, {Left, Right + 1}, orddict:new()),
     {ok, {?TYPE, Delta}};
 
 delta_mutate(decrement, Actor, {?TYPE, LexCounter}) ->
-    {Left, Right} = case orddict:find(Actor, LexCounter) of
-        {ok, Value} ->
-            Value;
-        error ->
-            {0, 0}
-    end,
+    {Left, Right} = orddict_ext:fetch(Actor, LexCounter, {0, 0}),
     Delta = orddict:store(Actor, {Left + 1, Right - 1}, orddict:new()),
     {ok, {?TYPE, Delta}}.
 
