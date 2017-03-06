@@ -20,7 +20,8 @@
 -module(orddict_ext).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
--export([equal/3]).
+-export([equal/3,
+         fetch/3]).
 
 -spec equal(orddict:orddict(), orddict:orddict(), function()) ->
     boolean().
@@ -38,3 +39,11 @@ equal(Dict1, Dict2, Fun) ->
         Dict1
      ).
 
+%% @doc
+fetch(K, M, Default) ->
+    case orddict:find(K, M) of
+        {ok, V} ->
+            V;
+        error ->
+            Default
+    end.
