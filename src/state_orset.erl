@@ -109,15 +109,15 @@ delta_mutate({add_all, Elems}, Actor, {?TYPE, _ORSet}) ->
 %% @doc Returns a new `state_orset()' with only one element in
 %%      the dictionary mapping all current tokens to false (inactive).
 delta_mutate({rmv, Elem}, _Actor, {?TYPE, ORSet}) ->
-    case orddict:find(Elem, ORSet) of
+    Delta = case orddict:find(Elem, ORSet) of
         {ok, Tokens} ->
             InactiveTokens = [{Token, false} || {Token, _Active} <- orddict:to_list(Tokens)],
-            Delta = orddict:store(Elem, InactiveTokens, orddict:new()),
-            {ok, {?TYPE, Delta}};
+            orddict:store(Elem, InactiveTokens, orddict:new());
         error ->
-            Delta = orddict:new(),
-            {ok, {?TYPE, Delta}}
-    end;
+            orddict:new()
+    end,
+
+    {ok, {?TYPE, Delta}};
 
 %% @doc Removes a list of elements passed as input.
 delta_mutate({rmv_all, Elems}, Actor, {?TYPE, _}=ORSet) ->

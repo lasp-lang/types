@@ -88,12 +88,7 @@ delta_mutate({move, Count, To}, Actor, {?TYPE, {PNCounter, GMap}}=BCounter) ->
     {?GMAP_TYPE, {?MAX_INT_TYPE, Map0}} = GMap,
     case Count =< permissions(BCounter, Actor) of
         true ->
-            Current = case orddict:find({Actor, To}, Map0) of
-                {ok, Value} ->
-                    Value;
-                error ->
-                    0
-            end,
+            Current = orddict_ext:fetch({Actor, To}, Map0, 0),
             Map1 = orddict:store({Actor, To}, Current + Count, orddict:new()),
             Delta = {state_type:new(PNCounter), {?GMAP_TYPE, {?MAX_INT_TYPE, Map1}}},
             {ok, {?TYPE, Delta}};
@@ -123,12 +118,8 @@ delta_mutate(decrement, Actor, {?TYPE, {PNCounter, GMap}}=BCounter) ->
 %%          - minus permissions given
 permissions({?TYPE, {{?PNCOUNTER_TYPE, PNCounter},
                      {?GMAP_TYPE, {?MAX_INT_TYPE, GMap}}}}, Actor) ->
-    Local = case orddict:find(Actor, PNCounter) of
-        {ok, {Inc, Dec}} ->
-            Inc - Dec;
-        error ->
-            0
-    end,
+    {Inc, Dec} = orddict_ext:fetch(Actor, PNCounter, {0, 0}),
+    Local = Inc - Dec,
     {Incoming, Outgoing} = orddict:fold(
         fun({From, To}, Value, {In0, Out0}) ->
             In1 = case To == Actor of
