@@ -68,8 +68,8 @@ new_provenance_store([]) ->
 %% @doc Return all events in a provenance store.
 -spec get_events_from_provenance_store(state_ps_provenance_store()) ->
     ordsets:ordset(state_ps_type:state_ps_event()).
-get_events_from_provenance_store({_Value, _Knowledge, Provenance}) ->
-    state_ps_type:get_events_from_provenance(Provenance).
+get_events_from_provenance_store({_Value, Knowledge, _Provenance}) ->
+    get_events_from_knowledge(Knowledge).
 
 %% @doc Create a new, empty `state_ps_lwwregister_naive()'.
 -spec new() -> state_ps_lwwregister_naive().
@@ -274,8 +274,23 @@ get_total_cnt_from_knowledge(Knowledge) ->
             AccInTotal + EventCnt
         end,
         0,
-        Knowledge
-    ).
+        Knowledge).
+
+%% @private
+get_events_from_knowledge(Knowledge) ->
+    ordsets:fold(
+        fun({EventId, EventCnt}, AccInEvents) ->
+            CurrentEvents =
+                ordsets:from_list(
+                    lists:map(
+                        fun(Cnt) ->
+                            {EventId, Cnt}
+                        end,
+                        lists:seq(1, EventCnt))),
+            ordsets:union(AccInEvents, CurrentEvents)
+        end,
+        ordsets:new(),
+        Knowledge).
 
 %% ===================================================================
 %% EUnit tests
