@@ -222,9 +222,7 @@ merge_survived_ev_set_all_events(
                         new_provenance_store([])
                 end
         end,
-    MergedKnowledge =
-        ordsets:intersection(
-            ordsets:union(KnowledgeA, KnowledgeB), MergedSubsetEventsSurvived),
+    MergedKnowledge = ordsets:union(KnowledgeA, KnowledgeB),
     {?TYPE, {{MergedValue, MergedKnowledge, MergedProvenance},
              MergedSubsetEventsSurvived,
              MergedAllEventsEV}}.
