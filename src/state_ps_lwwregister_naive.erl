@@ -69,7 +69,7 @@ new_provenance_store([]) ->
 -spec get_events_from_provenance_store(state_ps_provenance_store()) ->
     ordsets:ordset(state_ps_type:state_ps_event()).
 get_events_from_provenance_store({_Value, Knowledge, _Provenance}) ->
-    get_events_from_knowledge(Knowledge).
+    Knowledge.
 
 %% @doc Create a new, empty `state_ps_lwwregister_naive()'.
 -spec new() -> state_ps_lwwregister_naive().
@@ -117,17 +117,18 @@ equal({?TYPE, {ProvenanceStoreA, SubsetEventsA, AllEventsA}},
 %% Delta: {{Value, Knowledge, [[NewEvent]]}, [NewEvent], {ev_set, [NewEvent]}}
 delta_mutate({set, Value},
              Actor,
-             {?TYPE, {_ProvenanceStore, _SubsetEventsSurvived, {ev_set, AllEventsEV}}}) ->
+             {?TYPE, {{_PrevValue, PrevKnowledge, _PrevProvenance},
+                      _SubsetEventsSurvived,
+                      {ev_set, AllEventsEV}}}) ->
     %% Get next Event from AllEvents.
     NextEvent = state_ps_type:get_next_event(Actor, {ev_set, AllEventsEV}),
     %% Make a new Provenance from the Event.
     DeltaProvenance =
         ordsets:add_element(
             ordsets:add_element(NextEvent, ordsets:new()), ordsets:new()),
-    %% Calculate MAXs (Knowledge) from AllEvents.
+
     Knowledge =
-        get_knowledge_from_all_event(
-            {ev_set, ordsets:add_element(NextEvent, AllEventsEV)}),
+        ordsets:add_element(NextEvent, PrevKnowledge),
 
     DeltaProvenanceStore =
         {Value, Knowledge, DeltaProvenance},
@@ -194,7 +195,6 @@ merge_survived_ev_set_all_events(
              SubsetEventsSurvivedB,
              {ev_set, AllEventsEVB}}}) ->
     MergedAllEventsEV = {ev_set, ordsets:union(AllEventsEVA, AllEventsEVB)},
-    MergedKnowledge = get_knowledge_from_all_event(MergedAllEventsEV),
     MergedSubsetEventsSurvived =
         ordsets:union(
             [ordsets:intersection(
@@ -222,26 +222,12 @@ merge_survived_ev_set_all_events(
                         new_provenance_store([])
                 end
         end,
+    MergedKnowledge =
+        ordsets:intersection(
+            ordsets:union(KnowledgeA, KnowledgeB), MergedSubsetEventsSurvived),
     {?TYPE, {{MergedValue, MergedKnowledge, MergedProvenance},
              MergedSubsetEventsSurvived,
              MergedAllEventsEV}}.
-
-%% @private
-get_knowledge_from_all_event({ev_set, AllEventsEV}) ->
-    {{LastId, LastCnt}, Knowledge} =
-        ordsets:fold(
-            fun({EventId, EventCnt}, {{PrevId, PrevCnt}, AccInKnowledge}) ->
-                case PrevCnt == 0 orelse EventId == PrevId of
-                    true ->
-                        {{EventId, EventCnt}, AccInKnowledge};
-                    false ->
-                        {{EventId, EventCnt},
-                         ordsets:add_element({PrevId, PrevCnt}, AccInKnowledge)}
-                end
-            end,
-            {{{undefined, undefined}, 0}, ordsets:new()},
-            AllEventsEV),
-    ordsets:add_element({LastId, LastCnt}, Knowledge).
 
 %% @private
 find_later_write(
@@ -256,8 +242,8 @@ find_later_write(
                     {ValueA, KnowledgeA, ProvenanceA};
                 false ->
                     %% Conflict updates?
-                    TotalCntA = get_total_cnt_from_knowledge(KnowledgeA),
-                    TotalCntB = get_total_cnt_from_knowledge(KnowledgeB),
+                    TotalCntA = ordsets:size(KnowledgeA),
+                    TotalCntB = ordsets:size(KnowledgeB),
                     case TotalCntA >= TotalCntB of
                         true ->
                             {ValueA, KnowledgeA, ProvenanceA};
@@ -266,31 +252,6 @@ find_later_write(
                     end
             end
     end.
-
-%% @private
-get_total_cnt_from_knowledge(Knowledge) ->
-    ordsets:fold(
-        fun({_EventId, EventCnt}, AccInTotal) ->
-            AccInTotal + EventCnt
-        end,
-        0,
-        Knowledge).
-
-%% @private
-get_events_from_knowledge(Knowledge) ->
-    ordsets:fold(
-        fun({EventId, EventCnt}, AccInEvents) ->
-            CurrentEvents =
-                ordsets:from_list(
-                    lists:map(
-                        fun(Cnt) ->
-                            {EventId, Cnt}
-                        end,
-                        lists:seq(1, EventCnt))),
-            ordsets:union(AccInEvents, CurrentEvents)
-        end,
-        ordsets:new(),
-        Knowledge).
 
 %% ===================================================================
 %% EUnit tests
@@ -340,11 +301,15 @@ delta_set_test() ->
                  [{EventId1, 1}, {EventId2, 1}],
                  {ev_set, [{EventId1, 1}, {EventId2, 1}]}}}, Register2),
     ?assertEqual(
-        {?TYPE, {{5, [{EventId1, 2}, {EventId2, 1}], [[{EventId1, 2}]]},
+        {?TYPE, {{5,
+                  [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}],
+                  [[{EventId1, 2}]]},
                  [{EventId1, 2}],
                  {ev_set, [{EventId1, 2}]}}}, {?TYPE, Delta3}),
     ?assertEqual(
-        {?TYPE, {{5, [{EventId1, 2}, {EventId2, 1}], [[{EventId1, 2}]]},
+        {?TYPE, {{5,
+                  [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}],
+                  [[{EventId1, 2}]]},
                  [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}],
                  {ev_set, [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}]}}},
         Register3).
@@ -364,7 +329,9 @@ set_test() ->
                  [{EventId1, 1}, {EventId2, 1}],
                  {ev_set, [{EventId1, 1}, {EventId2, 1}]}}}, Register2),
     ?assertEqual(
-        {?TYPE, {{5, [{EventId1, 2}, {EventId2, 1}], [[{EventId1, 2}]]},
+        {?TYPE, {{5,
+                  [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}],
+                  [[{EventId1, 2}]]},
                  [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}],
                  {ev_set, [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}]}}},
         Register3).
@@ -377,7 +344,9 @@ merge_idempotent_test() ->
                  [{EventId1, 1}, {EventId2, 1}],
                  {ev_set, [{EventId1, 1}, {EventId2, 1}]}}},
     Register2 =
-        {?TYPE, {{5, [{EventId1, 2}, {EventId2, 1}], [[{EventId1, 2}]]},
+        {?TYPE, {{5,
+                  [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}],
+                  [[{EventId1, 2}]]},
                  [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}],
                  {ev_set, [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}]}}},
     Register3 = merge(Register1, Register1),
@@ -393,7 +362,9 @@ merge_commutative_test() ->
                  [{EventId1, 1}, {EventId2, 1}],
                  {ev_set, [{EventId1, 1}, {EventId2, 1}]}}},
     Register2 =
-        {?TYPE, {{5, [{EventId1, 2}, {EventId2, 1}], [[{EventId1, 2}]]},
+        {?TYPE, {{5,
+                  [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}],
+                  [[{EventId1, 2}]]},
                  [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}],
                  {ev_set, [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}]}}},
     Register3 = merge(Register1, Register2),
@@ -409,7 +380,9 @@ equal_test() ->
                  [{EventId1, 1}, {EventId2, 1}],
                  {ev_set, [{EventId1, 1}, {EventId2, 1}]}}},
     Register2 =
-        {?TYPE, {{5, [{EventId1, 2}, {EventId2, 1}], [[{EventId1, 2}]]},
+        {?TYPE, {{5,
+                  [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}],
+                  [[{EventId1, 2}]]},
                  [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}],
                  {ev_set, [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}]}}},
     ?assert(equal(Register1, Register1)),
@@ -434,7 +407,9 @@ is_inflation_test() ->
                  [{EventId1, 1}, {EventId2, 1}],
                  {ev_set, [{EventId1, 1}, {EventId2, 1}]}}},
     Register2 =
-        {?TYPE, {{5, [{EventId1, 2}, {EventId2, 1}], [[{EventId1, 2}]]},
+        {?TYPE, {{5,
+                  [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}],
+                  [[{EventId1, 2}]]},
                  [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}],
                  {ev_set, [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}]}}},
     ?assert(is_inflation(Register1, Register1)),
@@ -453,7 +428,9 @@ is_strict_inflation_test() ->
                  [{EventId1, 1}, {EventId2, 1}],
                  {ev_set, [{EventId1, 1}, {EventId2, 1}]}}},
     Register2 =
-        {?TYPE, {{5, [{EventId1, 2}, {EventId2, 1}], [[{EventId1, 2}]]},
+        {?TYPE, {{5,
+                  [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}],
+                  [[{EventId1, 2}]]},
                  [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}],
                  {ev_set, [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}]}}},
     ?assertNot(is_strict_inflation(Register1, Register1)),
@@ -464,7 +441,9 @@ encode_decode_test() ->
     EventId1 = {<<"object1">>, a},
     EventId2 = {<<"object1">>, b},
     Register =
-        {?TYPE, {{5, [{EventId1, 2}, {EventId2, 1}], [[{EventId1, 2}]]},
+        {?TYPE, {{5,
+                  [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}],
+                  [[{EventId1, 2}]]},
                  [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}],
                  {ev_set, [{EventId1, 1}, {EventId1, 2}, {EventId2, 1}]}}},
     Binary = encode(erlang, Register),
