@@ -174,26 +174,10 @@ decode(erlang, Binary) ->
 
 %% @private
 merge_survived_ev_set_all_events(
-    {?TYPE, {{undefined, _, _}, _, _}},
-    {?TYPE, {{ValueB, KnowledgeB, ProvenanceB},
-             SubsetEventsSurvivedB,
-             {ev_set, AllEventsEVB}}}) ->
-    {?TYPE, {{ValueB, KnowledgeB, ProvenanceB},
-             SubsetEventsSurvivedB,
-             {ev_set, AllEventsEVB}}};
-merge_survived_ev_set_all_events(
     {?TYPE, {{ValueA, KnowledgeA, ProvenanceA},
              SubsetEventsSurvivedA,
              {ev_set, AllEventsEVA}}},
-    {?TYPE, {{undefined, _, _}, _, _}}) ->
-    {?TYPE, {{ValueA, KnowledgeA, ProvenanceA},
-             SubsetEventsSurvivedA,
-             {ev_set, AllEventsEVA}}};
-merge_survived_ev_set_all_events(
-    {?TYPE, {{ValueA, KnowledgeA, [[EventA]]=ProvenanceA},
-             SubsetEventsSurvivedA,
-             {ev_set, AllEventsEVA}}},
-    {?TYPE, {{ValueB, KnowledgeB, [[EventB]]=ProvenanceB},
+    {?TYPE, {{ValueB, KnowledgeB, ProvenanceB},
              SubsetEventsSurvivedB,
              {ev_set, AllEventsEVB}}}) ->
     MergedAllEventsEV = {ev_set, ordsets:union(AllEventsEVA, AllEventsEVB)},
@@ -205,50 +189,75 @@ merge_survived_ev_set_all_events(
                 SubsetEventsSurvivedA, AllEventsEVB)] ++
             [ordsets:subtract(
                 SubsetEventsSurvivedB, AllEventsEVA)]),
-    {MergedValue, _, MergedProvenance} =
-        case ordsets:is_element(EventA, MergedSubsetEventsSurvived) of
-            true ->
-                case ordsets:is_element(EventB, MergedSubsetEventsSurvived) of
-                    true ->
-                        find_later_write(
-                            {ValueA, KnowledgeA, ProvenanceA},
-                            {ValueB, KnowledgeB, ProvenanceB});
+    ProvenanceStoreA =
+        case ProvenanceA of
+            [] ->
+                new_provenance_store([]);
+            [[EventA]] ->
+                case ordsets:is_element(EventA, MergedSubsetEventsSurvived) of
                     false ->
+                        new_provenance_store([]);
+                    true ->
                         {ValueA, KnowledgeA, ProvenanceA}
-                end;
-            false ->
-                case ordsets:is_element(EventB, MergedSubsetEventsSurvived) of
-                    true ->
-                        {ValueB, KnowledgeB, ProvenanceB};
-                    false ->
-                        new_provenance_store([])
                 end
         end,
-    MergedKnowledge = ordsets:union(KnowledgeA, KnowledgeB),
+    ProvenanceStoreB =
+        case ProvenanceB of
+            [] ->
+                new_provenance_store([]);
+            [[EventB]] ->
+                case ordsets:is_element(EventB, MergedSubsetEventsSurvived) of
+                    false ->
+                        new_provenance_store([]);
+                    true ->
+                        {ValueB, KnowledgeB, ProvenanceB}
+                end
+        end,
+    {MergedValue, MergedKnowledge, MergedProvenance} =
+        find_later_write(
+            ProvenanceStoreA, ProvenanceStoreB, MergedSubsetEventsSurvived),
     {?TYPE, {{MergedValue, MergedKnowledge, MergedProvenance},
              MergedSubsetEventsSurvived,
              MergedAllEventsEV}}.
 
 %% @private
 find_later_write(
+    {undefined, _, _},
+    {ValueB, KnowledgeB, ProvenanceB},
+    SubsetEventsSurvived) ->
+    {ValueB,
+     ordsets:intersection(KnowledgeB, SubsetEventsSurvived),
+     ProvenanceB};
+find_later_write(
+    {ValueA, KnowledgeA, ProvenanceA},
+    {undefined, _, _},
+    SubsetEventsSurvived) ->
+    {ValueA,
+     ordsets:intersection(KnowledgeA, SubsetEventsSurvived),
+     ProvenanceA};
+find_later_write(
     {ValueA, KnowledgeA, [[EventA]]=ProvenanceA},
-    {ValueB, KnowledgeB, [[EventB]]=ProvenanceB}) ->
+    {ValueB, KnowledgeB, [[EventB]]=ProvenanceB},
+    SubsetEventsSurvived) ->
+    MergedKnowledge =
+        ordsets:intersection(
+            ordsets:union(KnowledgeA, KnowledgeB), SubsetEventsSurvived),
     case ordsets:is_element(EventA, KnowledgeB) of
         true ->
-            {ValueB, KnowledgeB, ProvenanceB};
+            {ValueB, MergedKnowledge, ProvenanceB};
         false ->
             case ordsets:is_element(EventB, KnowledgeA) of
                 true ->
-                    {ValueA, KnowledgeA, ProvenanceA};
+                    {ValueA, MergedKnowledge, ProvenanceA};
                 false ->
                     %% Conflict updates?
                     TotalCntA = ordsets:size(KnowledgeA),
                     TotalCntB = ordsets:size(KnowledgeB),
                     case TotalCntA >= TotalCntB of
                         true ->
-                            {ValueA, KnowledgeA, ProvenanceA};
+                            {ValueA, MergedKnowledge, ProvenanceA};
                         false ->
-                            {ValueB, KnowledgeB, ProvenanceB}
+                            {ValueB, MergedKnowledge, ProvenanceB}
                     end
             end
     end.
