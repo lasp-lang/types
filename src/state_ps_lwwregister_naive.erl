@@ -68,6 +68,8 @@ new_provenance_store([]) ->
 %% @doc Return all events in a provenance store.
 -spec get_events_from_provenance_store(state_ps_provenance_store()) ->
     ordsets:ordset(state_ps_type:state_ps_event()).
+get_events_from_provenance_store({undefined, _Knowledge, _Provenance}) ->
+    ordsets:new();
 get_events_from_provenance_store({_Value, Knowledge, _Provenance}) ->
     Knowledge.
 
