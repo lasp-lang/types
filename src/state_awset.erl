@@ -49,7 +49,8 @@
 -type state_awset_op() :: {add, element()} |
                           {add_all, [element()]} |
                           {rmv, element()} |
-                          {rmv_all, [element()]}.
+                          {rmv_all, [element()]} |
+                          {filter, function()}.
 
 %% @doc Create a new, empty `state_awset()'
 %%      DotMap<Elem, DotSet>
@@ -137,7 +138,15 @@ delta_mutate({rmv_all, Elems}, Actor, {?TYPE, _}=AWSet) ->
         {AWSet, new()},
         Elems
     ),
-    {ok, {?TYPE, DeltaGroup}}.
+    {ok, {?TYPE, DeltaGroup}};
+
+%% @doc The first argument is:
+%%        - {filter, Pred}
+%%      This mutator removes all elements `e' s.t. `not Pred(e)'.
+delta_mutate({filter, Pred}, Actor, {?TYPE, _}=CRDT) ->
+    NotPred = fun(E) -> not Pred(E) end,
+    Elems = sets:filter(NotPred, query(CRDT)),
+    delta_mutate({rmv_all, sets:to_list(Elems)}, Actor, CRDT).
 
 %% @doc Returns the value of the `state_awset()'.
 %%      This value is a set with all the keys (elements) in the dot map.
@@ -343,6 +352,20 @@ remove_all_test() ->
     {ok, Set3} = mutate({rmv_all, [<<"b">>]}, Actor, Set2),
     ?assertEqual(sets:from_list([<<"b">>]), query(Set2)),
     ?assertEqual(sets:new(), query(Set3)).
+
+filter_test() ->
+    Actor = 1,
+    Set0 = new(),
+    Pred1 = fun({N, _}) -> N == a end,
+    Pred2 = fun({N, _}) -> N == b end,
+    Pred3 = fun({N, _}) -> N == c end,
+    {ok, Set1} = mutate({add_all, [{a, 1}, {a, 2}, {b, 1}]}, Actor, Set0),
+    {ok, Set2} = mutate({filter, Pred1}, Actor, Set1),
+    {ok, Set3} = mutate({filter, Pred2}, Actor, Set1),
+    {ok, Set4} = mutate({filter, Pred3}, Actor, Set1),
+    ?assertEqual(sets:from_list([{a, 1}, {a, 2}]), query(Set2)),
+    ?assertEqual(sets:from_list([{b, 1}]), query(Set3)),
+    ?assertEqual(sets:new(), query(Set4)).
 
 merge_idempontent_test() ->
     Set1 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}},
