@@ -253,11 +253,23 @@ find_later_write(
                     %% Conflict updates?
                     TotalCntA = ordsets:size(KnowledgeA),
                     TotalCntB = ordsets:size(KnowledgeB),
-                    case TotalCntA >= TotalCntB of
+                    case TotalCntA == TotalCntB of
                         true ->
-                            {ValueA, MergedKnowledge, ProvenanceA};
+                            {{_, ReplicaIdA}, _} = EventA,
+                            {{_, ReplicaIdB}, _} = EventB,
+                            case ReplicaIdA > ReplicaIdB of
+                                true ->
+                                    {ValueA, MergedKnowledge, ProvenanceA};
+                                false ->
+                                    {ValueB, MergedKnowledge, ProvenanceB}
+                            end;
                         false ->
-                            {ValueB, MergedKnowledge, ProvenanceB}
+                            case TotalCntA > TotalCntB of
+                                true ->
+                                    {ValueA, MergedKnowledge, ProvenanceA};
+                                false ->
+                                    {ValueB, MergedKnowledge, ProvenanceB}
+                            end
                     end
             end
     end.
