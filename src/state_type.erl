@@ -31,6 +31,7 @@
 
 -export_type([state_type/0,
               crdt/0,
+              digest/0,
               format/0,
               delta_method/0]).
 
@@ -56,7 +57,8 @@
                       state_pncounter |
                       state_twopset.
 -type crdt() :: {state_type(), type:payload()}.
--type crdt_or_digest() :: crdt() | state_digest:digest().
+-type digest() :: term().
+-type crdt_or_digest() :: crdt() | digest().
 -type delta_method() :: state | digest.
 
 %% Supported serialization formats.

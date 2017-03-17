@@ -20,8 +20,4 @@
 -module(state_digest).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
--export_type([digest/0]).
-
--type digest() :: term().
-
--callback digest(state_type:crdt()) -> digest().
+-callback digest(state_type:crdt()) -> state_type:digest().
