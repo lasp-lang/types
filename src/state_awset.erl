@@ -28,6 +28,7 @@
 
 -behaviour(type).
 -behaviour(state_type).
+-behaviour(state_digest).
 
 -define(TYPE, ?MODULE).
 
@@ -38,7 +39,7 @@
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/3]).
--export([join_decomposition/1, delta/3]).
+-export([join_decomposition/1, delta/3, digest/1]).
 -export([encode/2, decode/2]).
 
 -export_type([state_awset/0, state_awset_op/0]).
@@ -243,6 +244,20 @@ join_decomposition({?TYPE, {DotStore, CausalContext}}) ->
             crdt_or_digest()) -> state_awset().
 delta(Method, {?TYPE, _}=A, B) ->
     state_type:delta(Method, A, B).
+
+%% @doc Return a CRDT digest.
+-spec digest(state_awset()) -> state_type:digest().
+digest({?TYPE, {DotStore, CausalContext}}) ->
+    Elements = dot_map:fetch_keys(DotStore),
+    ActiveDots = lists:foldl(
+        fun(Element, Acc) ->
+            DotSet = dot_map:fetch(Element, DotStore),
+            dot_set:union(Acc, DotSet)
+        end,
+        dot_set:new(),
+        Elements
+    ),
+    {dot_set:to_list(ActiveDots), CausalContext}.
 
 -spec encode(state_type:format(), state_awset()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
@@ -488,6 +503,14 @@ join_decomposition_test() ->
             {?TYPE, {{{dot_map, dot_set}, []}, [{3, 1}]}}],
     ?assertEqual([Set1], Decomp1),
     ?assertEqual(lists:sort(List), lists:sort(Decomp2)).
+
+digest_test() ->
+    CC = [{a, 1}, {a, 2}, {b, 1}, {b, 2}],
+    Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"elem1">>, {dot_set, [{a, 1}]}},
+                                          {<<"elem2">>, {dot_set, [{a, 2}, {b, 1}]}}]},
+                    CC}},
+    Expected = {[{a, 1}, {a, 2}, {b, 1}], CC}, 
+    ?assertEqual(Expected, digest(Set1)).
 
 encode_decode_test() ->
     Set = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]}, [{1, 1}, {2, 1}, {3, 1}]}},
