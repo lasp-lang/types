@@ -38,7 +38,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/3]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
@@ -46,6 +46,7 @@
 
 -opaque state_ewflag() :: {?TYPE, payload()}.
 -type payload() :: state_causal_type:causal_crdt().
+-type crdt_or_digest() :: state_ewflag() | state_type:digest().
 -type state_ewflag_op() :: enable | disable.
 
 %% @doc Create a new, empty `state_ewflag()'
@@ -133,10 +134,11 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
 %% @doc Check for irreducible strict inflation.
--spec irreducible_is_strict_inflation(state_ewflag(), state_ewflag()) ->
-    boolean().
-irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
-    state_type:irreducible_is_strict_inflation(Irreducible, CRDT).
+-spec irreducible_is_strict_inflation(state_type:delta_method(),
+                                      state_ewflag(),
+                                      crdt_or_digest()) -> boolean().
+irreducible_is_strict_inflation(state, {?TYPE, _}=A, {?TYPE, _}=B) ->
+    state_type:irreducible_is_strict_inflation(state, A, B).
 
 %% @doc Join decomposition for `state_ewflag()'.
 %% @todo
@@ -145,9 +147,9 @@ join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
 
 %% @doc Delta calculation for `state_ewflag()'.
--spec delta(state_type:delta_method(), state_ewflag(), state_ewflag()) ->
-    state_ewflag().
-delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
+-spec delta(state_type:delta_method(), state_ewflag(),
+            crdt_or_digest()) -> state_ewflag().
+delta(Method, {?TYPE, _}=A, B) ->
     state_type:delta(Method, A, B).
 
 -spec encode(state_type:format(), state_ewflag()) -> binary().

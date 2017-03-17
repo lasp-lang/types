@@ -46,7 +46,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/3]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
@@ -54,6 +54,7 @@
 
 -opaque state_bcounter() :: {?TYPE, payload()}.
 -type payload() :: {?PNCOUNTER_TYPE:state_pncounter(), ?GMAP_TYPE:state_gmap()}.
+-type crdt_or_digest() :: state_bcounter() | state_type:digest().
 -type state_bcounter_op() :: {move, pos_integer(), term()} |
                              increment |
                              decrement.
@@ -204,10 +205,11 @@ is_strict_inflation({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) 
     ?GMAP_TYPE:is_strict_inflation(GMap1, GMap2)).
 
 %% @doc Check for irreducible strict inflation.
--spec irreducible_is_strict_inflation(state_bcounter(), state_bcounter()) ->
-    boolean().
-irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
-    state_type:irreducible_is_strict_inflation(Irreducible, CRDT).
+-spec irreducible_is_strict_inflation(state_type:delta_method(),
+                                      state_bcounter(),
+                                      crdt_or_digest()) -> boolean().
+irreducible_is_strict_inflation(state, {?TYPE, _}=A, {?TYPE, _}=B) ->
+    state_type:irreducible_is_strict_inflation(state, A, B).
 
 %% @doc Join decomposition for `state_bcounter()'.
 %% @todo
@@ -216,9 +218,9 @@ join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
 
 %% @doc Delta calculation for `state_bcounter()'.
--spec delta(state_type:delta_method(), state_bcounter(), state_bcounter()) ->
-    state_bcounter().
-delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
+-spec delta(state_type:delta_method(), state_bcounter(),
+            crdt_or_digest()) -> state_bcounter().
+delta(Method, {?TYPE, _}=A, B) ->
     state_type:delta(Method, A, B).
 
 -spec encode(state_type:format(), state_bcounter()) -> binary().
