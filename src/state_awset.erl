@@ -509,7 +509,7 @@ digest_test() ->
     Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"elem1">>, {dot_set, [{a, 1}]}},
                                           {<<"elem2">>, {dot_set, [{a, 2}, {b, 1}]}}]},
                     CC}},
-    Expected = {[{a, 1}, {a, 2}, {b, 1}], CC}, 
+    Expected = {[{a, 1}, {a, 2}, {b, 1}], CC},
     ?assertEqual(Expected, digest(Set1)).
 
 encode_decode_test() ->
