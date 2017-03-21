@@ -99,7 +99,7 @@ delta_mutate(decrement, Actor, {?TYPE, PNCounter}) ->
 %% @doc Returns the value of the `state_pncounter()'.
 %%      This value is the sum of all increments minus the sum of all
 %%      decrements.
--spec query(state_pncounter()) -> non_neg_integer().
+-spec query(state_pncounter()) -> integer().
 query({?TYPE, PNCounter}) ->
     lists:sum([ Inc - Dec || {_Actor, {Inc, Dec}} <- PNCounter ]).
 
