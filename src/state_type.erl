@@ -50,8 +50,8 @@
                       state_lwwregister |
                       state_max_int |
                       state_mvregister |
-                      state_mvmap |
-                      state_ormap |
+                      %state_mvmap |
+                      %state_ormap |
                       state_orset |
                       state_pair |
                       state_pncounter |
@@ -107,34 +107,12 @@
 
 %% @doc Builds a new CRDT from a given CRDT
 -spec new(crdt()) -> any(). %% @todo Fix this any()
-new({state_awset, _Payload}) ->
-    state_awset:new();
-new({state_awset_ps, _Payload}) ->
-    state_awset_ps:new();
-new({state_bcounter, _Payload}) ->
-    state_bcounter:new();
-new({state_boolean, _Payload}) ->
-    state_boolean:new();
-new({state_gcounter, _Payload}) ->
-    state_gcounter:new();
 new({state_gmap, {ValuesType, _Payload}}) ->
     state_gmap:new([ValuesType]);
-new({state_gset, _Payload}) ->
-    state_gset:new();
-new({state_ivar, _Payload}) ->
-    state_ivar:new();
-new({state_lexcounter, _Payload}) ->
-    state_lexcounter:new();
-new({state_max_int, _Payload}) ->
-    state_max_int:new();
-new({state_orset, _Payload}) ->
-    state_orset:new();
 new({state_pair, {Fst, Snd}}) ->
     {state_pair, {new(Fst), new(Snd)}};
-new({state_pncounter, _Payload}) ->
-    state_pncounter:new();
-new({state_twopset, _Payload}) ->
-    state_twopset:new().
+new({Type, _Payload}) ->
+    Type:new().
 
 %% @doc Generic Join composition.
 -spec mutate(type:operation(), type:id(), crdt()) ->

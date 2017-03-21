@@ -56,9 +56,9 @@ all() ->
         pair_with_gcounter_and_gmap_test,
         pair_with_gmap_and_pair_with_gcounter_and_gmap_test,
         pair_with_pair_with_gcounter_and_gmap_and_gmap_test,
-        gmap_with_pair_test,
-        maps_within_maps_test,
-        ormap_nested_rmv_test
+        gmap_with_pair_test%,
+        %maps_within_maps_test,
+        %ormap_nested_rmv_test
     ].
 
 %% ===================================================================
