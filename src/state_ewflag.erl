@@ -78,9 +78,8 @@ mutate(Op, Actor, {?TYPE, _Flag}=CRDT) ->
 delta_mutate(enable, Actor, {?TYPE, {DotStore, CausalContext}}) ->
     NextDot = causal_context:next_dot(Actor, CausalContext),
 
-    EmptyDotSet = dot_set:new(),
-    DeltaDotStore = dot_set:add_element(NextDot, EmptyDotSet),
-    DeltaCausalContext = causal_context:to_causal_context(
+    DeltaDotStore = dot_set:add_dot(NextDot, dot_set:new()),
+    DeltaCausalContext = causal_context:from_dot_set(
         dot_set:union(DotStore, DeltaDotStore)
     ),
 
@@ -90,7 +89,7 @@ delta_mutate(enable, Actor, {?TYPE, {DotStore, CausalContext}}) ->
 %% @doc Disables `state_ewflag()'.
 delta_mutate(disable, _Actor, {?TYPE, {DotStore, _CausalContext}}) ->
     DeltaDotStore = dot_set:new(),
-    DeltaCausalContext = causal_context:to_causal_context(DotStore),
+    DeltaCausalContext = causal_context:from_dot_set(DotStore),
 
     Delta = {DeltaDotStore, DeltaCausalContext},
     {ok, {?TYPE, Delta}}.
@@ -106,7 +105,7 @@ query({?TYPE, {DotStore, _CausalContext}}) ->
 -spec merge(state_ewflag(), state_ewflag()) -> state_ewflag().
 merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     MergeFun = fun({?TYPE, Flag1}, {?TYPE, Flag2}) ->
-        Flag = state_causal_type:merge(Flag1, Flag2),
+        Flag = state_causal_type:merge(dot_set, Flag1, Flag2),
         {?TYPE, Flag}
     end,
     state_type:merge(CRDT1, CRDT2, MergeFun).
@@ -168,15 +167,15 @@ decode(erlang, Binary) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, {{dot_set, ordsets:new()}, ordsets:new()}},
+    ?assertEqual({?TYPE, {[], causal_context:new()}},
                  new()).
 
 query_test() ->
     Flag0 = new(),
     Flag1 = {?TYPE,
         {
-            {dot_set, [{a, 2}]},
-            [{a, 1}, {a, 2}]
+            [{a, 2}],
+            {[{a, 2}], []}
         }
     },
     ?assertEqual(false, query(Flag0)),
@@ -197,57 +196,57 @@ delta_mutate_test() ->
 
     ?assertEqual({?TYPE,
         {
-            {dot_set, [{ActorOne, 1}]},
-            [{ActorOne, 1}]
+            [{ActorOne, 1}],
+            {[{ActorOne, 1}], []}
         }},
         {?TYPE, Delta1}
     ),
     ?assertEqual({?TYPE,
         {
-            {dot_set, [{ActorOne, 1}]},
-            [{ActorOne, 1}]
+            [{ActorOne, 1}],
+            {[{ActorOne, 1}], []}
         }},
         Flag1
     ),
     ?assertEqual({?TYPE,
         {
-            {dot_set, [{ActorTwo, 1}]},
-            [{ActorOne, 1}, {ActorTwo, 1}]
+            [{ActorTwo, 1}],
+            {[{ActorOne, 1}, {ActorTwo, 1}], []}
         }},
         {?TYPE, Delta2}
     ),
     ?assertEqual({?TYPE,
         {
-            {dot_set, [{ActorTwo, 1}]},
-            [{ActorOne, 1}, {ActorTwo, 1}]
+            [{ActorTwo, 1}],
+            {[{ActorOne, 1}, {ActorTwo, 1}], []}
         }},
         Flag2
     ),
     ?assertEqual({?TYPE,
         {
-            {dot_set, []},
-            [{ActorTwo, 1}]
+            [],
+            {[{ActorTwo, 1}], []}
         }},
         {?TYPE, Delta3}
     ),
     ?assertEqual({?TYPE,
         {
-            {dot_set, []},
-            [{ActorOne, 1}, {ActorTwo, 1}]
+            [],
+            {[{ActorOne, 1}, {ActorTwo, 1}], []}
         }},
         Flag3
     ),
     ?assertEqual({?TYPE,
         {
-            {dot_set, [{ActorTwo, 2}]},
-            [{ActorTwo, 2}]
+            [{ActorTwo, 2}],
+            {[], [{ActorTwo, 2}]}
         }},
         {?TYPE, Delta4}
     ),
     ?assertEqual({?TYPE,
         {
-            {dot_set, [{ActorTwo, 2}]},
-            [{ActorOne, 1}, {ActorTwo, 1}, {ActorTwo, 2}]
+            [{ActorTwo, 2}],
+            {[{ActorOne, 1}, {ActorTwo, 2}], []}
         }},
         Flag4
     ).
@@ -263,37 +262,37 @@ mutate_test() ->
 
     ?assertEqual({?TYPE,
         {
-            {dot_set, [{ActorOne, 1}]},
-            [{ActorOne, 1}]
+            [{ActorOne, 1}],
+            {[{ActorOne, 1}], []}
         }},
         Flag1
     ),
     ?assertEqual({?TYPE,
         {
-            {dot_set, [{ActorTwo, 1}]},
-            [{ActorOne, 1}, {ActorTwo, 1}]
+            [{ActorTwo, 1}],
+            {[{ActorOne, 1}, {ActorTwo, 1}], []}
         }},
         Flag2
     ),
     ?assertEqual({?TYPE,
         {
-            {dot_set, []},
-            [{ActorOne, 1}, {ActorTwo, 1}]
+            [],
+            {[{ActorOne, 1}, {ActorTwo, 1}], []}
         }},
         Flag3
     ),
     ?assertEqual({?TYPE,
         {
-            {dot_set, [{ActorTwo, 2}]},
-            [{ActorOne, 1}, {ActorTwo, 1}, {ActorTwo, 2}]
+            [{ActorTwo, 2}],
+            {[{ActorOne, 1}, {ActorTwo, 2}], []}
         }},
         Flag4
     ).
 
 merge_idempontent_test() ->
-    Flag1 = {?TYPE, {{dot_set, []}, [{1, 1}]}},
-    Flag2 = {?TYPE, {{dot_set, [{2, 3}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}},
-    Flag3 = {?TYPE, {{dot_set, [{1, 1}, {2, 3}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}},
+    Flag1 = {?TYPE, {[], {[{1, 1}], []}}},
+    Flag2 = {?TYPE, {[{2, 3}], {[{1, 1}, {2, 3}], []}}},
+    Flag3 = {?TYPE, {[{1, 1}, {2, 3}], {[{1, 1}, {2, 3}], []}}},
     Flag4 = merge(Flag1, Flag1),
     Flag5 = merge(Flag2, Flag2),
     Flag6 = merge(Flag3, Flag3),
@@ -302,9 +301,9 @@ merge_idempontent_test() ->
     ?assertEqual(Flag3, Flag6).
 
 merge_commutative_test() ->
-    Flag1 = {?TYPE, {{dot_set, []}, [{1, 1}]}},
-    Flag2 = {?TYPE, {{dot_set, [{2, 3}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}},
-    Flag3 = {?TYPE, {{dot_set, [{1, 1}, {2, 3}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}},
+    Flag1 = {?TYPE, {[], {[{1, 1}], []}}},
+    Flag2 = {?TYPE, {[{2, 3}], {[{1, 1}, {2, 3}], []}}},
+    Flag3 = {?TYPE, {[{1, 1}, {2, 3}], {[{1, 1}, {2, 3}], []}}},
     Flag4 = merge(Flag1, Flag2),
     Flag5 = merge(Flag2, Flag1),
     Flag6 = merge(Flag1, Flag3),
@@ -324,20 +323,20 @@ merge_commutative_test() ->
     ?assertEqual(Flag1_3, Flag10).
 
 merge_delta_test() ->
-    Flag1 = {?TYPE, {{dot_set, [{1, 1}, {2, 3}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}},
-    Delta1 = {?TYPE, {{dot_set, []}, [{1, 1}]}},
-    Delta2 = {?TYPE, {{dot_set, []}, [{2, 3}]}},
+    Flag1 = {?TYPE, {[{1, 1}, {2, 3}], {[{1, 1}, {2, 3}], []}}},
+    Delta1 = {?TYPE, {[], {[{1, 1}], []}}},
+    Delta2 = {?TYPE, {[], {[{2, 3}], []}}},
     Flag2 = merge(Delta1, Flag1),
     Flag3 = merge(Flag1, Delta2),
     DeltaGroup = merge(Delta1, Delta2),
-    ?assertEqual({?TYPE, {{dot_set, [{2, 3}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}}, Flag2),
-    ?assertEqual({?TYPE, {{dot_set, [{1, 1}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}}, Flag3),
-    ?assertEqual({?TYPE, {{dot_set, []}, [{1, 1}, {2, 3}]}}, DeltaGroup).
+    ?assertEqual({?TYPE, {[{2, 3}], {[{1, 1}, {2, 3}], []}}}, Flag2),
+    ?assertEqual({?TYPE, {[{1, 1}], {[{1, 1}, {2, 3}], []}}}, Flag3),
+    ?assertEqual({?TYPE, {[], {[{1, 1}, {2, 3}], []}}}, DeltaGroup).
 
 equal_test() ->
-    Flag1 = {?TYPE, {{dot_set, [{1, 1}, {2, 3}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}},
-    Flag2 = {?TYPE, {{dot_set, [{1, 1}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}},
-    Flag3 = {?TYPE, {{dot_set, [{1, 1}]}, [{1, 1}, {2, 1}, {2, 2}]}},
+    Flag1 = {?TYPE, {[{1, 1}, {2, 3}], {[{1, 1}, {2, 3}], []}}},
+    Flag2 = {?TYPE, {[{1, 1}], {[{1, 1}, {2, 3}], []}}},
+    Flag3 = {?TYPE, {[{1, 1}], {[{1, 1}, {2, 2}], []}}},
     ?assert(equal(Flag1, Flag1)),
     ?assert(equal(Flag2, Flag2)),
     ?assert(equal(Flag3, Flag3)),
@@ -347,14 +346,14 @@ equal_test() ->
 
 is_bottom_test() ->
     Flag0 = new(),
-    Flag1 = {?TYPE, {{dot_set, []}, [{2, 3}]}},
+    Flag1 = {?TYPE, {[], {[{2, 3}], []}}},
     ?assert(is_bottom(Flag0)),
     ?assertNot(is_bottom(Flag1)).
 
 is_inflation_test() ->
-    Flag1 = {?TYPE, {{dot_set, [{1, 1}, {2, 3}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}},
-    Flag2 = {?TYPE, {{dot_set, [{2, 3}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}},
-    Flag3 = {?TYPE, {{dot_set, [{1, 1}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}},
+    Flag1 = {?TYPE, {[{1, 1}, {2, 3}], {[{1, 1}, {2, 3}], []}}},
+    Flag2 = {?TYPE, {[{2, 3}], {[{1, 1}, {2, 3}], []}}},
+    Flag3 = {?TYPE, {[{1, 1}], {[{1, 1}, {2, 3}], []}}},
     ?assert(is_inflation(Flag1, Flag1)),
     ?assert(is_inflation(Flag1, Flag2)),
     ?assertNot(is_inflation(Flag2, Flag1)),
@@ -370,9 +369,9 @@ is_inflation_test() ->
     ?assertNot(state_type:is_inflation(Flag3, Flag2)).
 
 is_strict_inflation_test() ->
-    Flag1 = {?TYPE, {{dot_set, [{1, 1}, {2, 3}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}},
-    Flag2 = {?TYPE, {{dot_set, [{2, 3}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}},
-    Flag3 = {?TYPE, {{dot_set, [{1, 1}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}},
+    Flag1 = {?TYPE, {[{1, 1}, {2, 3}], {[{1, 1}, {2, 3}], []}}},
+    Flag2 = {?TYPE, {[{2, 3}], {[{1, 1}, {2, 3}], []}}},
+    Flag3 = {?TYPE, {[{1, 1}], {[{1, 1}, {2, 3}], []}}},
     ?assertNot(is_strict_inflation(Flag1, Flag1)),
     ?assert(is_strict_inflation(Flag1, Flag2)),
     ?assertNot(is_strict_inflation(Flag2, Flag1)),
@@ -385,7 +384,7 @@ join_decomposition_test() ->
     ok.
 
 encode_decode_test() ->
-    Flag = {?TYPE, {{dot_set, [{1, 1}, {2, 3}]}, [{1, 1}, {2, 1}, {2, 2}, {2, 3}]}},
+    Flag = {?TYPE, {[{1, 1}, {2, 3}], {[{1, 1}, {2, 3}], []}}},
     Binary = encode(erlang, Flag),
     EFlag = decode(erlang, Binary),
     ?assertEqual(Flag, EFlag).

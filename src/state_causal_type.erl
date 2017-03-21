@@ -26,12 +26,15 @@
 -module(state_causal_type).
 -author("Junghun Yoo <junghun.yoo@cs.ox.ac.uk>").
 
+-include("state_type.hrl").
+
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
 -export([new/1,
-         merge/2]).
+         merge/3,
+         get_dot_store_type/1]).
 
 -export_type([causal_crdt/0]).
 
@@ -41,96 +44,86 @@
                        }.
 
 %% @doc Create an empty CausalCRDT.
--spec new(dot_store:type()) -> causal_crdt().
-new(CType) ->
-    {DotStoreType, Args} = state_type:extract_args(CType),
-    {DotStoreType:new(Args), causal_context:new()}.
+-spec new(dot_set | dot_fun | dot_map) -> causal_crdt().
+new(DotStoreType) ->
+    {DotStoreType:new(), causal_context:new()}.
 
 %% @doc Universal merge for a two CausalCRDTs.
--spec merge(causal_crdt(), causal_crdt()) -> causal_crdt().
-merge({DotStore, CausalContext}, {DotStore, CausalContext}) ->
+-spec merge(dot_store:type(), causal_crdt(), causal_crdt()) ->
+    causal_crdt().
+merge(_Type, {DotStore, CausalContext}, {DotStore, CausalContext}) ->
     {DotStore, CausalContext};
 
-merge({{dot_set, _}=DotSetA, CausalContextA},
-      {{dot_set, _}=DotSetB, CausalContextB}) ->
+merge(dot_set, {DotSetA, CausalContextA}, {DotSetB, CausalContextB}) ->
 
-    DotSetL = dot_set:intersection(DotSetA, DotSetB),
-    DotSetM = dot_set:subtract(
-        DotSetA,
-        causal_context:to_dot_set(CausalContextB)
-    ),
-    DotSetR = dot_set:subtract(
-        DotSetB,
-        causal_context:to_dot_set(CausalContextA)
-    ),
+    Intersection = dot_set:intersection(DotSetA, DotSetB),
+    Subtract1 = dot_set:subtract_causal_context(DotSetA,
+                                                CausalContextB),
+    Subtract2 = dot_set:subtract_causal_context(DotSetB,
+                                                CausalContextA),
 
-    DotStore = dot_set:union(
-        dot_set:union(DotSetL, DotSetM),
-        DotSetR
-    ),
-    CausalContext = causal_context:merge(CausalContextA, CausalContextB),
+    DotStore = dot_set:union(Intersection,
+                             dot_set:union(Subtract1, Subtract2)),
+
+    CausalContext = causal_context:union(CausalContextA,
+                                         CausalContextB),
 
     {DotStore, CausalContext};
 
-merge({{{dot_fun, CRDTType}, _}=DotFunA, CausalContextA},
-      {{{dot_fun, CRDTType}, _}=DotFunB, CausalContextB}) ->
+merge({dot_fun, CRDTType}, {DotFunA, CausalContextA},
+                           {DotFunB, CausalContextB}) ->
 
-    DotSetA = causal_context:to_dot_set(
-        causal_context:to_causal_context(DotFunA)
+    Filtered1 = dot_fun:filter(
+        fun(Dot, _) ->
+            not causal_context:is_element(Dot, CausalContextB)
+        end,
+        DotFunA
     ),
-    DotSetB = causal_context:to_dot_set(
-        causal_context:to_causal_context(DotFunB)
+
+    Filtered2 = dot_fun:filter(
+        fun(Dot, _) ->
+            not causal_context:is_element(Dot, CausalContextA)
+        end,
+        DotFunB
     ),
-    CCDotSetA = causal_context:to_dot_set(CausalContextA),
-    CCDotSetB = causal_context:to_dot_set(CausalContextB),
 
-    CommonDotSet = dot_set:intersection(DotSetA, DotSetB),
+    DotSetA = dot_set:from_dots(dot_fun:dots(DotFunA)),
+    DotSetB = dot_set:from_dots(dot_fun:dots(DotFunB)),
+    Intersection = dot_set:intersection(DotSetA, DotSetB),
 
-    DotFun0 = lists:foldl(
+    DotStore0 = lists:foldl(
         fun(Dot, DotFun) ->
             ValueA = dot_fun:fetch(Dot, DotFunA),
             ValueB = dot_fun:fetch(Dot, DotFunB),
-            Value = CRDTType:merge(ValueA, ValueB),
+            {CRDTType, Value} = CRDTType:merge({CRDTType, ValueA},
+                                               {CRDTType, ValueB}),
             dot_fun:store(Dot, Value, DotFun)
         end,
-        dot_fun:new(CRDTType),
-        dot_set:to_list(CommonDotSet)
+        dot_fun:new(),
+        dot_set:to_list(Intersection)
     ),
 
-    DotFun1 = lists:foldl(
-        fun(Dot, DotFun) ->
-            case dot_set:is_element(Dot, CCDotSetB) of
-                true ->
-                    DotFun;
-                false ->
-                    Value = dot_fun:fetch(Dot, DotFunA),
-                    dot_fun:store(Dot, Value, DotFun)
-            end
+    DotStore1 = lists:foldl(
+        fun({Dot, Value}, DotFun) ->
+            dot_fun:store(Dot, Value, DotFun)
         end,
-        DotFun0,
-        dot_fun:fetch_keys(DotFunA)
+        DotStore0,
+        dot_fun:to_list(Filtered1) ++ dot_fun:to_list(Filtered2)
     ),
 
-    DotFun2 = lists:foldl(
-        fun(Dot, DotFun) ->
-            case dot_set:is_element(Dot, CCDotSetA) of
-                true ->
-                    DotFun;
-                false ->
-                    Value = dot_fun:fetch(Dot, DotFunB),
-                    dot_fun:store(Dot, Value, DotFun)
-            end
-        end,
-        DotFun1,
-        dot_fun:fetch_keys(DotFunB)
-    ),
+    CausalContext = causal_context:union(CausalContextA,
+                                         CausalContextB),
 
-    DotStore = DotFun2,
-    CausalContext = causal_context:merge(CausalContextA, CausalContextB),
-    {DotStore, CausalContext};
+    {DotStore1, CausalContext};
 
-merge({{{dot_map, DotStoreType}, _}=DotMapA, CausalContextA},
-      {{{dot_map, DotStoreType}, _}=DotMapB, CausalContextB}) ->
+merge({dot_map, Type}, {DotMapA, CausalContextA},
+                       {DotMapB, CausalContextB}) ->
+
+    %% Type can be:
+    %% - DotStoreType
+    %% - CRDTType (causal)
+    DotStoreType = get_dot_store_type(Type),
+    Default = DotStoreType:new(),
 
     KeysA = dot_map:fetch_keys(DotMapA),
     KeysB = dot_map:fetch_keys(DotMapB),
@@ -141,26 +134,51 @@ merge({{{dot_map, DotStoreType}, _}=DotMapA, CausalContextA},
 
     DotStore = ordsets:fold(
         fun(Key, DotMap) ->
-            KeyDotStoreA = dot_map:fetch(Key, DotMapA),
-            KeyDotStoreB = dot_map:fetch(Key, DotMapB),
+            KeyDotStoreA = dot_map:fetch(Key, DotMapA, Default),
+            KeyDotStoreB = dot_map:fetch(Key, DotMapB, Default),
 
-            {{CType, _}=VK, _} = merge(
+            {VK, _} = merge(get_type(Type),
                 {KeyDotStoreA, CausalContextA},
                 {KeyDotStoreB, CausalContextB}
             ),
 
-            {SubDotStoreType, _} = state_type:extract_args(CType),
-
-            case SubDotStoreType:is_empty(VK) of
+            case DotStoreType:is_empty(VK) of
                 true ->
                     DotMap;
                 false ->
                     dot_map:store(Key, VK, DotMap)
             end
         end,
-        dot_map:new(DotStoreType),
+        dot_map:new(),
         Keys
     ),
-    CausalContext = causal_context:merge(CausalContextA, CausalContextB),
+
+    CausalContext = causal_context:union(CausalContextA,
+                                         CausalContextB),
 
     {DotStore, CausalContext}.
+
+%% @doc Get the DotStore type.
+get_dot_store_type(T) ->
+    case get_type(T) of
+        dot_set ->
+            dot_set;
+        {DS, _} ->
+            DS
+    end.
+
+%% @private
+get_type(dot_set=T) ->
+    T;
+get_type({dot_fun, _}=T) ->
+    T;
+get_type({dot_map, _}=T) ->
+    T;
+get_type(state_awset) ->
+    {dot_map, dot_set};
+get_type(state_dwflag) ->
+    dot_set;
+get_type(state_ewflag) ->
+    dot_set;
+get_type(state_mvregister) ->
+    {dot_fun, ?IVAR_TYPE}.

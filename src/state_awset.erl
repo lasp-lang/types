@@ -58,7 +58,7 @@
 %%      DotMap<Elem, DotSet>
 -spec new() -> state_awset().
 new() ->
-    {?TYPE, state_causal_type:new({dot_map, dot_set})}.
+    {?TYPE, state_causal_type:new(dot_map)}.
 
 %% @doc Create a new, empty `state_awset()'
 -spec new([term()]) -> state_awset().
@@ -86,14 +86,13 @@ mutate(Op, Actor, {?TYPE, _AWSet}=CRDT) ->
 delta_mutate({add, Elem}, Actor, {?TYPE, {DotStore, CausalContext}}) ->
     NextDot = causal_context:next_dot(Actor, CausalContext),
 
-    EmptyDotSet = dot_set:new(),
-    EmptyDotMap = dot_map:new(dot_set),
-    DeltaDotSet = dot_set:add_element(NextDot, EmptyDotSet),
-    DeltaDotStore = dot_map:store(Elem, DeltaDotSet, EmptyDotMap),
+    DeltaDotSet = dot_set:add_dot(NextDot, dot_set:new()),
+    DeltaDotStore = dot_map:store(Elem, DeltaDotSet, dot_map:new()),
 
-    CurrentDotSet = dot_map:fetch(Elem, DotStore),
-    DeltaCausalContext0 = causal_context:to_causal_context(CurrentDotSet),
-    DeltaCausalContext1 = causal_context:add_dot(NextDot, DeltaCausalContext0),
+    CurrentDotSet = dot_map:fetch(Elem, DotStore, dot_set:new()),
+    DeltaCausalContext0 = causal_context:from_dot_set(CurrentDotSet),
+    DeltaCausalContext1 = causal_context:add_dot(NextDot,
+                                                 DeltaCausalContext0),
 
     Delta = {DeltaDotStore, DeltaCausalContext1},
     {ok, {?TYPE, Delta}};
@@ -115,14 +114,10 @@ delta_mutate({add_all, Elems}, Actor, {?TYPE, _}=AWSet) ->
 
 %% @doc Removes a single element in `state_awset()'.
 delta_mutate({rmv, Elem}, _Actor, {?TYPE, {DotStore, _CausalContext}}) ->
-    CurrentDotSet = dot_map:fetch(Elem, DotStore),
-    DeltaDotStore = dot_map:new(dot_set),
-    DeltaCausalContext = case dot_set:is_empty(CurrentDotSet) of
-        true ->
-            causal_context:new();
-        false ->
-            causal_context:to_causal_context(CurrentDotSet)
-    end,
+    CurrentDotSet = dot_map:fetch(Elem, DotStore, dot_set:new()),
+    DeltaDotStore = dot_map:new(),
+    DeltaCausalContext = causal_context:from_dot_set(CurrentDotSet),
+
     Delta = {DeltaDotStore, DeltaCausalContext},
     {ok, {?TYPE, Delta}};
 
@@ -163,7 +158,9 @@ query({?TYPE, {DotStore, _CausalContext}}) ->
 -spec merge(state_awset(), state_awset()) -> state_awset().
 merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     MergeFun = fun({?TYPE, AWSet1}, {?TYPE, AWSet2}) ->
-        AWSet = state_causal_type:merge(AWSet1, AWSet2),
+        AWSet = state_causal_type:merge({dot_map, dot_set},
+                                        AWSet1,
+                                        AWSet2),
         {?TYPE, AWSet}
     end,
     state_type:merge(CRDT1, CRDT2, MergeFun).
@@ -203,13 +200,13 @@ join_decomposition({?TYPE, {DotStore, CausalContext}}) ->
     Elements = dot_map:fetch_keys(DotStore),
     {DecompList, ActiveDots} = lists:foldl(
         fun(Elem, {List0, ActiveDots0}) ->
-            ElemDotSet = dot_map:fetch(Elem, DotStore),
+            ElemDotSet = dot_map:fetch(Elem, DotStore, dot_set:new()),
 
             List1 = lists:foldl(
                 fun(Dot, List2) ->
-                    {?TYPE, {EmptyDS, EmptyCC}} = new(),
-                    CC = causal_context:add_dot(Dot, EmptyCC),
-                    DS = dot_map:store(Elem, causal_context:to_dot_set(CC), EmptyDS),
+                    DotSet = dot_set:add_dot(Dot, dot_set:new()),
+                    DS = dot_map:store(Elem, DotSet, dot_map:new()),
+                    CC = causal_context:from_dot_set(DotSet),
                     Decomp = {?TYPE, {DS, CC}},
                     [Decomp | List2]
                 end,
@@ -225,14 +222,15 @@ join_decomposition({?TYPE, {DotStore, CausalContext}}) ->
         Elements
     ),
 
-    CCDotSet = causal_context:to_dot_set(CausalContext),
+    CCDotSet = causal_context:dots(CausalContext),
     InactiveDots = dot_set:subtract(CCDotSet, ActiveDots),
 
     lists:foldl(
         fun(InactiveDot, List) ->
-            {?TYPE, {EmptyDS, EmptyCC}} = new(),
-            CC = causal_context:add_dot(InactiveDot, EmptyCC),
-            Decomp = {?TYPE, {EmptyDS, CC}},
+            DS = dot_map:new(),
+            CC = causal_context:add_dot(InactiveDot,
+                                        causal_context:new()),
+            Decomp = {?TYPE, {DS, CC}},
             [Decomp | List]
         end,
         DecompList,
@@ -251,7 +249,7 @@ digest({?TYPE, {DotStore, CausalContext}}) ->
     Elements = dot_map:fetch_keys(DotStore),
     ActiveDots = lists:foldl(
         fun(Element, Acc) ->
-            DotSet = dot_map:fetch(Element, DotStore),
+            DotSet = dot_map:fetch(Element, DotStore, dot_set:new()),
             dot_set:union(Acc, DotSet)
         end,
         dot_set:new(),
@@ -275,99 +273,90 @@ decode(erlang, Binary) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, {{{dot_map, dot_set}, orddict:new()}, ordsets:new()}},
+    ?assertEqual({?TYPE, {[], causal_context:new()}},
                  new()).
 
 query_test() ->
     Set0 = new(),
-    Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{a, 2}]}}]},
-                    [{a, 1}, {a, 2}]}},
+    Set1 = {?TYPE, {[{"a", [{a, 2}]}],
+                    {[{a, 2}], []}}},
     ?assertEqual(sets:new(), query(Set0)),
-    ?assertEqual(sets:from_list([<<"a">>]), query(Set1)).
+    ?assertEqual(sets:from_list(["a"]), query(Set1)).
 
 delta_add_test() ->
     Actor = 1,
     Set0 = new(),
-    {ok, {?TYPE, Delta1}} = delta_mutate({add, <<"a">>}, Actor, Set0),
+    {ok, {?TYPE, Delta1}} = delta_mutate({add, "a"}, Actor, Set0),
     Set1 = merge({?TYPE, Delta1}, Set0),
-    {ok, {?TYPE, Delta2}} = delta_mutate({add, <<"a">>}, Actor, Set1),
+    {ok, {?TYPE, Delta2}} = delta_mutate({add, "a"}, Actor, Set1),
     Set2 = merge({?TYPE, Delta2}, Set1),
-    {ok, {?TYPE, Delta3}} = delta_mutate({add, <<"b">>}, Actor, Set2),
+    {ok, {?TYPE, Delta3}} = delta_mutate({add, "b"}, Actor, Set2),
     Set3 = merge({?TYPE, Delta3}, Set2),
 
-    ?assertEqual({?TYPE, {{{dot_map, dot_set},
-                           [{<<"a">>, {dot_set, [{Actor, 1}]}}]},
-                          [{Actor, 1}]}},
+    ?assertEqual({?TYPE, {[{"a", [{Actor, 1}]}],
+                          {[{Actor, 1}], []}}},
                  {?TYPE, Delta1}),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set},
-                           [{<<"a">>, {dot_set, [{Actor, 1}]}}]},
-                          [{Actor, 1}]}},
+    ?assertEqual({?TYPE, {[{"a", [{Actor, 1}]}],
+                          {[{Actor, 1}], []}}},
                  Set1),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set},
-                           [{<<"a">>, {dot_set, [{Actor, 2}]}}]},
-                          [{Actor, 1}, {Actor, 2}]}},
+    ?assertEqual({?TYPE, {[{"a", [{Actor, 2}]}],
+                          {[{Actor, 2}], []}}},
                  {?TYPE, Delta2}),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set},
-                           [{<<"a">>, {dot_set, [{Actor, 2}]}}]},
-                          [{Actor, 1}, {Actor, 2}]}},
+    ?assertEqual({?TYPE, {[{"a", [{Actor, 2}]}],
+                          {[{Actor, 2}], []}}},
                  Set2),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set},
-                           [{<<"b">>, {dot_set, [{Actor, 3}]}}]},
-                          [{Actor, 3}]}},
+    ?assertEqual({?TYPE, {[{"b", [{Actor, 3}]}],
+                          {[], [{Actor, 3}]}}},
                  {?TYPE, Delta3}),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set},
-                           [{<<"a">>, {dot_set, [{Actor, 2}]}},
-                            {<<"b">>, {dot_set, [{Actor, 3}]}}]},
-                          [{Actor, 1}, {Actor, 2}, {Actor, 3}]}},
+    ?assertEqual({?TYPE, {[{"a", [{Actor, 2}]},
+                           {"b", [{Actor, 3}]}],
+                          {[{Actor, 3}], []}}},
                  Set3).
 
 add_test() ->
     Actor = 1,
     Set0 = new(),
-    {ok, Set1} = mutate({add, <<"a">>}, Actor, Set0),
-    {ok, Set2} = mutate({add, <<"a">>}, Actor, Set1),
-    {ok, Set3} = mutate({add, <<"b">>}, Actor, Set2),
+    {ok, Set1} = mutate({add, "a"}, Actor, Set0),
+    {ok, Set2} = mutate({add, "a"}, Actor, Set1),
+    {ok, Set3} = mutate({add, "b"}, Actor, Set2),
 
-    ?assertEqual({?TYPE, {{{dot_map, dot_set},
-                           [{<<"a">>, {dot_set, [{Actor, 1}]}}]},
-                          [{Actor, 1}]}},
+    ?assertEqual({?TYPE, {[{"a", [{Actor, 1}]}],
+                          {[{Actor, 1}], []}}},
                  Set1),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set},
-                           [{<<"a">>, {dot_set, [{Actor, 2}]}}]},
-                          [{Actor, 1}, {Actor, 2}]}},
+    ?assertEqual({?TYPE, {[{"a", [{Actor, 2}]}],
+                          {[{Actor, 2}], []}}},
                  Set2),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set},
-                           [{<<"a">>, {dot_set, [{Actor, 2}]}},
-                            {<<"b">>, {dot_set, [{Actor, 3}]}}]},
-                          [{Actor, 1}, {Actor, 2}, {Actor, 3}]}},
+    ?assertEqual({?TYPE, {[{"a", [{Actor, 2}]},
+                           {"b", [{Actor, 3}]}],
+                          {[{Actor, 3}], []}}},
                  Set3).
 
 rmv_test() ->
     Actor = 1,
     Set0 = new(),
-    {ok, Set1} = mutate({add, <<"a">>}, Actor, Set0),
-    {ok, Set1} = mutate({rmv, <<"b">>}, Actor, Set1),
-    {ok, Set2} = mutate({rmv, <<"a">>}, Actor, Set1),
+    {ok, Set1} = mutate({add, "a"}, Actor, Set0),
+    {ok, Set1} = mutate({rmv, "b"}, Actor, Set1),
+    {ok, Set2} = mutate({rmv, "a"}, Actor, Set1),
     ?assertEqual(sets:new(), query(Set2)).
 
 add_all_test() ->
     Actor = 1,
     Set0 = new(),
     {ok, Set1} = mutate({add_all, []}, Actor, Set0),
-    {ok, Set2} = mutate({add_all, [<<"a">>, <<"b">>]}, Actor, Set0),
-    {ok, Set3} = mutate({add_all, [<<"b">>, <<"c">>]}, Actor, Set2),
+    {ok, Set2} = mutate({add_all, ["a", "b"]}, Actor, Set0),
+    {ok, Set3} = mutate({add_all, ["b", "c"]}, Actor, Set2),
     ?assertEqual(sets:new(), query(Set1)),
-    ?assertEqual(sets:from_list([<<"a">>, <<"b">>]), query(Set2)),
-    ?assertEqual(sets:from_list([<<"a">>, <<"b">>, <<"c">>]), query(Set3)).
+    ?assertEqual(sets:from_list(["a", "b"]), query(Set2)),
+    ?assertEqual(sets:from_list(["a", "b", "c"]), query(Set3)).
 
 remove_all_test() ->
     Actor = 1,
     Set0 = new(),
-    {ok, Set1} = mutate({add_all, [<<"a">>, <<"b">>, <<"c">>]}, Actor, Set0),
-    {ok, Set2} = mutate({rmv_all, [<<"a">>, <<"c">>]}, Actor, Set1),
-    {ok, Set3} = mutate({rmv_all, [<<"b">>, <<"d">>]}, Actor, Set2),
-    {ok, Set3} = mutate({rmv_all, [<<"b">>]}, Actor, Set2),
-    ?assertEqual(sets:from_list([<<"b">>]), query(Set2)),
+    {ok, Set1} = mutate({add_all, ["a", "b", "c"]}, Actor, Set0),
+    {ok, Set2} = mutate({rmv_all, ["a", "c"]}, Actor, Set1),
+    {ok, Set3} = mutate({rmv_all, ["b", "d"]}, Actor, Set2),
+    {ok, Set3} = mutate({rmv_all, ["b"]}, Actor, Set2),
+    ?assertEqual(sets:from_list(["b"]), query(Set2)),
     ?assertEqual(sets:new(), query(Set3)).
 
 filter_test() ->
@@ -385,11 +374,11 @@ filter_test() ->
     ?assertEqual(sets:new(), query(Set4)).
 
 merge_idempontent_test() ->
-    Set1 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}},
-    Set2 = {?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{2, 1}]}}]},
-                    [{2, 1}]}},
-    Set3 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
-                    [{1, 1}, {2, 1}]}},
+    Set1 = {?TYPE, {[], {[{1, 1}], []}}},
+    Set2 = {?TYPE, {[{"b", [{2, 1}]}],
+                    {[{2, 1}], []}}},
+    Set3 = {?TYPE, {[{"a", [{1, 1}]}],
+                    {[{1, 1}, {2, 1}], []}}},
     Set4 = merge(Set1, Set1),
     Set5 = merge(Set2, Set2),
     Set6 = merge(Set3, Set3),
@@ -398,11 +387,11 @@ merge_idempontent_test() ->
     ?assertEqual(Set3, Set6).
 
 merge_commutative_test() ->
-    Set1 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}},
-    Set2 = {?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{2, 1}]}}]},
-                    [{2, 1}]}},
-    Set3 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
-                    [{1, 1}, {2, 1}]}},
+    Set1 = {?TYPE, {[], {[{1, 1}], []}}},
+    Set2 = {?TYPE, {[{"b", [{2, 1}]}],
+                    {[{2, 1}], []}}},
+    Set3 = {?TYPE, {[{"a", [{1, 1}]}],
+                    {[{1, 1}, {2, 1}], []}}},
     Set4 = merge(Set1, Set2),
     Set5 = merge(Set2, Set1),
     Set6 = merge(Set1, Set3),
@@ -410,9 +399,9 @@ merge_commutative_test() ->
     Set8 = merge(Set2, Set3),
     Set9 = merge(Set3, Set2),
     Set10 = merge(Set1, merge(Set2, Set3)),
-    Set1_2 = {?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{2, 1}]}}]},
-                      [{1, 1}, {2, 1}]}},
-    Set1_3 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}, {2, 1}]}},
+    Set1_2 = {?TYPE, {[{"b", [{2, 1}]}],
+                      {[{1, 1}, {2, 1}], []}}},
+    Set1_3 = {?TYPE, {[], {[{1, 1}, {2, 1}], []}}},
     Set2_3 = Set3,
     ?assertEqual(Set1_2, Set4),
     ?assertEqual(Set1_2, Set5),
@@ -423,27 +412,26 @@ merge_commutative_test() ->
     ?assertEqual(Set1_3, Set10).
 
 merge_delta_test() ->
-    Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
-                    [{1, 1}]}},
-    Delta1 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}},
-    Delta2 = {?TYPE, {{{dot_map, dot_set}, [{<<"b">>, {dot_set, [{2, 1}]}}]},
-                              [{2, 1}]}},
+    Set1 = {?TYPE, {[{"a", [{1, 1}]}],
+                    {[{1, 1}], []}}},
+    Delta1 = {?TYPE, {[], {[{1, 1}], []}}},
+    Delta2 = {?TYPE, {[{"b", [{2, 1}]}],
+                      {[{2, 1}], []}}},
     Set2 = merge(Delta1, Set1),
     Set3 = merge(Set1, Delta1),
     DeltaGroup = merge(Delta1, Delta2),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}}, Set2),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}}, Set3),
-    ?assertEqual({?TYPE, {{{dot_map, dot_set},
-                                   [{<<"b">>, {dot_set, [{2, 1}]}}]},
-                                  [{1, 1}, {2, 1}]}},
+    ?assertEqual({?TYPE, {[], {[{1, 1}], []}}}, Set2),
+    ?assertEqual({?TYPE, {[], {[{1, 1}], []}}}, Set3),
+    ?assertEqual({?TYPE, {[{"b", [{2, 1}]}],
+                          {[{1, 1}, {2, 1}], []}}},
                  DeltaGroup).
 
 equal_test() ->
-    Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
-                    [{1, 1}]}},
-    Set2 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}},
-    Set3 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
-                    [{1, 1}, {2, 1}]}},
+    Set1 = {?TYPE, {[{"a", [{1, 1}]}],
+                    {[{1, 1}], []}}},
+    Set2 = {?TYPE, {[], {[{1, 1}], []}}},
+    Set3 = {?TYPE, {[{"a", [{1, 1}]}],
+                    {[{1, 1}, {2, 1}], []}}},
     ?assert(equal(Set1, Set1)),
     ?assert(equal(Set2, Set2)),
     ?assert(equal(Set3, Set3)),
@@ -453,17 +441,17 @@ equal_test() ->
 
 is_bottom_test() ->
     Set0 = new(),
-    Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
-                    [{1, 1}]}},
+    Set1 = {?TYPE, {[{"a", [{1, 1}]}],
+                    {[{1, 1}], []}}},
     ?assert(is_bottom(Set0)),
     ?assertNot(is_bottom(Set1)).
 
 is_inflation_test() ->
-    Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
-                    [{1, 1}]}},
-    Set2 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}},
-    Set3 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
-                    [{1, 1}, {2, 1}]}},
+    Set1 = {?TYPE, {[{"a", [{1, 1}]}],
+                    {[{1, 1}], []}}},
+    Set2 = {?TYPE, {[], {[{1, 1}], []}}},
+    Set3 = {?TYPE, {[{"a", [{1, 1}]}],
+                    {[{1, 1}, {2, 1}], []}}},
     ?assert(is_inflation(Set1, Set1)),
     ?assert(is_inflation(Set1, Set2)),
     ?assertNot(is_inflation(Set2, Set1)),
@@ -479,11 +467,11 @@ is_inflation_test() ->
     ?assertNot(state_type:is_inflation(Set3, Set2)).
 
 is_strict_inflation_test() ->
-    Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
-                    [{1, 1}]}},
-    Set2 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}},
-    Set3 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
-                    [{1, 1}, {2, 1}]}},
+    Set1 = {?TYPE, {[{"a", [{1, 1}]}],
+                    {[{1, 1}], []}}},
+    Set2 = {?TYPE, {[], {[{1, 1}], []}}},
+    Set3 = {?TYPE, {[{"a", [{1, 1}]}],
+                    {[{1, 1}, {2, 1}], []}}},
     ?assertNot(is_strict_inflation(Set1, Set1)),
     ?assert(is_strict_inflation(Set1, Set2)),
     ?assertNot(is_strict_inflation(Set2, Set1)),
@@ -492,28 +480,27 @@ is_strict_inflation_test() ->
     ?assertNot(is_strict_inflation(Set3, Set2)).
 
 join_decomposition_test() ->
-    Set1 = {?TYPE, {{{dot_map, dot_set}, []}, [{1, 1}]}},
-    Set2 = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
-                    [{1, 1}, {2, 1}, {3, 1}]}},
+    Set1 = {?TYPE, {[], {[{1, 1}], []}}},
+    Set2 = {?TYPE, {[{"a", [{1, 1}]}],
+                    {[{1, 1}, {2, 1}, {3, 1}], []}}},
     Decomp1 = join_decomposition(Set1),
     Decomp2 = join_decomposition(Set2),
-    List = [{?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]},
-                     [{1, 1}]}},
-            {?TYPE, {{{dot_map, dot_set}, []}, [{2, 1}]}},
-            {?TYPE, {{{dot_map, dot_set}, []}, [{3, 1}]}}],
+    List = [{?TYPE, {[{"a", [{1, 1}]}], {[{1, 1}], []}}},
+            {?TYPE, {[], {[{2, 1}], []}}},
+            {?TYPE, {[], {[{3, 1}], []}}}],
     ?assertEqual([Set1], Decomp1),
     ?assertEqual(lists:sort(List), lists:sort(Decomp2)).
 
 digest_test() ->
-    CC = [{a, 1}, {a, 2}, {b, 1}, {b, 2}],
-    Set1 = {?TYPE, {{{dot_map, dot_set}, [{<<"elem1">>, {dot_set, [{a, 1}]}},
-                                          {<<"elem2">>, {dot_set, [{a, 2}, {b, 1}]}}]},
-                    CC}},
+    CC = {[{a, 2}, {b, 2}], []},
+    Set1 = {?TYPE, {[{"elem1", [{a, 1}]},
+                     {"elem2", [{a, 2}, {b, 1}]}], CC}},
     Expected = {[{a, 1}, {a, 2}, {b, 1}], CC},
     ?assertEqual(Expected, digest(Set1)).
 
 encode_decode_test() ->
-    Set = {?TYPE, {{{dot_map, dot_set}, [{<<"a">>, {dot_set, [{1, 1}]}}]}, [{1, 1}, {2, 1}, {3, 1}]}},
+    Set = {?TYPE, {[{"a", [{1, 1}]}],
+                   {[{1, 1}, {2, 1}, {3, 1}], []}}},
     Binary = encode(erlang, Set),
     ESet = decode(erlang, Binary),
     ?assertEqual(Set, ESet).

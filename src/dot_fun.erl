@@ -30,47 +30,50 @@
 
 -behaviour(dot_store).
 
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
--endif.
+-export([
+         new/0,
+         dots/1,
+         is_empty/1,
+         fetch/2,
+         store/3,
+         to_list/1,
+         filter/2
+        ]).
 
--export([new/0,
-         new/1,
-         is_empty/1]).
-
-% DotFun related (following the same API as `orddict')
--export([fetch/2,
-         fetch_keys/1,
-         store/3]).
+-type dot_fun() :: dot_store:dot_fun().
 
 %% @doc Create an empty DotFun.
--spec new() -> dot_store:dot_fun().
+-spec new() -> dot_fun().
 new() ->
-    new(?MAX_INT_TYPE).
+    orddict:new().
 
--spec new(term()) -> dot_store:dot_fun().
-new(CRDTType) ->
-    {{dot_fun, CRDTType}, orddict:new()}.
+%% @doc Return a list of dots.
+-spec dots(dot_fun()) -> dot_store:dot_set().
+dots(DotFun) ->
+    dot_set:from_dots(orddict:fetch_keys(DotFun)).
 
 %% @doc Check if a DotFun is empty.
--spec is_empty(dot_store:dot_fun()) -> boolean().
-is_empty({{dot_fun, _CRDTType}, DotFun}) ->
+-spec is_empty(dot_fun()) -> boolean().
+is_empty(DotFun) ->
     orddict:is_empty(DotFun).
 
-
-%% DotFun API
 %% @doc Given a Dot and a DotFun, get the correspondent CRDT value.
--spec fetch(dot_store:dot(), dot_store:dot_fun()) -> state_type:crdt().
-fetch(Dot, {{dot_fun, CRDTType}, DotFun}) ->
-    {CRDTType, _}=CRDTValue = orddict:fetch(Dot, DotFun),
-    CRDTValue.
+-spec fetch(dot_store:dot(), dot_fun()) -> state_type:crdt().
+fetch(Dot, DotFun) ->
+    orddict:fetch(Dot, DotFun).
 
-%% @doc Get the list of dots used as keys in the DotFun.
--spec fetch_keys(dot_store:dot_fun()) -> [term()].
-fetch_keys({{dot_fun, _CRDTType}, DotFun}) ->
-    orddict:fetch_keys(DotFun).
+%% @doc Stores a new CRDT in the DotFun with Dot as key.
+-spec store(dot_store:dot(), state_type:crdt(), dot_fun()) ->
+    dot_fun().
+store(Dot, CRDT, DotFun) ->
+    orddict:store(Dot, CRDT, DotFun).
 
-%% @doc Stores a new {Dot, CRDTValue} pair in the DotFun.
--spec store(dot_store:dot(), state_type:crdt(), dot_store:dot_fun()) -> dot_store:dot_fun().
-store(Dot, {CRDTType, _}=CRDT, {{dot_fun, CRDTType}, DotFun}) ->
-    {{dot_fun, CRDTType}, orddict:store(Dot, CRDT, DotFun)}.
+%% @doc Converts the DotFun to a list of pairs {Dot, CRDT}.
+-spec to_list(dot_fun()) -> list({dot_store:dot(), state_type:crdt()}).
+to_list(DotFun) ->
+    orddict:to_list(DotFun).
+
+%% @doc Filter DotFun.
+-spec filter(function(), dot_fun()) -> dot_fun().
+filter(F, DotFun) ->
+    orddict:filter(F, DotFun).
