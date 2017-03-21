@@ -92,8 +92,7 @@ delta_mutate({apply, Key, Op}, Actor,
     SubDS = dot_map:fetch(Key, DotMap, Default),
 
     CRDT = ccrdt(Type, Args, SubDS, CC),
-    {ok, {Type, SubDelta}} = 
-        Type:delta_mutate(Op, Actor, CRDT),
+    {ok, {Type, SubDelta}} = Type:delta_mutate(Op, Actor, CRDT),
 
     {DeltaSubDS, DeltaCC} = dcrdt(Type, SubDelta),
 
