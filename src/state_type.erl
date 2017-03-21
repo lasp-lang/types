@@ -36,7 +36,8 @@
               delta_method/0]).
 
 %% Define some initial types.
--type state_type() :: state_awset |
+-type state_type() :: state_awmap |
+                      state_awset |
                       state_awset_ps |
                       state_bcounter |
                       state_boolean |
@@ -51,7 +52,6 @@
                       state_max_int |
                       state_mvregister |
                       %state_mvmap |
-                      %state_ormap |
                       state_orset |
                       state_pair |
                       state_pncounter |

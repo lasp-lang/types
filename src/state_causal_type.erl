@@ -34,7 +34,8 @@
 
 -export([new/1,
          merge/3,
-         get_dot_store_type/1]).
+         ds_default/1,
+         dots/2]).
 
 -export_type([causal_crdt/0]).
 
@@ -70,8 +71,8 @@ merge(dot_set, {DotSetA, CausalContextA}, {DotSetB, CausalContextB}) ->
 
     {DotStore, CausalContext};
 
-merge({dot_fun, CRDTType}, {DotFunA, CausalContextA},
-                           {DotFunB, CausalContextB}) ->
+merge({dot_fun, CRDTType}=DSType, {DotFunA, CausalContextA},
+                                  {DotFunB, CausalContextB}) ->
 
     Filtered1 = dot_fun:filter(
         fun(Dot, _) ->
@@ -87,8 +88,8 @@ merge({dot_fun, CRDTType}, {DotFunA, CausalContextA},
         DotFunB
     ),
 
-    DotSetA = dot_set:from_dots(dot_fun:dots(DotFunA)),
-    DotSetB = dot_set:from_dots(dot_fun:dots(DotFunB)),
+    DotSetA = dots(DSType, DotFunA),
+    DotSetB = dots(DSType, DotFunB),
     Intersection = dot_set:intersection(DotSetA, DotSetB),
 
     DotStore0 = lists:foldl(
@@ -122,8 +123,7 @@ merge({dot_map, Type}, {DotMapA, CausalContextA},
     %% Type can be:
     %% - DotStoreType
     %% - CRDTType (causal)
-    DotStoreType = get_dot_store_type(Type),
-    Default = DotStoreType:new(),
+    Default = ds_default(Type),
 
     KeysA = dot_map:fetch_keys(DotMapA),
     KeysB = dot_map:fetch_keys(DotMapB),
@@ -142,8 +142,9 @@ merge({dot_map, Type}, {DotMapA, CausalContextA},
                 {KeyDotStoreB, CausalContextB}
             ),
 
-            case DotStoreType:is_empty(VK) of
+            case VK == Default of
                 true ->
+                    %% if the resulting ds is empty
                     DotMap;
                 false ->
                     dot_map:store(Key, VK, DotMap)
@@ -158,22 +159,45 @@ merge({dot_map, Type}, {DotMapA, CausalContextA},
 
     {DotStore, CausalContext}.
 
-%% @doc Get the DotStore type.
-get_dot_store_type(T) ->
-    case get_type(T) of
+%% @doc Get an empty DotStore.
+-spec ds_default(dot_store:type()) -> dot_store:dot_store().
+ds_default(T) ->
+    DSType = case get_type(T) of
         dot_set ->
             dot_set;
         {DS, _} ->
             DS
-    end.
+    end,
+    DSType:new().
+
+%% @doc Get dots from a DotStore.
+-spec dots(dot_store:type(), dot_store:dot_store()) ->
+    dot_store:dot_set().
+dots(dot_set, DotSet) ->
+    DotSet;
+dots({dot_fun, _}, DotFun) ->
+    Dots = [Dot || {Dot, _} <- dot_fun:to_list(DotFun)],
+    dot_set:from_dots(Dots);
+dots({dot_map, T}, DotMap) ->
+    lists:foldl(
+        fun(E, Acc) ->
+            DS = dot_map:fetch(E, DotMap, undefined),
+            DotSet = dots(T, DS),
+            dot_set:union(DotSet, Acc)
+        end,
+        dot_set:new(),
+        dot_map:fetch_keys(DotMap)
+    );
+dots(Type, DS) ->
+    dots(get_type(Type), DS).
 
 %% @private
-get_type(dot_set=T) ->
-    T;
-get_type({dot_fun, _}=T) ->
-    T;
-get_type({dot_map, _}=T) ->
-    T;
+get_type(dot_set) ->
+    dot_set;
+get_type({dot_fun, T}) ->
+    {dot_fun, T};
+get_type({dot_map, T}) ->
+    {dot_map, get_type(T)};
 get_type(state_awset) ->
     {dot_map, dot_set};
 get_type(state_dwflag) ->
@@ -181,4 +205,6 @@ get_type(state_dwflag) ->
 get_type(state_ewflag) ->
     dot_set;
 get_type(state_mvregister) ->
-    {dot_fun, ?IVAR_TYPE}.
+    {dot_fun, ?IVAR_TYPE};
+get_type({state_awmap, [T]}) ->
+    {dot_map, get_type(T)}.

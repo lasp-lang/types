@@ -31,7 +31,6 @@
 -export([
          new/0,
          is_empty/1,
-         dots/2,
          fetch_keys/1,
          fetch/3,
          store/3
@@ -49,20 +48,7 @@ new() ->
 is_empty(DotMap) ->
     orddict:is_empty(DotMap).
 
-%% @doc Create a DotSet from a list of dots.
--spec dots(dot_set | dot_fun | dot_map, dot_map()) ->
-    dot_store:dot_set().
-dots(DSType, DotMap) ->
-    orddict:fold(
-        fun(_, DotStore, DotSet) ->
-            %% @todo nested DotMap
-            dot_set:union(DotSet, DSType:dots(DotStore))
-        end,
-        dot_set:new(),
-        DotMap
-    ).
-
--spec fetch(term(), dot_map(), dot_store:dot_store()) ->
+-spec fetch(term(), dot_map(), dot_store:dot_store() | undefined) ->
     dot_store:dot_store().
 fetch(Key, DotMap, Default) ->
     orddict_ext:fetch(Key, DotMap, Default).

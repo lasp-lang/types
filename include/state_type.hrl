@@ -1,3 +1,4 @@
+-define(AWMAP_TYPE, state_awmap).
 -define(AWSET_TYPE, state_awset).
 -define(BCOUNTER_TYPE, state_bcounter).
 -define(BOOLEAN_TYPE, state_boolean).
@@ -8,7 +9,6 @@
 -define(MAX_INT_TYPE, state_max_int).
 -define(MVREGISTER_TYPE, state_mvregister).
 -define(ORSET_TYPE, state_orset).
--define(ORMAP_TYPE, state_ormap).
 -define(PAIR_TYPE, state_pair).
 -define(PNCOUNTER_TYPE, state_pncounter).
 -define(TWOPSET_TYPE, state_twopset).

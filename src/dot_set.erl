@@ -31,7 +31,6 @@
 -export([
          new/0,
          from_dots/1,
-         dots/1,
          add_dot/2,
          is_empty/1,
          is_element/2,
@@ -59,11 +58,6 @@ from_dots(Dots) ->
         dot_set:new(),
         Dots
     ).
-
-%% @doc Return a list of dots.
--spec dots(dot_set()) -> dot_set().
-dots(DotSet) ->
-    DotSet.
 
 %% @doc Add a dot to the DotSet.
 -spec add_dot(dot_store:dot(), dot_set()) -> dot_set().
