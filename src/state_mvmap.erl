@@ -44,7 +44,7 @@
 -export_type([state_mvmap/0, state_mvmap_op/0]).
 
 -opaque state_mvmap() :: {?TYPE, payload()}.
--type payload() :: state_causal_type:causal_crdt().
+-type payload() :: state_awmap:state_awmap().
 -type crdt_or_digest() :: state_mvmap() | state_type:digest().
 -type key() :: term().
 -type value() :: term().
