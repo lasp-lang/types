@@ -5,7 +5,9 @@ install:
   - make
   - ./rebar3 update
 script:
-  - make test
+  - make eunit
+  - make ct
+  - make proper
   - make xref
   - make dialyzer
   - make lint

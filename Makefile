@@ -29,19 +29,19 @@ packageclean:
 
 check: test xref dialyzer lint
 
-test: ct eunit
-
-lint:
-	${REBAR} as lint lint
-
-eqc:
-	${REBAR} as test eqc
+test: eunit ct proper
 
 eunit:
 	${REBAR} as test eunit
 
 ct:
 	${REBAR} as test ct
+
+proper:
+	${REBAR} as test proper
+
+lint:
+	${REBAR} as lint lint
 
 shell:
 	${REBAR} shell --apps types
