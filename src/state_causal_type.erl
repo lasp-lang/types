@@ -34,7 +34,7 @@
 
 -export([new/1,
          merge/3,
-         ds_default/1,
+         ds_bottom/1,
          dots/2]).
 
 -export_type([causal_crdt/0]).
@@ -123,7 +123,7 @@ merge({dot_map, Type}, {DotMapA, CausalContextA},
     %% Type can be:
     %% - DotStoreType
     %% - CRDTType (causal)
-    Default = ds_default(Type),
+    Default = ds_bottom(Type),
 
     KeysA = dot_map:fetch_keys(DotMapA),
     KeysB = dot_map:fetch_keys(DotMapB),
@@ -160,8 +160,8 @@ merge({dot_map, Type}, {DotMapA, CausalContextA},
     {DotStore, CausalContext}.
 
 %% @doc Get an empty DotStore.
--spec ds_default(dot_store:type()) -> dot_store:dot_store().
-ds_default(T) ->
+-spec ds_bottom(dot_store:type()) -> dot_store:dot_store().
+ds_bottom(T) ->
     DSType = case get_type(T) of
         dot_set ->
             dot_set;

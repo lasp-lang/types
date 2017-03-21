@@ -88,7 +88,7 @@ mutate(Op, Actor, {?TYPE, _}=CRDT) ->
 delta_mutate({apply, Key, Op}, Actor,
              {?TYPE, {CType, {DotMap, CC}}}) ->
     {Type, Args} = state_type:extract_args(CType),
-    Default = state_causal_type:ds_default(CType),
+    Default = state_causal_type:ds_bottom(CType),
     SubDS = dot_map:fetch(Key, DotMap, Default),
 
     CRDT = ccrdt(Type, Args, SubDS, CC),
@@ -108,7 +108,7 @@ delta_mutate({apply, Key, Op}, Actor,
     {ok, {?TYPE, Delta}};
 
 delta_mutate({rmv, Key}, _Actor, {?TYPE, {CType, {DotMap, _CC}}}) ->
-    Default = state_causal_type:ds_default(CType),
+    Default = state_causal_type:ds_bottom(CType),
     SubDS = dot_map:fetch(Key, DotMap, Default),
     DotSet = state_causal_type:dots(CType, SubDS),
     DeltaCC = causal_context:from_dot_set(DotSet),
