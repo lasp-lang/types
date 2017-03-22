@@ -163,7 +163,7 @@ delta(Method, {Type, _}=A, B) ->
         end,
         Type:join_decomposition(A)
     ),
-    merge_all(Inflations).
+    merge_all(new(A), Inflations).
 
 %% @doc extract arguments from complex (composite) types
 extract_args({Type, Args}) ->
@@ -172,12 +172,12 @@ extract_args(Type) ->
     {Type, []}.
 
 %% @private
--spec merge_all(list(crdt())) -> crdt().
-merge_all([H|_]=L) ->
+-spec merge_all(crdt(), list(crdt())) -> crdt().
+merge_all(Bottom, L) ->
     lists:foldl(
         fun({Type, _}=CRDT, Acc) ->
             Type:merge(CRDT, Acc)
         end,
-        new(H),
+        Bottom,
         L
     ).
