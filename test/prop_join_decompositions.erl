@@ -29,6 +29,7 @@
 
 %% common
 -define(ACTOR, oneof([a, b, c])).
+-define(TIMESTAMP, non_neg_integer()).
 -define(L(T), list({T, ?ACTOR})).
 
 %% primitives
@@ -44,6 +45,9 @@
 -define(ADD, {add, ?ELEMENT}).
 -define(RMV, {rmv, ?ELEMENT}).
 -define(ADDRMV, oneof([?ADD, ?RMV])).
+
+%% registers
+-define(SET, {set, ?TIMESTAMP, ?ELEMENT}).
 
 
 %% primitives
@@ -105,6 +109,15 @@ prop_orset_decomposition() ->
 prop_orset_redundant() ->
     ?FORALL(L, ?L(?ADDRMV),
             check_redundant(create(?ORSET_TYPE, L))).
+
+%% registers
+prop_lwwregister_decomposition() ->
+    ?FORALL(L, ?L(?SET),
+            check_decomposition(create(?LWWREGISTER_TYPE, L))).
+prop_lwwregister_redundant() ->
+    ?FORALL(L, ?L(?SET),
+            check_redundant(create(?LWWREGISTER_TYPE, L))).
+
 
 %% @private
 check_decomposition({Type, _}=CRDT) ->
