@@ -186,8 +186,19 @@ irreducible_is_strict_inflation(state, {?TYPE, _}=A, {?TYPE, _}=B) ->
 -spec join_decomposition(state_pncounter()) -> [state_pncounter()].
 join_decomposition({?TYPE, PNCounter}) ->
     lists:foldl(
-        fun({Actor, {Inc, Dec}}, Acc) ->
-            [{?TYPE, [{Actor, {Inc, 0}}]} | [{?TYPE, [{Actor, {0, Dec}}]} | Acc]]
+        fun({Actor, {Inc, Dec}}, Acc0) ->
+            Acc1 = case Inc > 0 of
+                true ->
+                    [{?TYPE, [{Actor, {Inc, 0}}]} | Acc0];
+                false ->
+                    Acc0
+            end,
+            case Dec > 0 of
+                true ->
+                    [{?TYPE, [{Actor, {0, Dec}}]} | Acc1];
+                false ->
+                    Acc1
+            end
         end,
         [],
         PNCounter
