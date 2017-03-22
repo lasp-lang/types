@@ -117,11 +117,35 @@ merge_all({Type, _}=Bottom, L) ->
 
 %% @private
 create(Type, L) ->
-    lists:foldl(
-        fun({Op, Actor}, Acc0) ->
-            {ok, Acc1} = Type:mutate(Op, Actor, Acc0),
-            Acc1
+    Actors = lists:usort([Actor || {_Op, Actor} <- L]),
+    OpsPerActor = lists:foldl(
+        fun(Actor, Acc) ->
+            Ops = lists:filter(
+                fun({_Op, OpActor}) ->
+                    Actor == OpActor
+                end,
+                L
+            ),
+            orddict:store(Actor, Ops, Acc)
         end,
-        Type:new(),
-        L
-    ).
+        orddict:new(),
+        Actors
+    ),
+    CRDTList = orddict:fold(
+        fun(Actor, Ops, Acc) ->
+            CRDT = lists:foldl(
+                fun({Op, _Actor}, CRDT0) ->
+                    {ok, CRDT1} = Type:mutate(Op, Actor, CRDT0),
+                    CRDT1
+                end,
+                Type:new(),
+                Ops
+            ),
+
+            [CRDT | Acc]
+        end,
+        [],
+        OpsPerActor
+    ),
+
+    merge_all(Type:new(), CRDTList).
