@@ -31,6 +31,9 @@
 -define(ACTOR, oneof([a, b, c])).
 -define(L(T), list({T, ?ACTOR})).
 
+%% primitives
+-define(TRUE, true).
+
 %% counters
 -define(INC, increment).
 -define(DEC, decrement).
@@ -43,6 +46,23 @@
 -define(ADDRMV, oneof([?ADD, ?RMV])).
 
 
+%% primitives
+prop_boolean_decomposition() ->
+    ?FORALL(L, ?L(?TRUE),
+            check_decomposition(create(?BOOLEAN_TYPE, L))).
+prop_boolean_redundant() ->
+    ?FORALL(L, ?L(?TRUE),
+            check_redundant(create(?BOOLEAN_TYPE, L))).
+
+prop_max_int_decomposition() ->
+    ?FORALL(L, ?L(?INC),
+            check_decomposition(create(?MAX_INT_TYPE, L))).
+prop_max_int_redundant() ->
+    ?FORALL(L, ?L(?INC),
+            check_redundant(create(?MAX_INT_TYPE, L))).
+
+
+%% counters
 prop_gcounter_decomposition() ->
     ?FORALL(L, ?L(?INC),
             check_decomposition(create(?GCOUNTER_TYPE, L))).
@@ -57,6 +77,7 @@ prop_pncounter_redundant() ->
     ?FORALL(L, ?L(?INCDEC),
             check_redundant(create(?PNCOUNTER_TYPE, L))).
 
+%% sets
 prop_gset_decomposition() ->
     ?FORALL(L, ?L(?ADD),
             check_decomposition(create(?GSET_TYPE, L))).
@@ -77,6 +98,13 @@ prop_awset_decomposition() ->
 prop_awset_redundant() ->
     ?FORALL(L, ?L(?ADDRMV),
             check_redundant(create(?AWSET_TYPE, L))).
+
+prop_orset_decomposition() ->
+    ?FORALL(L, ?L(?ADDRMV),
+            check_decomposition(create(?ORSET_TYPE, L))).
+prop_orset_redundant() ->
+    ?FORALL(L, ?L(?ADDRMV),
+            check_redundant(create(?ORSET_TYPE, L))).
 
 %% @private
 check_decomposition({Type, _}=CRDT) ->
