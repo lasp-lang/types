@@ -338,8 +338,11 @@ join_decomposition_test() ->
     Decomp0 = join_decomposition(Counter0),
     Decomp1 = join_decomposition(Counter1),
     ?assertEqual([], Decomp0),
-    List = [{?TYPE, [{1, {2, 0}}]}, {?TYPE, [{2, {1, 0}}]}, {?TYPE, [{4, {1, 0}}]},
-            {?TYPE, [{1, {0, 1}}]}, {?TYPE, [{2, {0, 0}}]}, {?TYPE, [{4, {0, 2}}]}],
+    List = [{?TYPE, [{1, {2, 0}}]},
+            {?TYPE, [{1, {0, 1}}]},
+            {?TYPE, [{2, {1, 0}}]},
+            {?TYPE, [{4, {1, 0}}]},
+            {?TYPE, [{4, {0, 2}}]}],
     ?assertEqual(lists:sort(List), lists:sort(Decomp1)).
 
 encode_decode_test() ->
