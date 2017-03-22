@@ -1,0 +1,127 @@
+%% -------------------------------------------------------------------
+%%
+%% Copyright (c) 2016 Christopher Meiklejohn.  All Rights Reserved.
+%%
+%% This file is provided to you under the Apache License,
+%% Version 2.0 (the "License"); you may not use this file
+%% except in compliance with the License.  You may obtain
+%% a copy of the License at
+%%
+%%   http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing,
+%% software distributed under the License is distributed on an
+%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+%% KIND, either express or implied.  See the License for the
+%% specific language governing permissions and limitations
+%% under the License.
+%%
+%% -------------------------------------------------------------------
+%%
+
+-module(prop_join_decompositions).
+-author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
+
+-include_lib("proper/include/proper.hrl").
+-include_lib("eunit/include/eunit.hrl").
+
+-include("state_type.hrl").
+
+%% common
+-define(ACTOR, oneof([a, b, c])).
+-define(L(T), list({T, ?ACTOR})).
+
+%% counters
+-define(INC, increment).
+-define(DEC, decrement).
+-define(INCDEC, oneof([?INC, ?DEC])).
+
+%% sets
+-define(ELEMENT, oneof([1, 2, 3])).
+-define(ADD, {add, ?ELEMENT}).
+-define(RMV, {rmv, ?ELEMENT}).
+-define(ADDRMV, oneof([?ADD, ?RMV])).
+
+
+prop_gcounter_decomposition() ->
+    ?FORALL(L, ?L(?INC),
+            check_decomposition(create(?GCOUNTER_TYPE, L))).
+prop_gcounter_redundant() ->
+    ?FORALL(L, ?L(?INC),
+            check_redundant(create(?GCOUNTER_TYPE, L))).
+
+prop_pncounter_decomposition() ->
+    ?FORALL(L, ?L(?INCDEC),
+            check_decomposition(create(?PNCOUNTER_TYPE, L))).
+prop_pncounter_redundant() ->
+    ?FORALL(L, ?L(?INCDEC),
+            check_redundant(create(?PNCOUNTER_TYPE, L))).
+
+prop_gset_decomposition() ->
+    ?FORALL(L, ?L(?ADD),
+            check_decomposition(create(?GSET_TYPE, L))).
+prop_gset_redundant() ->
+    ?FORALL(L, ?L(?ADD),
+            check_redundant(create(?GSET_TYPE, L))).
+
+prop_twopset_decomposition() ->
+    ?FORALL(L, ?L(?ADDRMV),
+            check_decomposition(create(?TWOPSET_TYPE, L))).
+prop_twopset_redundant() ->
+    ?FORALL(L, ?L(?ADDRMV),
+            check_redundant(create(?TWOPSET_TYPE, L))).
+
+prop_awset_decomposition() ->
+    ?FORALL(L, ?L(?ADDRMV),
+            check_decomposition(create(?AWSET_TYPE, L))).
+prop_awset_redundant() ->
+    ?FORALL(L, ?L(?ADDRMV),
+            check_redundant(create(?AWSET_TYPE, L))).
+
+%% @private
+check_decomposition({Type, _}=CRDT) ->
+    Bottom = state_type:new(CRDT),
+
+    %% the join of the decomposition should given the CRDT
+    JD = Type:join_decomposition(CRDT),
+    Merged = merge_all(Bottom, JD),
+    Type:equal(CRDT, Merged).
+
+%% @private
+check_redundant({Type, _}=CRDT) ->
+    Bottom = state_type:new(CRDT),
+
+    ?IMPLIES(
+        not Type:is_bottom(CRDT),
+        begin
+            JD = Type:join_decomposition(CRDT),
+
+            %% if we remove one element from the decomposition,
+            %% the rest is not enough to produce the CRDT
+            Random = rand:uniform(length(JD)),
+            Element = lists:nth(Random, JD),
+            Rest = merge_all(Bottom, JD -- [Element]),
+            Type:is_strict_inflation(Rest, CRDT)
+       end
+    ).
+
+%% @private
+merge_all({Type, _}=Bottom, L) ->
+    lists:foldl(
+        fun(Irreducible, Acc) ->
+            Type:merge(Irreducible, Acc)
+        end,
+        Bottom,
+        L
+    ).
+
+%% @private
+create(Type, L) ->
+    lists:foldl(
+        fun({Op, Actor}, Acc0) ->
+            {ok, Acc1} = Type:mutate(Op, Actor, Acc0),
+            Acc1
+        end,
+        Type:new(),
+        L
+    ).
