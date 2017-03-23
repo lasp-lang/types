@@ -98,7 +98,7 @@
 %% This function returns a ∆ from A that inflates B.
 %% "The join of all s in join_decomposition(A) such that s strictly
 %% inflates B"
--callback delta(delta_method(), crdt(), crdt()) -> crdt().
+-callback delta(delta_method(), crdt(), crdt_or_digest()) -> crdt().
 
 %% @todo These should be moved to type.erl
 %% Encode and Decode.
