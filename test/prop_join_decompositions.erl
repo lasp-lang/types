@@ -29,8 +29,8 @@
 
 %% common
 -define(ACTOR, oneof([a, b, c])).
--define(TIMESTAMP, non_neg_integer()).
--define(L(T), list({T, ?ACTOR})).
+-define(P(T), {T, ?ACTOR}).
+-define(L(T), list(?P(T))).
 
 %% primitives
 -define(TRUE, true).
@@ -47,7 +47,7 @@
 -define(ADDRMV, oneof([?ADD, ?RMV])).
 
 %% registers
--define(SET, {set, ?TIMESTAMP, ?ELEMENT}).
+-define(SET, {set, undefined, ?ELEMENT}).
 
 
 %% primitives
@@ -73,6 +73,14 @@ prop_gcounter_decomposition() ->
 prop_gcounter_redundant() ->
     ?FORALL(L, ?L(?INC),
             check_redundant(create(?GCOUNTER_TYPE, L))).
+prop_gcounter_irreducible() ->
+    ?FORALL({L, A, B}, {?L(?INC), ?P(?INC), ?P(?INC)},
+            begin
+                check_irreducible(create(?GCOUNTER_TYPE, L),
+                                  create(?GCOUNTER_TYPE, [A]),
+                                  create(?GCOUNTER_TYPE, [B]))
+            end
+    ).
 
 prop_pncounter_decomposition() ->
     ?FORALL(L, ?L(?INCDEC),
@@ -111,12 +119,12 @@ prop_orset_redundant() ->
             check_redundant(create(?ORSET_TYPE, L))).
 
 %% registers
-prop_lwwregister_decomposition() ->
+prop_mvregister_decomposition() ->
     ?FORALL(L, ?L(?SET),
-            check_decomposition(create(?LWWREGISTER_TYPE, L))).
-prop_lwwregister_redundant() ->
+            check_decomposition(create(?MVREGISTER_TYPE, L))).
+prop_mvregister_redundant() ->
     ?FORALL(L, ?L(?SET),
-            check_redundant(create(?LWWREGISTER_TYPE, L))).
+            check_redundant(create(?MVREGISTER_TYPE, L))).
 
 
 %% @private
@@ -145,6 +153,24 @@ check_redundant({Type, _}=CRDT) ->
             Type:is_strict_inflation(Rest, CRDT)
        end
     ).
+
+%% @private
+check_irreducible({Type, _}=CRDT, A, B) ->
+    Merged = Type:merge(A, B),
+    Tests = lists:map(
+        fun(Irreducible) ->
+            Test = ?IMPLIES(
+                Type:equal(Merged, Irreducible),
+                Type:equal(A, Irreducible) orelse
+                Type:equal(B, Irreducible)
+            ),
+
+            {Irreducible, Test}
+        end,
+        Type:join_decomposition(CRDT)
+    ),
+
+    conjunction(Tests).
 
 %% @private
 merge_all({Type, _}=Bottom, L) ->

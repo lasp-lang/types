@@ -193,7 +193,7 @@ join_decomposition({?TYPE, GCounter}) ->
         end,
         [],
         GCounter
-     ).
+    ).
 
 %% @doc Delta calculation for `state_gcounter()'.
 -spec delta(state_type:delta_method(), state_gcounter(),
