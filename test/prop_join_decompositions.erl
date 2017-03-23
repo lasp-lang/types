@@ -57,6 +57,12 @@ prop_boolean_decomposition() ->
 prop_boolean_redundant() ->
     ?FORALL(L, ?L(?TRUE),
             check_redundant(create(?BOOLEAN_TYPE, L))).
+prop_boolean_irreducible() ->
+    ?FORALL({L, A, B}, {?L(?TRUE), ?P(?TRUE), ?P(?TRUE)},
+            check_irreducible(create(?BOOLEAN_TYPE, L),
+                              create(?BOOLEAN_TYPE, [A]),
+                              create(?BOOLEAN_TYPE, [B]))
+    ).
 
 prop_max_int_decomposition() ->
     ?FORALL(L, ?L(?INC),
@@ -64,6 +70,12 @@ prop_max_int_decomposition() ->
 prop_max_int_redundant() ->
     ?FORALL(L, ?L(?INC),
             check_redundant(create(?MAX_INT_TYPE, L))).
+prop_max_int_irreducible() ->
+    ?FORALL({L, A, B}, {?L(?INC), ?P(?INC), ?P(?INC)},
+            check_irreducible(create(?MAX_INT_TYPE, L),
+                              create(?MAX_INT_TYPE, [A]),
+                              create(?MAX_INT_TYPE, [B]))
+    ).
 
 
 %% counters
@@ -86,6 +98,12 @@ prop_pncounter_decomposition() ->
 prop_pncounter_redundant() ->
     ?FORALL(L, ?L(?INCDEC),
             check_redundant(create(?PNCOUNTER_TYPE, L))).
+prop_pncounter_irreducible() ->
+    ?FORALL({L, A, B}, {?L(?INCDEC), ?P(?INCDEC), ?P(?INCDEC)},
+            check_irreducible(create(?PNCOUNTER_TYPE, L),
+                              create(?PNCOUNTER_TYPE, [A]),
+                              create(?PNCOUNTER_TYPE, [B]))
+    ).
 
 %% sets
 prop_gset_decomposition() ->
@@ -94,6 +112,12 @@ prop_gset_decomposition() ->
 prop_gset_redundant() ->
     ?FORALL(L, ?L(?ADD),
             check_redundant(create(?GSET_TYPE, L))).
+prop_gset_irreducible() ->
+    ?FORALL({L, A, B}, {?L(?ADD), ?P(?ADD), ?P(?ADD)},
+            check_irreducible(create(?GSET_TYPE, L),
+                              create(?GSET_TYPE, [A]),
+                              create(?GSET_TYPE, [B]))
+    ).
 
 prop_twopset_decomposition() ->
     ?FORALL(L, ?L(?ADDRMV),
@@ -101,6 +125,12 @@ prop_twopset_decomposition() ->
 prop_twopset_redundant() ->
     ?FORALL(L, ?L(?ADDRMV),
             check_redundant(create(?TWOPSET_TYPE, L))).
+prop_twopset_irreducible() ->
+    ?FORALL({L, A, B}, {?L(?ADDRMV), ?P(?ADDRMV), ?P(?ADDRMV)},
+            check_irreducible(create(?TWOPSET_TYPE, L),
+                              create(?TWOPSET_TYPE, [A]),
+                              create(?TWOPSET_TYPE, [B]))
+    ).
 
 prop_awset_decomposition() ->
     ?FORALL(L, ?L(?ADDRMV),
@@ -108,6 +138,12 @@ prop_awset_decomposition() ->
 prop_awset_redundant() ->
     ?FORALL(L, ?L(?ADDRMV),
             check_redundant(create(?AWSET_TYPE, L))).
+prop_awset_irreducible() ->
+    ?FORALL({L, A, B}, {?L(?ADDRMV), ?P(?ADDRMV), ?P(?ADDRMV)},
+            check_irreducible(create(?AWSET_TYPE, L),
+                              create(?AWSET_TYPE, [A]),
+                              create(?AWSET_TYPE, [B]))
+    ).
 
 prop_orset_decomposition() ->
     ?FORALL(L, ?L(?ADDRMV),
@@ -115,6 +151,12 @@ prop_orset_decomposition() ->
 prop_orset_redundant() ->
     ?FORALL(L, ?L(?ADDRMV),
             check_redundant(create(?ORSET_TYPE, L))).
+prop_orset_irreducible() ->
+    ?FORALL({L, A, B}, {?L(?ADDRMV), ?P(?ADDRMV), ?P(?ADDRMV)},
+            check_irreducible(create(?ORSET_TYPE, L),
+                              create(?ORSET_TYPE, [A]),
+                              create(?ORSET_TYPE, [B]))
+    ).
 
 %% registers
 prop_mvregister_decomposition() ->
