@@ -255,7 +255,7 @@ digest({?TYPE, {DotStore, CausalContext}}) ->
         dot_set:new(),
         Elements
     ),
-    {dot_set:to_list(ActiveDots), CausalContext}.
+    {ActiveDots, CausalContext}.
 
 -spec encode(state_type:format(), state_awset()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
