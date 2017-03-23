@@ -53,7 +53,7 @@ is_empty(DotFun) ->
     orddict:is_empty(DotFun).
 
 %% @doc Check if a dot belongs to the DotFun.
--spec is_element(dot_set:dot(), dot_fun()) -> boolean().
+-spec is_element(dot_store:dot(), dot_fun()) -> boolean().
 is_element(Dot, DotFun) ->
     orddict:is_key(Dot, DotFun).
 
