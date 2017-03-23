@@ -47,7 +47,8 @@
 -define(ADDRMV, oneof([?ADD, ?RMV])).
 
 %% registers
--define(SET, {set, undefined, ?ELEMENT}).
+-define(TIMESTAMP, non_neg_integer()).
+-define(SET, {set, ?TIMESTAMP, ?ELEMENT}).
 
 
 %% primitives
@@ -159,6 +160,19 @@ prop_orset_irreducible() ->
     ).
 
 %% registers
+prop_lwwregister_decomposition() ->
+    ?FORALL(L, ?L(?SET),
+            check_decomposition(create(?LWWREGISTER_TYPE, L))).
+prop_lwwregister_redundant() ->
+    ?FORALL(L, ?L(?SET),
+            check_redundant(create(?LWWREGISTER_TYPE, L))).
+prop_lwwregister_irreducible() ->
+    ?FORALL({L, A, B}, {?L(?SET), ?P(?SET), ?P(?SET)},
+            check_irreducible(create(?LWWREGISTER_TYPE, L),
+                              create(?LWWREGISTER_TYPE, [A]),
+                              create(?LWWREGISTER_TYPE, [B]))
+    ).
+
 prop_mvregister_decomposition() ->
     ?FORALL(L, ?L(?SET),
             check_decomposition(create(?MVREGISTER_TYPE, L))).
