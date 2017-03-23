@@ -251,23 +251,31 @@ check_digest({Type, _}=CRDT1, {Type, _}=CRDT2) ->
     Type:equal(DeltaState, DeltaDigest).
 
 %% @private
-merge_all({Type, _}=Bottom, L) ->
+merge_all({Type, _}=Bottom, CRDTList) ->
     lists:foldl(
-        fun(Irreducible, Acc) ->
-            Type:merge(Irreducible, Acc)
+        fun(CRDT, Acc) ->
+            Type:merge(CRDT, Acc)
         end,
         Bottom,
-        L
+        CRDTList
     ).
 
 %% @private
 create(Type, L) ->
+    %% get list of actors
     Actors = lists:usort([Actor || {_Op, Actor} <- L]),
+
+    %% create an dictionary from actors to list of ops
     OpsPerActor = lists:foldl(
         fun(Actor, Acc) ->
-            Ops = lists:filter(
-                fun({_Op, OpActor}) ->
-                    Actor == OpActor
+            Ops = lists:filtermap(
+                fun({Op, OpActor}) ->
+                    case Actor == OpActor of
+                        true ->
+                            {true, Op};
+                        false ->
+                            false
+                    end
                 end,
                 L
             ),
@@ -276,10 +284,12 @@ create(Type, L) ->
         orddict:new(),
         Actors
     ),
+
+    %% create a CRDT per actor, by applying its list of ops
     CRDTList = orddict:fold(
         fun(Actor, Ops, Acc) ->
             CRDT = lists:foldl(
-                fun({Op, _Actor}, CRDT0) ->
+                fun(Op, CRDT0) ->
                     {ok, CRDT1} = Type:mutate(Op, Actor, CRDT0),
                     CRDT1
                 end,
@@ -293,4 +303,5 @@ create(Type, L) ->
         OpsPerActor
     ),
 
+    %% merge the list of CRDTs
     merge_all(Type:new(), CRDTList).
