@@ -75,11 +75,9 @@ prop_gcounter_redundant() ->
             check_redundant(create(?GCOUNTER_TYPE, L))).
 prop_gcounter_irreducible() ->
     ?FORALL({L, A, B}, {?L(?INC), ?P(?INC), ?P(?INC)},
-            begin
-                check_irreducible(create(?GCOUNTER_TYPE, L),
-                                  create(?GCOUNTER_TYPE, [A]),
-                                  create(?GCOUNTER_TYPE, [B]))
-            end
+            check_irreducible(create(?GCOUNTER_TYPE, L),
+                              create(?GCOUNTER_TYPE, [A]),
+                              create(?GCOUNTER_TYPE, [B]))
     ).
 
 prop_pncounter_decomposition() ->
