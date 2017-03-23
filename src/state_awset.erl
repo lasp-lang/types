@@ -191,8 +191,24 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 -spec irreducible_is_strict_inflation(state_type:delta_method(),
                                       state_awset(),
                                       crdt_or_digest()) -> boolean().
-irreducible_is_strict_inflation(state, {?TYPE, _}=A, {?TYPE, _}=B) ->
-    state_type:irreducible_is_strict_inflation(state, A, B).
+irreducible_is_strict_inflation(state,
+                                {?TYPE, {DSA, CCA}},
+                                {?TYPE, {DSB, CCB}}) ->
+    [Dot] = dot_set:to_list(causal_context:dots(CCA)),
+    %% will inflate if the dot does not belong to the other cc
+    not causal_context:is_element(Dot, CCB) orelse
+    %% or if it was a not observed removal
+    (dot_map:is_empty(DSA) andalso
+     dot_map:is_element(dot_set, Dot, DSB));
+irreducible_is_strict_inflation(digest,
+                                {?TYPE, {DSA, CCA}},
+                                {ActiveDots, CCB}) ->
+    [Dot] = dot_set:to_list(causal_context:dots(CCA)),
+    %% will inflate if the dot does not belong to the other cc
+    not causal_context:is_element(Dot, CCB) orelse
+    %% or if it was a not observed removal
+    (dot_map:is_empty(DSA) andalso
+     dot_set:is_element(Dot, ActiveDots)).
 
 %% @doc Join decomposition for `state_awset()'.
 -spec join_decomposition(state_awset()) -> [state_awset()].
@@ -246,15 +262,7 @@ delta(Method, {?TYPE, _}=A, B) ->
 %% @doc Return a CRDT digest.
 -spec digest(state_awset()) -> state_type:digest().
 digest({?TYPE, {DotStore, CausalContext}}) ->
-    Elements = dot_map:fetch_keys(DotStore),
-    ActiveDots = lists:foldl(
-        fun(Element, Acc) ->
-            DotSet = dot_map:fetch(Element, DotStore, dot_set:new()),
-            dot_set:union(Acc, DotSet)
-        end,
-        dot_set:new(),
-        Elements
-    ),
+    ActiveDots = state_causal_type:dots({dot_map, dot_set}, DotStore),
     {ActiveDots, CausalContext}.
 
 -spec encode(state_type:format(), state_awset()) -> binary().
