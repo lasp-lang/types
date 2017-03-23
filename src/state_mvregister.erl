@@ -87,7 +87,8 @@ delta_mutate({set, _Timestamp, Value}, Actor,
 
     DeltaDotStore = dot_fun:store(NextDot, Value, dot_fun:new()),
 
-    DotSet = dot_set:add_dot(NextDot, dot_fun:dots(DotStore)),
+    DotSet0 = state_causal_type:dots({dot_fun, ?IVAR_TYPE}, DotStore),
+    DotSet = dot_set:add_dot(NextDot, DotSet0),
     DeltaCausalContext = causal_context:from_dot_set(DotSet),
 
     Delta = {DeltaDotStore, DeltaCausalContext},

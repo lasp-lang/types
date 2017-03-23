@@ -32,8 +32,8 @@
 
 -export([
          new/0,
-         dots/1,
          is_empty/1,
+         is_element/2,
          fetch/2,
          store/3,
          to_list/1,
@@ -47,15 +47,15 @@
 new() ->
     orddict:new().
 
-%% @doc Return a list of dots.
--spec dots(dot_fun()) -> dot_store:dot_set().
-dots(DotFun) ->
-    dot_set:from_dots(orddict:fetch_keys(DotFun)).
-
 %% @doc Check if a DotFun is empty.
 -spec is_empty(dot_fun()) -> boolean().
 is_empty(DotFun) ->
     orddict:is_empty(DotFun).
+
+%% @doc Check if a dot belongs to the DotFun.
+-spec is_element(dot_set:dot(), dot_fun()) -> boolean().
+is_element(Dot, DotFun) ->
+    orddict:is_key(Dot, DotFun).
 
 %% @doc Given a Dot and a DotFun, get the correspondent CRDT value.
 -spec fetch(dot_store:dot(), dot_fun()) -> state_type:crdt().
