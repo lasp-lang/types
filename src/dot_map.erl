@@ -31,6 +31,7 @@
 -export([
          new/0,
          is_empty/1,
+         is_element/3,
          fetch_keys/1,
          fetch/3,
          store/3
@@ -47,6 +48,13 @@ new() ->
 -spec is_empty(dot_map()) -> boolean().
 is_empty(DotMap) ->
     orddict:is_empty(DotMap).
+
+%% @doc Check if a dot belongs to the DotMap.
+-spec is_element(dot_store:type(), dot_store:dot(), dot_map()) ->
+    boolean().
+is_element(DotStoreType, Dot, DotMap) ->
+    DotSet = state_causal_type:dots({dot_map, DotStoreType}, DotMap),
+    dot_set:is_element(Dot, DotSet).
 
 -spec fetch(term(), dot_map(), dot_store:dot_store() | undefined) ->
     dot_store:dot_store().
