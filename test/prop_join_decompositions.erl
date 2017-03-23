@@ -147,6 +147,10 @@ prop_awset_irreducible() ->
                               create(?AWSET_TYPE, [A]),
                               create(?AWSET_TYPE, [B]))
     ).
+prop_awset_digest() ->
+    ?FORALL({L1, L2}, {?L(?ADDRMV), ?L(?ADDRMV)},
+            check_digest(create(?AWSET_TYPE, L1),
+                         create(?AWSET_TYPE, L2))).
 
 prop_orset_decomposition() ->
     ?FORALL(L, ?L(?ADDRMV),
@@ -181,6 +185,10 @@ prop_mvregister_decomposition() ->
 prop_mvregister_redundant() ->
     ?FORALL(L, ?L(?SET),
             check_redundant(create(?MVREGISTER_TYPE, L))).
+prop_mvregister_irreducible() ->
+    %% @todo
+    true.
+
 
 %% @private
 check_decomposition({Type, _}=CRDT) ->
@@ -214,6 +222,9 @@ check_irreducible({Type, _}=CRDT, A, B) ->
     Merged = Type:merge(A, B),
     Tests = lists:map(
         fun(Irreducible) ->
+
+            %% check that all the elements in the join decomposition
+            %% are join-irreducible
             Test = ?IMPLIES(
                 Type:equal(Merged, Irreducible),
                 Type:equal(A, Irreducible) orelse
@@ -226,6 +237,18 @@ check_irreducible({Type, _}=CRDT, A, B) ->
     ),
 
     conjunction(Tests).
+
+%% @private
+check_digest({Type, _}=CRDT1, {Type, _}=CRDT2) ->
+
+    %% the delta of two states,
+    %% using the original state
+    %% or a digest of that state,
+    %% should be the same delta
+    DeltaState = Type:delta(state, CRDT1, CRDT2),
+    DeltaDigest = Type:delta(digest, CRDT1, Type:digest(CRDT2)),
+
+    Type:equal(DeltaState, DeltaDigest).
 
 %% @private
 merge_all({Type, _}=Bottom, L) ->
