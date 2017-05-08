@@ -20,6 +20,8 @@
 -module(state_type).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
+-include("state_type.hrl").
+
 -export([new/1,
          mutate/3,
          merge/3,
@@ -28,6 +30,7 @@
          irreducible_is_strict_inflation/3]).
 -export([delta/3]).
 -export([extract_args/1]).
+-export([crdt_size/1]).
 
 -export_type([state_type/0,
               crdt/0,
@@ -107,10 +110,10 @@
 
 %% @doc Builds a new CRDT from a given CRDT
 -spec new(crdt()) -> any(). %% @todo Fix this any()
-new({state_gmap, {ValuesType, _Payload}}) ->
-    state_gmap:new([ValuesType]);
-new({state_pair, {Fst, Snd}}) ->
-    {state_pair, {new(Fst), new(Snd)}};
+new({?GMAP_TYPE, {ValuesType, _Payload}}) ->
+    ?GMAP_TYPE:new([ValuesType]);
+new({?PAIR_TYPE, {Fst, Snd}}) ->
+    {?PAIR_TYPE, {new(Fst), new(Snd)}};
 new({Type, _Payload}) ->
     Type:new().
 
@@ -170,6 +173,31 @@ extract_args({Type, Args}) ->
     {Type, Args};
 extract_args(Type) ->
     {Type, []}.
+
+%% @doc Term size.
+crdt_size({?AWMAP_TYPE, {_CType, CRDT}}) -> crdt_size(CRDT);
+crdt_size({?AWSET_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?BCOUNTER_TYPE, {CRDT1, CRDT2}}) ->
+    crdt_size(CRDT1) + crdt_size(CRDT2);
+crdt_size({?BOOLEAN_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?DWFLAG_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?EWFLAG_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?GCOUNTER_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?GMAP_TYPE, {_CType, CRDT}}) -> crdt_size(CRDT);
+crdt_size({?GSET_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?IVAR_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?LEXCOUNTER_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?LWWREGISTER_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?MAX_INT_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?MVMAP_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?MVREGISTER_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?ORSET_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?PAIR_TYPE, {CRDT1, CRDT2}}) ->
+    crdt_size(CRDT1) + crdt_size(CRDT2);
+crdt_size({?PNCOUNTER_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?TWOPSET_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size(T) ->
+    erts_debug:flat_size(T).
 
 %% @private
 -spec merge_all(crdt(), list(crdt())) -> crdt().
