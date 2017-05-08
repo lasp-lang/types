@@ -198,13 +198,13 @@ get_type({dot_fun, T}) ->
     {dot_fun, T};
 get_type({dot_map, T}) ->
     {dot_map, get_type(T)};
-get_type(state_awset) ->
+get_type(?AWSET_TYPE) ->
     {dot_map, dot_set};
-get_type(state_dwflag) ->
+get_type(?DWFLAG_TYPE) ->
     dot_set;
-get_type(state_ewflag) ->
+get_type(?EWFLAG_TYPE) ->
     dot_set;
-get_type(state_mvregister) ->
+get_type(?MVREGISTER_TYPE) ->
     {dot_fun, ?IVAR_TYPE};
-get_type({state_awmap, [T]}) ->
+get_type({?AWMAP_TYPE, [T]}) ->
     {dot_map, get_type(T)}.
