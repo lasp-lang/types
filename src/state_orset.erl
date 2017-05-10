@@ -39,7 +39,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/3]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
@@ -47,6 +47,7 @@
 
 -opaque state_orset() :: {?TYPE, payload()}.
 -type payload() :: orddict:orddict().
+-type crdt_or_digest() :: state_orset() | state_type:digest().
 -type element() :: term().
 -type token() :: term().
 -type state_orset_op() :: {add, element()} |
@@ -242,9 +243,10 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
 %% @doc Check for irreducible strict inflation.
--spec irreducible_is_strict_inflation(state_orset(), state_orset()) ->
-    boolean().
-irreducible_is_strict_inflation({?TYPE, [{Elem, [{Token, Active}]}]}, {?TYPE, ORSet}) ->
+-spec irreducible_is_strict_inflation(state_type:delta_method(),
+                                      state_orset(),
+                                      crdt_or_digest()) -> boolean().
+irreducible_is_strict_inflation(state, {?TYPE, [{Elem, [{Token, Active}]}]}, {?TYPE, ORSet}) ->
     case orddict:find(Elem, ORSet) of
         {ok, Tokens} ->
             case orddict:find(Token, Tokens) of
@@ -276,9 +278,9 @@ join_decomposition({?TYPE, ORSet}) ->
      ).
 
 %% @doc Delta calculation for `state_orset()'.
--spec delta(state_type:delta_method(), state_orset(), state_orset()) ->
-    state_orset().
-delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
+-spec delta(state_type:delta_method(), state_orset(),
+            crdt_or_digest()) -> state_orset().
+delta(Method, {?TYPE, _}=A, B) ->
     state_type:delta(Method, A, B).
 
 -spec encode(state_type:format(), state_orset()) -> binary().
@@ -460,10 +462,10 @@ irreducible_is_strict_inflation_test() ->
     Irreducible2 = {?TYPE, [{<<"b">>, [{<<"token2">>, false}]}]},
     Irreducible3 = {?TYPE, [{<<"b">>, [{<<"token3">>, false}]}]},
     Irreducible4 = {?TYPE, [{<<"c">>, [{<<"token4">>, true}]}]},
-    ?assert(irreducible_is_strict_inflation(Irreducible1, Set1)),
-    ?assertNot(irreducible_is_strict_inflation(Irreducible2, Set1)),
-    ?assert(irreducible_is_strict_inflation(Irreducible3, Set1)),
-    ?assert(irreducible_is_strict_inflation(Irreducible4, Set1)).
+    ?assert(irreducible_is_strict_inflation(state, Irreducible1, Set1)),
+    ?assertNot(irreducible_is_strict_inflation(state, Irreducible2, Set1)),
+    ?assert(irreducible_is_strict_inflation(state, Irreducible3, Set1)),
+    ?assert(irreducible_is_strict_inflation(state, Irreducible4, Set1)).
 
 join_decomposition_test() ->
     Set1 = {?TYPE, [{<<"a">>, [{<<"token1">>, false}]}]},

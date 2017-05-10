@@ -41,7 +41,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/3]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
@@ -50,6 +50,7 @@
 -opaque state_gmap() :: {?TYPE, payload()}.
 -type ctype() :: state_type:state_type() | {state_type:state_type(), [term()]}.
 -type payload() :: {ctype(), orddict:orddict()}.
+-type crdt_or_digest() :: state_gmap() | state_type:digest().
 -type key() :: term().
 -type key_op() :: term().
 -type state_gmap_op() :: {apply, key(), key_op()}.
@@ -165,10 +166,11 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
 %% @doc Check for irreducible strict inflation.
--spec irreducible_is_strict_inflation(state_gmap(), state_gmap()) ->
-    boolean().
-irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
-    state_type:irreducible_is_strict_inflation(Irreducible, CRDT).
+-spec irreducible_is_strict_inflation(state_type:delta_method(),
+                                      state_gmap(),
+                                      crdt_or_digest()) -> boolean().
+irreducible_is_strict_inflation(state, {?TYPE, _}=A, {?TYPE, _}=B) ->
+    state_type:irreducible_is_strict_inflation(state, A, B).
 
 %% @doc Join decomposition for `state_gmap()'.
 %% @todo
@@ -177,9 +179,9 @@ join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
 
 %% @doc Delta calculation for `state_gmap()'.
--spec delta(state_type:delta_method(), state_gmap(), state_gmap()) ->
-    state_gmap().
-delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
+-spec delta(state_type:delta_method(), state_gmap(),
+            crdt_or_digest()) -> state_gmap().
+delta(Method, {?TYPE, _}=A, B) ->
     state_type:delta(Method, A, B).
 
 -spec encode(state_type:format(), state_gmap()) -> binary().

@@ -25,12 +25,13 @@
          merge/3,
          is_inflation/2,
          is_strict_inflation/2,
-         irreducible_is_strict_inflation/2]).
+         irreducible_is_strict_inflation/3]).
 -export([delta/3]).
 -export([extract_args/1]).
 
 -export_type([state_type/0,
               crdt/0,
+              digest/0,
               format/0,
               delta_method/0]).
 
@@ -56,7 +57,9 @@
                       state_pncounter |
                       state_twopset.
 -type crdt() :: {state_type(), type:payload()}.
--type delta_method() :: state_driven | digest_driven.
+-type digest() :: term().
+-type crdt_or_digest() :: crdt() | digest().
+-type delta_method() :: state | digest.
 
 %% Supported serialization formats.
 -type format() :: erlang.
@@ -82,8 +85,10 @@
 %% Let B be the second argument.
 %% A is a join-irreducible state.
 %% This functions checks if A will strictly inflate B.
-%% "B < A \join B"
--callback irreducible_is_strict_inflation(crdt(), crdt()) -> boolean().
+%% B can be a CRDT or a digest of a CRDT.
+-callback irreducible_is_strict_inflation(delta_method(),
+                                          crdt(), crdt_or_digest()) ->
+    boolean().
 
 %% Join decomposition.
 -callback join_decomposition(crdt()) -> [crdt()].
@@ -91,7 +96,8 @@
 %% Let A be the second argument.
 %% Let B be the third argument.
 %% This function returns a ∆ from A that inflates B.
-%% "The join of all s in join_decomposition(A) such that s strictly inflates B"
+%% "The join of all s in join_decomposition(A) such that s strictly
+%% inflates B"
 -callback delta(delta_method(), crdt(), crdt()) -> crdt().
 
 %% @todo These should be moved to type.erl
@@ -161,30 +167,39 @@ is_strict_inflation({Type, _}=CRDT1, {Type, _}=CRDT2) ->
     not Type:equal(CRDT1, CRDT2).
 
 %% @doc Generic check for irreducible strict inflation.
--spec irreducible_is_strict_inflation(crdt(), crdt()) -> boolean().
-irreducible_is_strict_inflation({Type, _}=Irreducible, {Type, _}=CRDT) ->
+-spec irreducible_is_strict_inflation(delta_method(), crdt(),
+                                      crdt_or_digest()) ->
+    boolean().
+irreducible_is_strict_inflation(state, {Type, _}=Irreducible, {Type, _}=CRDT) ->
     Merged = Type:merge(Irreducible, CRDT),
     Type:is_strict_inflation(CRDT, Merged).
 
 %% @doc Generic delta calculation.
--spec delta(delta_method(), crdt(), crdt()) -> crdt().
-delta(state_driven, {Type, _}=A, {Type, _}=B) ->
+-spec delta(delta_method(), crdt(), crdt_or_digest()) -> crdt().
+delta(Method, {Type, _}=A, B) ->
     Inflations = lists:filter(
         fun(Irreducible) ->
-            Type:irreducible_is_strict_inflation(Irreducible, B)
+            Type:irreducible_is_strict_inflation(Method,
+                                                 Irreducible,
+                                                 B)
         end,
         Type:join_decomposition(A)
     ),
-    lists:foldl(
-        fun(Irreducible, Acc) ->
-            Type:merge(Acc, Irreducible)
-        end,
-        new(A),
-        Inflations
-    ).
+    merge_all(Inflations).
 
 %% @doc extract arguments from complex (composite) types
 extract_args({Type, Args}) ->
     {Type, Args};
 extract_args(Type) ->
     {Type, []}.
+
+%% @private
+-spec merge_all(list(crdt())) -> crdt().
+merge_all([H|_]=L) ->
+    lists:foldl(
+        fun({Type, _}=CRDT, Acc) ->
+            Type:merge(CRDT, Acc)
+        end,
+        new(H),
+        L
+    ).

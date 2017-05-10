@@ -1,4 +1,4 @@
-%%
+
 %% Copyright (c) 2015-2016 Christopher Meiklejohn.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
@@ -45,7 +45,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/3]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
@@ -53,6 +53,7 @@
 
 -opaque state_gcounter() :: {?TYPE, payload()}.
 -type payload() :: orddict:orddict().
+-type crdt_or_digest() :: state_gcounter() | state_type:digest().
 -type state_gcounter_op() :: increment.
 
 %% @doc Create a new, empty `state_gcounter()'
@@ -167,9 +168,10 @@ is_strict_inflation({value, Value1}, {?TYPE, _}=GCounter) ->
     Value2 > Value1.
 
 %% @doc Check for irreducible strict inflation.
--spec irreducible_is_strict_inflation(state_gcounter(), state_gcounter()) ->
-    boolean().
-irreducible_is_strict_inflation({?TYPE, [{Actor, Value}]}, {?TYPE, GCounter}) ->
+-spec irreducible_is_strict_inflation(state_type:delta_method(),
+                                      state_gcounter(),
+                                      crdt_or_digest()) -> boolean().
+irreducible_is_strict_inflation(state, {?TYPE, [{Actor, Value}]}, {?TYPE, GCounter}) ->
     case orddict:find(Actor, GCounter) of
         {ok, Current} ->
             Current < Value;
@@ -194,9 +196,9 @@ join_decomposition({?TYPE, GCounter}) ->
      ).
 
 %% @doc Delta calculation for `state_gcounter()'.
--spec delta(state_type:delta_method(), state_gcounter(), state_gcounter()) ->
-    state_gcounter().
-delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
+-spec delta(state_type:delta_method(), state_gcounter(),
+            crdt_or_digest()) -> state_gcounter().
+delta(Method, {?TYPE, _}=A, B) ->
     state_type:delta(Method, A, B).
 
 -spec encode(state_type:format(), state_gcounter()) -> binary().
@@ -326,9 +328,9 @@ irreducible_is_strict_inflation_test() ->
     Irreducible1 = {?TYPE, [{a, 2}]},
     Irreducible2 = {?TYPE, [{a, 3}]},
     Irreducible3 = {?TYPE, [{c, 2}]},
-    ?assertNot(irreducible_is_strict_inflation(Irreducible1, Counter1)),
-    ?assert(irreducible_is_strict_inflation(Irreducible2, Counter1)),
-    ?assert(irreducible_is_strict_inflation(Irreducible3, Counter1)).
+    ?assertNot(irreducible_is_strict_inflation(state, Irreducible1, Counter1)),
+    ?assert(irreducible_is_strict_inflation(state, Irreducible2, Counter1)),
+    ?assert(irreducible_is_strict_inflation(state, Irreducible3, Counter1)).
 
 join_decomposition_test() ->
     Counter0 = new(),

@@ -45,7 +45,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/3]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
@@ -53,6 +53,7 @@
 
 -opaque state_twopset() :: {?TYPE, payload()}.
 -type payload() :: {ordsets:ordset(any()), ordsets:ordset(any())}.
+-type crdt_or_digest() :: state_twopset() | state_type:digest().
 -type element() :: term().
 -type state_twopset_op() :: {add, element()} |
                             {rmv, element()}.
@@ -143,10 +144,11 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
 %% @doc Check for irreducible strict inflation.
--spec irreducible_is_strict_inflation(state_twopset(), state_twopset()) ->
-    boolean().
-irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
-    state_type:irreducible_is_strict_inflation(Irreducible, CRDT).
+-spec irreducible_is_strict_inflation(state_type:delta_method(),
+                                      state_twopset(),
+                                      crdt_or_digest()) -> boolean().
+irreducible_is_strict_inflation(state, {?TYPE, _}=A, {?TYPE, _}=B) ->
+    state_type:irreducible_is_strict_inflation(state, A, B).
 
 %% @doc Join decomposition for `state_twopset()'.
 -spec join_decomposition(state_twopset()) -> [state_twopset()].
@@ -168,9 +170,9 @@ join_decomposition({?TYPE, {Added, Removed}}) ->
     lists:append(L1, L2).
 
 %% @doc Delta calculation for `state_twopset()'.
--spec delta(state_type:delta_method(), state_twopset(), state_twopset()) ->
-    state_twopset().
-delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
+-spec delta(state_type:delta_method(), state_twopset(),
+            crdt_or_digest()) -> state_twopset().
+delta(Method, {?TYPE, _}=A, B) ->
     state_type:delta(Method, A, B).
 
 -spec encode(state_type:format(), state_twopset()) -> binary().

@@ -37,7 +37,7 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/3]).
 -export([join_decomposition/1, delta/3]).
 -export([encode/2, decode/2]).
 
@@ -45,6 +45,7 @@
 
 -opaque state_boolean() :: {?TYPE, payload()}.
 -type payload() :: 0 | 1.
+-type crdt_or_digest() :: state_boolean() | state_type:digest().
 -type state_boolean_op() :: true.
 
 %% @doc Create a new `state_boolean()'
@@ -109,10 +110,11 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
 %% @doc Check for irreducible strict inflation.
--spec irreducible_is_strict_inflation(state_boolean(), state_boolean()) ->
-    boolean().
-irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
-    state_type:irreducible_is_strict_inflation(Irreducible, CRDT).
+-spec irreducible_is_strict_inflation(state_type:delta_method(),
+                                      state_boolean(),
+                                      crdt_or_digest()) -> boolean().
+irreducible_is_strict_inflation(state, {?TYPE, _}=A, {?TYPE, _}=B) ->
+    state_type:irreducible_is_strict_inflation(state, A, B).
 
 %% @doc Join decomposition for `state_boolean()'.
 -spec join_decomposition(state_boolean()) -> [state_boolean()].
@@ -120,9 +122,9 @@ join_decomposition({?TYPE, _}=Boolean) ->
     [Boolean].
 
 %% @doc Delta calculation for `state_boolean()'.
--spec delta(state_type:delta_method(), state_boolean(), state_boolean()) ->
-    state_boolean().
-delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
+-spec delta(state_type:delta_method(), state_boolean(),
+            crdt_or_digest()) -> state_boolean().
+delta(Method, {?TYPE, _}=A, B) ->
     state_type:delta(Method, A, B).
 
 -spec encode(state_type:format(), state_boolean()) -> binary().
