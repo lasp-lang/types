@@ -128,7 +128,7 @@ join_decomposition({?TYPE, _}=MaxInt) ->
     [MaxInt].
 
 %% @doc Delta calculation for `state_max_int()'.
--spec delta(state_max_int(), state_type:igest()) -> state_max_int().
+-spec delta(state_max_int(), state_type:digest()) -> state_max_int().
 delta({?TYPE, _}=A, B) ->
     state_type:delta(A, B).
 
