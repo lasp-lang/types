@@ -245,8 +245,8 @@ check_digest({Type, _}=CRDT1, {Type, _}=CRDT2) ->
     %% using the original state
     %% or a digest of that state,
     %% should be the same delta
-    DeltaState = Type:delta(state, CRDT1, CRDT2),
-    DeltaDigest = Type:delta(digest, CRDT1, Type:digest(CRDT2)),
+    DeltaState = Type:delta(CRDT1, {state, CRDT2}),
+    DeltaDigest = Type:delta(CRDT1, Type:digest(CRDT2)),
 
     Type:equal(DeltaState, DeltaDigest).
 
