@@ -121,6 +121,10 @@ prop_gset_irreducible() ->
                               create(?GSET_TYPE, [A]),
                               create(?GSET_TYPE, [B]))
     ).
+prop_gset_digest() ->
+    ?FORALL({L1, L2}, {?L(?ADD), ?L(?ADD)},
+            check_digest(create(?GSET_TYPE, L1),
+                         create(?GSET_TYPE, L2))).
 
 prop_twopset_decomposition() ->
     ?FORALL(L, ?L(?ADDRMV),
