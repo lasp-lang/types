@@ -198,7 +198,7 @@ irreducible_is_strict_inflation(state,
     %% or if it was a not observed removal
     (dot_map:is_empty(DSA) andalso
      dot_map:is_element(dot_set, Dot, DSB));
-irreducible_is_strict_inflation(digest,
+irreducible_is_strict_inflation(mdata,
                                 {?TYPE, {DSA, CCA}},
                                 {ActiveDots, CCB}) ->
     [Dot] = dot_set:to_list(causal_context:dots(CCA)),
