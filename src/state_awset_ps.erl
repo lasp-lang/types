@@ -35,7 +35,7 @@
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/3]).
--export([join_decomposition/1, delta/3]).
+-export([join_decomposition/1, delta/2, digest/1]).
 -export([encode/2, decode/2]).
 
 -export([subtract_all_events/2,
@@ -49,7 +49,6 @@
 
 -opaque state_awset_ps() :: {?TYPE, payload()}.
 -type payload() :: {ps_data_store(), ps_filtered_out_events(), ps_all_events()}.
--type crdt_or_digest() :: state_awset_ps() | state_type:digest().
 -type element() :: term().
 -type state_awset_ps_op() :: {add, element()}
                            | {add_all, [element()]}
@@ -220,9 +219,13 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 %% @doc Check for irreducible strict inflation.
 -spec irreducible_is_strict_inflation(state_type:delta_method(),
                                       state_awset_ps(),
-                                      crdt_or_digest()) -> boolean().
+                                      state_type:digest()) -> boolean().
 irreducible_is_strict_inflation(state, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:irreducible_is_strict_inflation(state, A, B).
+
+-spec digest(state_awset_ps()) -> state_type:digest().
+digest({?TYPE, _}=CRDT) ->
+    {state, CRDT}.
 
 %% @doc Join decomposition for `state_awset_ps()'.
 %% @todo
@@ -231,10 +234,9 @@ join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
 
 %% @doc Delta calculation for `state_awset_ps()'.
--spec delta(state_type:delta_method(), state_awset_ps(),
-            crdt_or_digest()) -> state_awset_ps().
-delta(Method, {?TYPE, _}=A, B) ->
-    state_type:delta(Method, A, B).
+-spec delta(state_awset_ps(), state_type:digest()) -> state_awset_ps().
+delta({?TYPE, _}=A, B) ->
+    state_type:delta(A, B).
 
 -spec encode(state_type:format(), state_awset_ps()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->

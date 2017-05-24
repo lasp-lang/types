@@ -28,7 +28,6 @@
 
 -behaviour(type).
 -behaviour(state_type).
--behaviour(state_digest).
 
 -define(TYPE, ?MODULE).
 
@@ -39,14 +38,13 @@
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/3]).
--export([join_decomposition/1, delta/3, digest/1]).
+-export([join_decomposition/1, delta/2, digest/1]).
 -export([encode/2, decode/2]).
 
 -export_type([state_awset/0, state_awset_op/0]).
 
 -opaque state_awset() :: {?TYPE, payload()}.
 -type payload() :: state_causal_type:causal_crdt().
--type crdt_or_digest() :: state_awset() | state_type:digest().
 -type element() :: term().
 -type state_awset_op() :: {add, element()} |
                           {add_all, [element()]} |
@@ -190,7 +188,7 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 %% @doc Check for irreducible strict inflation.
 -spec irreducible_is_strict_inflation(state_type:delta_method(),
                                       state_awset(),
-                                      crdt_or_digest()) -> boolean().
+                                      state_type:digest()) -> boolean().
 irreducible_is_strict_inflation(state,
                                 {?TYPE, {DSA, CCA}},
                                 {?TYPE, {DSB, CCB}}) ->
@@ -254,16 +252,16 @@ join_decomposition({?TYPE, {DotStore, CausalContext}}) ->
     ).
 
 %% @doc Delta calculation for `state_awset()'.
--spec delta(state_type:delta_method(), state_awset(),
-            crdt_or_digest()) -> state_awset().
-delta(Method, {?TYPE, _}=A, B) ->
-    state_type:delta(Method, A, B).
+-spec delta(state_awset(), state_type:digest()) -> state_awset().
+delta({?TYPE, _}=A, B) ->
+    state_type:delta(A, B).
 
 %% @doc Return a CRDT digest.
 -spec digest(state_awset()) -> state_type:digest().
 digest({?TYPE, {DotStore, CausalContext}}) ->
     ActiveDots = state_causal_type:dots({dot_map, dot_set}, DotStore),
-    {ActiveDots, CausalContext}.
+    Metadata = {ActiveDots, CausalContext},
+    {mdata, Metadata}.
 
 -spec encode(state_type:format(), state_awset()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
@@ -503,7 +501,7 @@ digest_test() ->
     CC = {[{a, 2}, {b, 2}], []},
     Set1 = {?TYPE, {[{"elem1", [{a, 1}]},
                      {"elem2", [{a, 2}, {b, 1}]}], CC}},
-    Expected = {[{a, 1}, {a, 2}, {b, 1}], CC},
+    Expected = {mdata, {[{a, 1}, {a, 2}, {b, 1}], CC}},
     ?assertEqual(Expected, digest(Set1)).
 
 encode_decode_test() ->

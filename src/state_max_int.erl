@@ -38,14 +38,13 @@
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/3]).
--export([join_decomposition/1, delta/3]).
+-export([join_decomposition/1, delta/2, digest/1]).
 -export([encode/2, decode/2]).
 
 -export_type([state_max_int/0, state_max_int_op/0]).
 
 -opaque state_max_int() :: {?TYPE, payload()}.
 -type payload() :: non_neg_integer().
--type crdt_or_digest() :: state_max_int() | state_type:digest().
 -type state_max_int_op() :: increment.
 
 %% @doc Create a new `state_max_int()'
@@ -113,9 +112,13 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 %% @doc Check for irreducible strict inflation.
 -spec irreducible_is_strict_inflation(state_type:delta_method(),
                                       state_max_int(),
-                                      crdt_or_digest()) -> boolean().
+                                      state_type:digest()) -> boolean().
 irreducible_is_strict_inflation(state, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:irreducible_is_strict_inflation(state, A, B).
+
+-spec digest(state_max_int()) -> state_type:digest().
+digest({?TYPE, _}=CRDT) ->
+    {state, CRDT}.
 
 %% @doc Join decomposition for `state_max_int()'.
 -spec join_decomposition(state_max_int()) -> [state_max_int()].
@@ -123,10 +126,9 @@ join_decomposition({?TYPE, _}=MaxInt) ->
     [MaxInt].
 
 %% @doc Delta calculation for `state_max_int()'.
--spec delta(state_type:delta_method(), state_max_int(),
-            crdt_or_digest()) -> state_max_int().
-delta(Method, {?TYPE, _}=A, B) ->
-    state_type:delta(Method, A, B).
+-spec delta(state_max_int(), state_type:igest()) -> state_max_int().
+delta({?TYPE, _}=A, B) ->
+    state_type:delta(A, B).
 
 -spec encode(state_type:format(), state_max_int()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->

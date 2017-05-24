@@ -1,4 +1,4 @@
-%%
+% %
 %% Copyright (c) 2015-2016 Christopher Meiklejohn.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
@@ -46,14 +46,13 @@
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/3]).
--export([join_decomposition/1, delta/3]).
+-export([join_decomposition/1, delta/2, digest/1]).
 -export([encode/2, decode/2]).
 
 -export_type([state_lwwregister/0, state_lwwregister_op/0]).
 
 -opaque state_lwwregister() :: {?TYPE, payload()}.
 -type payload() :: {timestamp(), value()}.
--type crdt_or_digest() :: state_lwwregister() | state_type:digest().
 -type timestamp() :: non_neg_integer().
 -type value() :: term().
 -type state_lwwregister_op() :: {set, timestamp(), value()}.
@@ -130,9 +129,13 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 %% @doc Check for irreducible strict inflation.
 -spec irreducible_is_strict_inflation(state_type:delta_method(),
                                       state_lwwregister(),
-                                      crdt_or_digest()) -> boolean().
+                                      state_type:digest()) -> boolean().
 irreducible_is_strict_inflation(state, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:irreducible_is_strict_inflation(state, A, B).
+
+-spec digest(state_lwwregister()) -> state_type:digest().
+digest({?TYPE, _}=CRDT) ->
+    {state, CRDT}.
 
 %% @doc Join decomposition for `state_lwwregister()'.
 -spec join_decomposition(state_lwwregister()) -> [state_lwwregister()].
@@ -140,10 +143,9 @@ join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
 
 %% @doc Delta calculation for `state_lwwregister()'.
--spec delta(state_type:delta_method(), state_lwwregister(),
-            crdt_or_digest()) -> state_lwwregister().
-delta(Method, {?TYPE, _}=A, B) ->
-    state_type:delta(Method, A, B).
+-spec delta(state_lwwregister(), state_type:digest()) -> state_lwwregister().
+delta({?TYPE, _}=A, B) ->
+    state_type:delta(A, B).
 
 -spec encode(state_type:format(), state_lwwregister()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->

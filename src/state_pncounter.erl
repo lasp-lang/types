@@ -49,14 +49,13 @@
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/3]).
--export([join_decomposition/1, delta/3]).
+-export([join_decomposition/1, delta/2, digest/1]).
 -export([encode/2, decode/2]).
 
 -export_type([state_pncounter/0, state_pncounter_op/0]).
 
 -opaque state_pncounter() :: {?TYPE, payload()}.
 -type payload() :: orddict:orddict().
--type crdt_or_digest() :: state_pncounter() | state_type:digest().
 -type state_pncounter_op() :: increment | decrement.
 
 %% @doc Create a new, empty `state_pncounter()'
@@ -171,9 +170,13 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 %% @doc Check for irreducible strict inflation.
 -spec irreducible_is_strict_inflation(state_type:delta_method(),
                                       state_pncounter(),
-                                      crdt_or_digest()) -> boolean().
+                                      state_type:digest()) -> boolean().
 irreducible_is_strict_inflation(state, {?TYPE, _}=A, {?TYPE, _}=B) ->
     state_type:irreducible_is_strict_inflation(state, A, B).
+
+-spec digest(state_pncounter()) -> state_type:digest().
+digest({?TYPE, _}=CRDT) ->
+        {state, CRDT}.
 
 %% @doc Join decomposition for `state_pncounter()'.
 %%      A `state_pncounter()' is a set of entries.
@@ -205,10 +208,9 @@ join_decomposition({?TYPE, PNCounter}) ->
     ).
 
 %% @doc Delta calculation for `state_pncounter()'.
--spec delta(state_type:delta_method(), state_pncounter(),
-            crdt_or_digest()) -> state_pncounter().
-delta(Method, {?TYPE, _}=A, B) ->
-    state_type:delta(Method, A, B).
+-spec delta(state_pncounter(), state_type:digest()) -> state_pncounter().
+delta({?TYPE, _}=A, B) ->
+    state_type:delta(A, B).
 
 -spec encode(state_type:format(), state_pncounter()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->

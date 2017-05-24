@@ -40,14 +40,13 @@
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
 -export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/3]).
--export([join_decomposition/1, delta/3]).
+-export([join_decomposition/1, delta/2, digest/1]).
 -export([encode/2, decode/2]).
 
 -export_type([state_orset/0, state_orset_op/0]).
 
 -opaque state_orset() :: {?TYPE, payload()}.
 -type payload() :: orddict:orddict().
--type crdt_or_digest() :: state_orset() | state_type:digest().
 -type element() :: term().
 -type token() :: term().
 -type state_orset_op() :: {add, element()} |
@@ -245,7 +244,7 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 %% @doc Check for irreducible strict inflation.
 -spec irreducible_is_strict_inflation(state_type:delta_method(),
                                       state_orset(),
-                                      crdt_or_digest()) -> boolean().
+                                      state_type:digest()) -> boolean().
 irreducible_is_strict_inflation(state, {?TYPE, [{Elem, [{Token, Active}]}]}, {?TYPE, ORSet}) ->
     case orddict:find(Elem, ORSet) of
         {ok, Tokens} ->
@@ -265,6 +264,10 @@ irreducible_is_strict_inflation(state, {?TYPE, [{Elem, [{Token, Active}]}]}, {?T
             true
     end.
 
+-spec digest(state_orset()) -> state_type:digest().
+digest({?TYPE, _}=CRDT) ->
+    {state, CRDT}.
+
 %% @doc Join decomposition for `state_orset()'.
 -spec join_decomposition(state_orset()) -> [state_orset()].
 join_decomposition({?TYPE, ORSet}) ->
@@ -278,10 +281,9 @@ join_decomposition({?TYPE, ORSet}) ->
      ).
 
 %% @doc Delta calculation for `state_orset()'.
--spec delta(state_type:delta_method(), state_orset(),
-            crdt_or_digest()) -> state_orset().
-delta(Method, {?TYPE, _}=A, B) ->
-    state_type:delta(Method, A, B).
+-spec delta(state_orset(), state_type:digest()) -> state_orset().
+delta({?TYPE, _}=A, B) ->
+    state_type:delta(A, B).
 
 -spec encode(state_type:format(), state_orset()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
