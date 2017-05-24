@@ -43,7 +43,9 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/3]).
+-export([query/1, equal/2, is_bottom/1,
+         is_inflation/2, is_strict_inflation/2,
+         irreducible_is_strict_inflation/2]).
 -export([join_decomposition/1, delta/2, digest/1]).
 -export([encode/2, decode/2]).
 
@@ -153,11 +155,11 @@ is_strict_inflation({?TYPE, {{FstType, _}=Fst1, {SndType, _}=Snd1}},
     (FstType:is_inflation(Fst1, Fst2) andalso SndType:is_strict_inflation(Snd1, Snd2)).
 
 %% @doc Check for irreducible strict inflation.
--spec irreducible_is_strict_inflation(state_type:delta_method(),
-                                      state_pair(),
-                                      state_type:digest()) -> boolean().
-irreducible_is_strict_inflation(state, {?TYPE, _}=A, {?TYPE, _}=B) ->
-    state_type:irreducible_is_strict_inflation(state, A, B).
+-spec irreducible_is_strict_inflation(state_pair(),
+                                      state_type:digest()) ->
+    boolean().
+irreducible_is_strict_inflation({?TYPE, _}=A, B) ->
+    state_type:irreducible_is_strict_inflation(A, B).
 
 -spec digest(state_pair()) -> state_type:digest().
 digest({?TYPE, _}=CRDT) ->

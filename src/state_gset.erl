@@ -42,7 +42,9 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/3]).
+-export([query/1, equal/2, is_bottom/1,
+         is_inflation/2, is_strict_inflation/2,
+         irreducible_is_strict_inflation/2]).
 -export([join_decomposition/1, delta/2, digest/1]).
 -export([encode/2, decode/2]).
 
@@ -139,10 +141,11 @@ is_strict_inflation({cardinality, Value1}, {?TYPE, _}=GSet) ->
     sets:size(Value2) > Value1.
 
 %% @doc Check for irreducible strict inflation.
--spec irreducible_is_strict_inflation(state_type:delta_method(),
-                                      state_gset(),
-                                      state_type:digest()) -> boolean().
-irreducible_is_strict_inflation(state, {?TYPE, [E]}, {?TYPE, GSet}) ->
+-spec irreducible_is_strict_inflation(state_gset(),
+                                      state_type:digest()) ->
+    boolean().
+irreducible_is_strict_inflation({?TYPE, [E]},
+                                {state, {?TYPE, GSet}}) ->
     not ordsets:is_element(E, GSet).
 
 -spec digest(state_gset()) -> state_type:digest().
