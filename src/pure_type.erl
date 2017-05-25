@@ -76,14 +76,14 @@ reset(VV, {Type, {POLog, _Crystal}}) ->
 -define(TWOPSET_TYPE, pure_twopset).
 
 %% @doc Term size.
-crdt_size({?AWSET_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?DWFLAG_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?EWFLAG_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?GCOUNTER_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?GSET_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?MVREGISTER_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?RWSET_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?PNCOUNTER_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?TWOPSET_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?PURE_AWSET_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?PURE_DWFLAG_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?PURE_EWFLAG_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?PURE_GCOUNTER_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?PURE_GSET_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?PURE_MVREGISTER_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?PURE_RWSET_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?PURE_PNCOUNTER_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?PURE_TWOPSET_TYPE, CRDT}) -> crdt_size(CRDT);
 crdt_size(T) ->
     erts_debug:flat_size(T).
