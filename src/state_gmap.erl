@@ -41,8 +41,10 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
--export([join_decomposition/1, delta/3]).
+-export([query/1, equal/2, is_bottom/1,
+         is_inflation/2, is_strict_inflation/2,
+         irreducible_is_strict_inflation/2]).
+-export([join_decomposition/1, delta/2, digest/1]).
 -export([encode/2, decode/2]).
 
 -export_type([state_gmap/0, state_gmap_op/0]).
@@ -80,9 +82,10 @@ mutate(Op, Actor, {?TYPE, _}=CRDT) ->
     {ok, state_gmap()}.
 delta_mutate({apply, Key, Op}, Actor, {?TYPE, {CType, GMap}}) ->
     {Type, Args} = state_type:extract_args(CType),
-    Current = orddict_ext:fetch(Key, GMap, Type:new(Args)),
-    {ok, {Type, KeyDelta}} = Type:delta_mutate(Op, Actor, Current),
-    Delta = orddict:store(Key, {Type, KeyDelta}, orddict:new()),
+    {_, Default} = Type:new(Args),
+    Current = orddict_ext:fetch(Key, GMap, Default),
+    {ok, {Type, KeyDelta}} = Type:delta_mutate(Op, Actor, {Type, Current}),
+    Delta = orddict:store(Key, KeyDelta, orddict:new()),
     {ok, {?TYPE, {CType, Delta}}}.
 
 %% @doc Returns the value of the `state_gmap()'.
@@ -93,7 +96,7 @@ query({?TYPE, {CType, GMap}}) ->
     {Type, _Args} = state_type:extract_args(CType),
     lists:map(
         fun({Key, Value}) ->
-            {Key, Type:query(Value)}
+            {Key, Type:query({Type, Value})}
         end,
         GMap
     ).
@@ -111,7 +114,9 @@ merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
         {Type, _Args} = state_type:extract_args(CType),
         GMap = orddict:merge(
             fun(_, Value1, Value2) ->
-                Type:merge(Value1, Value2)
+                {Type, Value} = Type:merge({Type, Value1},
+                                           {Type, Value2}),
+                Value
             end,
             GMap1,
             GMap2
@@ -127,7 +132,7 @@ merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 equal({?TYPE, {CType, GMap1}}, {?TYPE, {CType, GMap2}}) ->
     {Type, _Args} = state_type:extract_args(CType),
     Fun = fun(Value1, Value2) ->
-        Type:equal(Value1, Value2)
+        Type:equal({Type, Value1}, {Type, Value2})
     end,
     orddict_ext:equal(GMap1, GMap2, Fun).
 
@@ -151,7 +156,7 @@ is_inflation({?TYPE, {CType, GMap1}}, {?TYPE, {CType, GMap2}}) ->
         fun({Key, Value1}) ->
             case orddict:find(Key, GMap2) of
                 {ok, Value2} ->
-                    Type:is_inflation(Value1, Value2);
+                    Type:is_inflation({Type, Value1}, {Type, Value2});
                 error ->
                     false
             end
@@ -165,10 +170,15 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
 %% @doc Check for irreducible strict inflation.
--spec irreducible_is_strict_inflation(state_gmap(), state_gmap()) ->
+-spec irreducible_is_strict_inflation(state_gmap(),
+                                      state_type:digest()) ->
     boolean().
-irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
-    state_type:irreducible_is_strict_inflation(Irreducible, CRDT).
+irreducible_is_strict_inflation({?TYPE, _}=A, B) ->
+    state_type:irreducible_is_strict_inflation(A, B).
+
+-spec digest(state_gmap()) -> state_type:digest().
+digest({?TYPE, _}=CRDT) ->
+    {state, CRDT}.
 
 %% @doc Join decomposition for `state_gmap()'.
 %% @todo
@@ -177,10 +187,9 @@ join_decomposition({?TYPE, _}=CRDT) ->
     [CRDT].
 
 %% @doc Delta calculation for `state_gmap()'.
--spec delta(state_type:delta_method(), state_gmap(), state_gmap()) ->
-    state_gmap().
-delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
-    state_type:delta(Method, A, B).
+-spec delta(state_gmap(), state_type:digest()) -> state_gmap().
+delta({?TYPE, _}=A, B) ->
+    state_type:delta(A, B).
 
 -spec encode(state_type:format(), state_gmap()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
@@ -202,8 +211,8 @@ new_test() ->
     ?assertEqual({?TYPE, {?GCOUNTER_TYPE, []}}, new([?GCOUNTER_TYPE])).
 
 query_test() ->
-    Counter1 = {?GCOUNTER_TYPE, [{1, 1}, {2, 13}, {3, 1}]},
-    Counter2 = {?GCOUNTER_TYPE, [{2, 2}, {3, 13}, {5, 2}]},
+    Counter1 = [{1, 1}, {2, 13}, {3, 1}],
+    Counter2 = [{2, 2}, {3, 13}, {5, 2}],
     Map0 = new([?GCOUNTER_TYPE]),
     Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, Counter1}, {<<"key2">>, Counter2}]}},
     ?assertEqual([], query(Map0)),
@@ -217,54 +226,54 @@ delta_apply_test() ->
     Map2 = merge({?TYPE, Delta2}, Map1),
     {ok, {?TYPE, Delta3}} = delta_mutate({apply, <<"key2">>, increment}, 1, Map2),
     Map3 = merge({?TYPE, Delta3}, Map2),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}}, {?TYPE, Delta1}),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}}, Map1),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{2, 1}]}}]}}, {?TYPE, Delta2}),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}, {2, 1}]}}]}}, Map2),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}}, {?TYPE, Delta3}),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}, {2, 1}]}},
-                                           {<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}}, Map3).
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 1}]}]}}, {?TYPE, Delta1}),
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 1}]}]}}, Map1),
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{2, 1}]}]}}, {?TYPE, Delta2}),
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 1}, {2, 1}]}]}}, Map2),
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key2">>, [{1, 1}]}]}}, {?TYPE, Delta3}),
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 1}, {2, 1}]},
+                                           {<<"key2">>, [{1, 1}]}]}}, Map3).
 
 apply_test() ->
     Map0 = new([?GCOUNTER_TYPE]),
     {ok, Map1} = mutate({apply, <<"key1">>, increment}, 1, Map0),
     {ok, Map2} = mutate({apply, <<"key1">>, increment}, 2, Map1),
     {ok, Map3} = mutate({apply, <<"key2">>, increment}, 1, Map2),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}}, Map1),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}, {2, 1}]}}]}}, Map2),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}, {2, 1}]}},
-                                           {<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}}, Map3).
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 1}]}]}}, Map1),
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 1}, {2, 1}]}]}}, Map2),
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 1}, {2, 1}]},
+                                           {<<"key2">>, [{1, 1}]}]}}, Map3).
 
 merge_deltas_test() ->
-    Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
-    Delta1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 17}]}}]}},
-    Delta2 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key2">>, {?GCOUNTER_TYPE, [{1, 17}]}}]}},
+    Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 1}]}]}},
+    Delta1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 17}]}]}},
+    Delta2 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key2">>, [{1, 17}]}]}},
     Map2 = merge(Delta1, Map1),
     Map3 = merge(Map1, Delta1),
     DeltaGroup = merge(Delta1, Delta2),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 17}]}}]}}, Map2),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 17}]}}]}}, Map3),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 17}]}},
-                                                   {<<"key2">>, {?GCOUNTER_TYPE, [{1, 17}]}}]}}, DeltaGroup).
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 17}]}]}}, Map2),
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 17}]}]}}, Map3),
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 17}]},
+                                           {<<"key2">>, [{1, 17}]}]}}, DeltaGroup).
 
 equal_test() ->
-    Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
-    Map2 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 2}]}}]}},
-    Map3 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
+    Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 1}]}]}},
+    Map2 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 2}]}]}},
+    Map3 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key2">>, [{1, 1}]}]}},
     ?assert(equal(Map1, Map1)),
     ?assertNot(equal(Map1, Map2)),
     ?assertNot(equal(Map1, Map3)).
 
 is_bottom_test() ->
     Map0 = new(),
-    Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
+    Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 1}]}]}},
     ?assert(is_bottom(Map0)),
     ?assertNot(is_bottom(Map1)).
 
 is_inflation_test() ->
-    Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
-    Map2 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 2}]}}]}},
-    Map3 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
+    Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 1}]}]}},
+    Map2 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 2}]}]}},
+    Map3 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key2">>, [{1, 1}]}]}},
     ?assert(is_inflation(Map1, Map1)),
     ?assert(is_inflation(Map1, Map2)),
     ?assertNot(is_inflation(Map1, Map3)),
@@ -274,9 +283,9 @@ is_inflation_test() ->
     ?assertNot(state_type:is_inflation(Map1, Map3)).
 
 is_strict_inflation_test() ->
-    Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
-    Map2 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 2}]}}]}},
-    Map3 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
+    Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 1}]}]}},
+    Map2 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 2}]}]}},
+    Map3 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key2">>, [{1, 1}]}]}},
     ?assertNot(is_strict_inflation(Map1, Map1)),
     ?assert(is_strict_inflation(Map1, Map2)),
     ?assertNot(is_strict_inflation(Map1, Map3)).
@@ -286,7 +295,7 @@ join_decomposition_test() ->
     ok.
 
 encode_decode_test() ->
-    Map = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 2}]}}]}},
+    Map = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, [{1, 1}]}]}},
     Binary = encode(erlang, Map),
     EMap = decode(erlang, Binary),
     ?assertEqual(Map, EMap).

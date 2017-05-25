@@ -20,22 +20,27 @@
 -module(state_type).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
+-include("state_type.hrl").
+
 -export([new/1,
          mutate/3,
          merge/3,
          is_inflation/2,
          is_strict_inflation/2,
          irreducible_is_strict_inflation/2]).
--export([delta/3]).
+-export([delta/2]).
 -export([extract_args/1]).
+-export([crdt_size/1]).
 
 -export_type([state_type/0,
               crdt/0,
+              digest/0,
               format/0,
               delta_method/0]).
 
 %% Define some initial types.
--type state_type() :: state_awset |
+-type state_type() :: state_awmap |
+                      state_awset |
                       state_awset_ps |
                       state_bcounter |
                       state_boolean |
@@ -50,13 +55,14 @@
                       state_max_int |
                       state_mvregister |
                       state_mvmap |
-                      state_ormap |
                       state_orset |
                       state_pair |
                       state_pncounter |
                       state_twopset.
 -type crdt() :: {state_type(), type:payload()}.
--type delta_method() :: state_driven | digest_driven.
+-type digest() :: {state, crdt()} | %% state as digest
+                  {mdata, term()}.  %% metadata as digest
+-type delta_method() :: state | mdata.
 
 %% Supported serialization formats.
 -type format() :: erlang.
@@ -82,17 +88,22 @@
 %% Let B be the second argument.
 %% A is a join-irreducible state.
 %% This functions checks if A will strictly inflate B.
-%% "B < A \join B"
--callback irreducible_is_strict_inflation(crdt(), crdt()) -> boolean().
+%% B can be a CRDT or a digest of a CRDT.
+-callback irreducible_is_strict_inflation(crdt(),
+                                          digest()) -> boolean().
+
+%% CRDT digest (which can be the CRDT state itself).
+-callback digest(crdt()) -> digest().
 
 %% Join decomposition.
 -callback join_decomposition(crdt()) -> [crdt()].
 
-%% Let A be the second argument.
-%% Let B be the third argument.
+%% Let A be the first argument.
+%% Let B be the second argument.
 %% This function returns a ∆ from A that inflates B.
-%% "The join of all s in join_decomposition(A) such that s strictly inflates B"
--callback delta(delta_method(), crdt(), crdt()) -> crdt().
+%% "The join of all s in join_decomposition(A) such that s strictly
+%% inflates B"
+-callback delta(crdt(), digest()) -> crdt().
 
 %% @todo These should be moved to type.erl
 %% Encode and Decode.
@@ -101,34 +112,12 @@
 
 %% @doc Builds a new CRDT from a given CRDT
 -spec new(crdt()) -> any(). %% @todo Fix this any()
-new({state_awset, _Payload}) ->
-    state_awset:new();
-new({state_awset_ps, _Payload}) ->
-    state_awset_ps:new();
-new({state_bcounter, _Payload}) ->
-    state_bcounter:new();
-new({state_boolean, _Payload}) ->
-    state_boolean:new();
-new({state_gcounter, _Payload}) ->
-    state_gcounter:new();
-new({state_gmap, {ValuesType, _Payload}}) ->
-    state_gmap:new([ValuesType]);
-new({state_gset, _Payload}) ->
-    state_gset:new();
-new({state_ivar, _Payload}) ->
-    state_ivar:new();
-new({state_lexcounter, _Payload}) ->
-    state_lexcounter:new();
-new({state_max_int, _Payload}) ->
-    state_max_int:new();
-new({state_orset, _Payload}) ->
-    state_orset:new();
-new({state_pair, {Fst, Snd}}) ->
-    {state_pair, {new(Fst), new(Snd)}};
-new({state_pncounter, _Payload}) ->
-    state_pncounter:new();
-new({state_twopset, _Payload}) ->
-    state_twopset:new().
+new({?GMAP_TYPE, {ValuesType, _Payload}}) ->
+    ?GMAP_TYPE:new([ValuesType]);
+new({?PAIR_TYPE, {Fst, Snd}}) ->
+    {?PAIR_TYPE, {new(Fst), new(Snd)}};
+new({Type, _Payload}) ->
+    Type:new().
 
 %% @doc Generic Join composition.
 -spec mutate(type:operation(), type:id(), crdt()) ->
@@ -161,30 +150,62 @@ is_strict_inflation({Type, _}=CRDT1, {Type, _}=CRDT2) ->
     not Type:equal(CRDT1, CRDT2).
 
 %% @doc Generic check for irreducible strict inflation.
--spec irreducible_is_strict_inflation(crdt(), crdt()) -> boolean().
-irreducible_is_strict_inflation({Type, _}=Irreducible, {Type, _}=CRDT) ->
+-spec irreducible_is_strict_inflation(crdt(),
+                                      digest()) -> boolean().
+irreducible_is_strict_inflation({Type, _}=Irreducible,
+                                {state, {Type, _}}=CRDT) ->
     Merged = Type:merge(Irreducible, CRDT),
     Type:is_strict_inflation(CRDT, Merged).
 
 %% @doc Generic delta calculation.
--spec delta(delta_method(), crdt(), crdt()) -> crdt().
-delta(state_driven, {Type, _}=A, {Type, _}=B) ->
+-spec delta(crdt(), digest()) -> crdt().
+delta({Type, _}=A, B) ->
     Inflations = lists:filter(
         fun(Irreducible) ->
             Type:irreducible_is_strict_inflation(Irreducible, B)
         end,
         Type:join_decomposition(A)
     ),
-    lists:foldl(
-        fun(Irreducible, Acc) ->
-            Type:merge(Acc, Irreducible)
-        end,
-        new(A),
-        Inflations
-    ).
+    merge_all(new(A), Inflations).
 
 %% @doc extract arguments from complex (composite) types
 extract_args({Type, Args}) ->
     {Type, Args};
 extract_args(Type) ->
     {Type, []}.
+
+%% @doc Term size.
+crdt_size({?AWMAP_TYPE, {_CType, CRDT}}) -> crdt_size(CRDT);
+crdt_size({?AWSET_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?BCOUNTER_TYPE, {CRDT1, CRDT2}}) ->
+    crdt_size(CRDT1) + crdt_size(CRDT2);
+crdt_size({?BOOLEAN_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?DWFLAG_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?EWFLAG_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?GCOUNTER_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?GMAP_TYPE, {_CType, CRDT}}) -> crdt_size(CRDT);
+crdt_size({?GSET_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?IVAR_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?LEXCOUNTER_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?LWWREGISTER_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?MAX_INT_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?MVMAP_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?MVREGISTER_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?ORSET_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?PAIR_TYPE, {CRDT1, CRDT2}}) ->
+    crdt_size(CRDT1) + crdt_size(CRDT2);
+crdt_size({?PNCOUNTER_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?TWOPSET_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size(T) ->
+    erts_debug:flat_size(T).
+
+%% @private
+-spec merge_all(crdt(), list(crdt())) -> crdt().
+merge_all(Bottom, L) ->
+    lists:foldl(
+        fun({Type, _}=CRDT, Acc) ->
+            Type:merge(CRDT, Acc)
+        end,
+        Bottom,
+        L
+    ).

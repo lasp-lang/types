@@ -1,4 +1,4 @@
-%%
+
 %% Copyright (c) 2015-2016 Christopher Meiklejohn.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
@@ -45,8 +45,10 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
--export([join_decomposition/1, delta/3]).
+-export([query/1, equal/2, is_bottom/1,
+         is_inflation/2, is_strict_inflation/2,
+         irreducible_is_strict_inflation/2]).
+-export([join_decomposition/1, delta/2, digest/1]).
 -export([encode/2, decode/2]).
 
 -export_type([state_gcounter/0, state_gcounter_op/0]).
@@ -167,15 +169,21 @@ is_strict_inflation({value, Value1}, {?TYPE, _}=GCounter) ->
     Value2 > Value1.
 
 %% @doc Check for irreducible strict inflation.
--spec irreducible_is_strict_inflation(state_gcounter(), state_gcounter()) ->
+-spec irreducible_is_strict_inflation(state_gcounter(),
+                                      state_type:digest()) ->
     boolean().
-irreducible_is_strict_inflation({?TYPE, [{Actor, Value}]}, {?TYPE, GCounter}) ->
+irreducible_is_strict_inflation({?TYPE, [{Actor, Value}]},
+                                {state, {?TYPE, GCounter}}) ->
     case orddict:find(Actor, GCounter) of
         {ok, Current} ->
             Current < Value;
         error ->
             true
     end.
+
+-spec digest(state_gcounter()) -> state_type:digest().
+digest({?TYPE, _}=CRDT) ->
+    {state, CRDT}.
 
 %% @doc Join decomposition for `state_gcounter()'.
 %%      A `state_gcounter()' is a set of entries.
@@ -191,13 +199,13 @@ join_decomposition({?TYPE, GCounter}) ->
         end,
         [],
         GCounter
-     ).
+    ).
 
 %% @doc Delta calculation for `state_gcounter()'.
--spec delta(state_type:delta_method(), state_gcounter(), state_gcounter()) ->
-    state_gcounter().
-delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
-    state_type:delta(Method, A, B).
+-spec delta(state_gcounter(),
+            state_type:digest()) -> state_gcounter().
+delta({?TYPE, _}=A, B) ->
+    state_type:delta(A, B).
 
 -spec encode(state_type:format(), state_gcounter()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
@@ -323,12 +331,13 @@ is_strict_inflation_test() ->
 
 irreducible_is_strict_inflation_test() ->
     Counter1 = {?TYPE, [{a, 2}, {b, 1}]},
+    Digest = digest(Counter1),
     Irreducible1 = {?TYPE, [{a, 2}]},
     Irreducible2 = {?TYPE, [{a, 3}]},
     Irreducible3 = {?TYPE, [{c, 2}]},
-    ?assertNot(irreducible_is_strict_inflation(Irreducible1, Counter1)),
-    ?assert(irreducible_is_strict_inflation(Irreducible2, Counter1)),
-    ?assert(irreducible_is_strict_inflation(Irreducible3, Counter1)).
+    ?assertNot(irreducible_is_strict_inflation(Irreducible1, Digest)),
+    ?assert(irreducible_is_strict_inflation(Irreducible2, Digest)),
+    ?assert(irreducible_is_strict_inflation(Irreducible3, Digest)).
 
 join_decomposition_test() ->
     Counter0 = new(),

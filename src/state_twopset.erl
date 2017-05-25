@@ -45,8 +45,10 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
--export([join_decomposition/1, delta/3]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2,
+         is_strict_inflation/2,
+         irreducible_is_strict_inflation/2]).
+-export([join_decomposition/1, delta/2, digest/1]).
 -export([encode/2, decode/2]).
 
 -export_type([state_twopset/0, state_twopset_op/0]).
@@ -143,10 +145,15 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
 %% @doc Check for irreducible strict inflation.
--spec irreducible_is_strict_inflation(state_twopset(), state_twopset()) ->
+-spec irreducible_is_strict_inflation(state_twopset(),
+                                      state_type:digest()) ->
     boolean().
-irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
-    state_type:irreducible_is_strict_inflation(Irreducible, CRDT).
+irreducible_is_strict_inflation({?TYPE, _}=A, B) ->
+    state_type:irreducible_is_strict_inflation(A, B).
+
+-spec digest(state_twopset()) -> state_type:digest().
+digest({?TYPE, _}=CRDT) ->
+    {state, CRDT}.
 
 %% @doc Join decomposition for `state_twopset()'.
 -spec join_decomposition(state_twopset()) -> [state_twopset()].
@@ -168,10 +175,9 @@ join_decomposition({?TYPE, {Added, Removed}}) ->
     lists:append(L1, L2).
 
 %% @doc Delta calculation for `state_twopset()'.
--spec delta(state_type:delta_method(), state_twopset(), state_twopset()) ->
-    state_twopset().
-delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
-    state_type:delta(Method, A, B).
+-spec delta(state_twopset(), state_type:digest()) -> state_twopset().
+delta({?TYPE, _}=A, B) ->
+    state_type:delta(A, B).
 
 -spec encode(state_type:format(), state_twopset()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->

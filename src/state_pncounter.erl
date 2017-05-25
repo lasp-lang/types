@@ -48,8 +48,10 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
--export([join_decomposition/1, delta/3]).
+-export([query/1, equal/2, is_bottom/1, is_inflation/2,
+         is_strict_inflation/2,
+         irreducible_is_strict_inflation/2]).
+-export([join_decomposition/1, delta/2, digest/1]).
 -export([encode/2, decode/2]).
 
 -export_type([state_pncounter/0, state_pncounter_op/0]).
@@ -98,7 +100,7 @@ delta_mutate(decrement, Actor, {?TYPE, PNCounter}) ->
 %% @doc Returns the value of the `state_pncounter()'.
 %%      This value is the sum of all increments minus the sum of all
 %%      decrements.
--spec query(state_pncounter()) -> non_neg_integer().
+-spec query(state_pncounter()) -> integer().
 query({?TYPE, PNCounter}) ->
     lists:sum([ Inc - Dec || {_Actor, {Inc, Dec}} <- PNCounter ]).
 
@@ -168,10 +170,15 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
     state_type:is_strict_inflation(CRDT1, CRDT2).
 
 %% @doc Check for irreducible strict inflation.
--spec irreducible_is_strict_inflation(state_pncounter(), state_pncounter()) ->
+-spec irreducible_is_strict_inflation(state_pncounter(),
+                                      state_type:digest()) ->
     boolean().
-irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
-    state_type:irreducible_is_strict_inflation(Irreducible, CRDT).
+irreducible_is_strict_inflation({?TYPE, _}=A, B) ->
+    state_type:irreducible_is_strict_inflation(A, B).
+
+-spec digest(state_pncounter()) -> state_type:digest().
+digest({?TYPE, _}=CRDT) ->
+        {state, CRDT}.
 
 %% @doc Join decomposition for `state_pncounter()'.
 %%      A `state_pncounter()' is a set of entries.
@@ -184,18 +191,28 @@ irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
 -spec join_decomposition(state_pncounter()) -> [state_pncounter()].
 join_decomposition({?TYPE, PNCounter}) ->
     lists:foldl(
-        fun({Actor, {Inc, Dec}}, Acc) ->
-            [{?TYPE, [{Actor, {Inc, 0}}]} | [{?TYPE, [{Actor, {0, Dec}}]} | Acc]]
+        fun({Actor, {Inc, Dec}}, Acc0) ->
+            Acc1 = case Inc > 0 of
+                true ->
+                    [{?TYPE, [{Actor, {Inc, 0}}]} | Acc0];
+                false ->
+                    Acc0
+            end,
+            case Dec > 0 of
+                true ->
+                    [{?TYPE, [{Actor, {0, Dec}}]} | Acc1];
+                false ->
+                    Acc1
+            end
         end,
         [],
         PNCounter
     ).
 
 %% @doc Delta calculation for `state_pncounter()'.
--spec delta(state_type:delta_method(), state_pncounter(), state_pncounter()) ->
-    state_pncounter().
-delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
-    state_type:delta(Method, A, B).
+-spec delta(state_pncounter(), state_type:digest()) -> state_pncounter().
+delta({?TYPE, _}=A, B) ->
+    state_type:delta(A, B).
 
 -spec encode(state_type:format(), state_pncounter()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
@@ -325,8 +342,11 @@ join_decomposition_test() ->
     Decomp0 = join_decomposition(Counter0),
     Decomp1 = join_decomposition(Counter1),
     ?assertEqual([], Decomp0),
-    List = [{?TYPE, [{1, {2, 0}}]}, {?TYPE, [{2, {1, 0}}]}, {?TYPE, [{4, {1, 0}}]},
-            {?TYPE, [{1, {0, 1}}]}, {?TYPE, [{2, {0, 0}}]}, {?TYPE, [{4, {0, 2}}]}],
+    List = [{?TYPE, [{1, {2, 0}}]},
+            {?TYPE, [{1, {0, 1}}]},
+            {?TYPE, [{2, {1, 0}}]},
+            {?TYPE, [{4, {1, 0}}]},
+            {?TYPE, [{4, {0, 2}}]}],
     ?assertEqual(lists:sort(List), lists:sort(Decomp1)).
 
 encode_decode_test() ->

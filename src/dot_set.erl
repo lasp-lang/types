@@ -28,64 +28,80 @@
 
 -behaviour(dot_store).
 
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
--endif.
-
--export([new/0,
-         new/1,
-         is_empty/1]).
-
-%% DotSet related (following the same API as `ordsets')
--export([add_element/2,
-         intersection/2,
+-export([
+         new/0,
+         from_dots/1,
+         add_dot/2,
+         is_empty/1,
          is_element/2,
+         union/2,
+         intersection/2,
          subtract/2,
-         to_list/1,
-         union/2]).
+         subtract_causal_context/2,
+         to_list/1
+        ]).
+
+-type dot_set() :: dot_store:dot_set().
 
 %% @doc Create an empty DotSet.
--spec new() -> dot_store:dot_set().
+-spec new() -> dot_set().
 new() ->
-    {dot_set, ordsets:new()}.
+    ordsets:new().
 
--spec new(term()) -> dot_store:dot_set().
-new([]) ->
-    new().
+%% @doc Create a DotSet from a list of dots.
+-spec from_dots(list(dot_store:dot())) -> dot_set().
+from_dots(Dots) ->
+    lists:foldl(
+        fun(Dot, DotSet) ->
+            dot_set:add_dot(Dot, DotSet)
+        end,
+        dot_set:new(),
+        Dots
+    ).
+
+%% @doc Add a dot to the DotSet.
+-spec add_dot(dot_store:dot(), dot_set()) -> dot_set().
+add_dot(Dot, DotSet) ->
+    ordsets:add_element(Dot, DotSet).
 
 %% @doc Check if a DotSet is empty.
--spec is_empty(dot_store:dot_set()) -> boolean().
-is_empty({dot_set, DotSet}) ->
+-spec is_empty(dot_set()) -> boolean().
+is_empty(DotSet) ->
     ordsets:size(DotSet) == 0.
 
-
-%% DotSet API
-%% @doc Add a Dot to the DotSet.
--spec add_element(dot_store:dot(), dot_store:dot_set()) -> dot_store:dot_set().
-add_element(Dot, {dot_set, DotSet}) ->
-    {dot_set, ordsets:add_element(Dot, DotSet)}.
-
-%% @doc Intersect two DotSets.
--spec intersection(dot_store:dot_set(), dot_store:dot_set()) -> dot_store:dot_set().
-intersection({dot_set, DotSetA}, {dot_set, DotSetB}) ->
-    {dot_set, ordsets:intersection(DotSetA, DotSetB)}.
-
-%% @doc Check if a Dot belongs to the DotSet.
--spec is_element(dot_store:dot(), dot_store:dot_set()) -> boolean().
-is_element(Dot, {dot_set, DotSet}) ->
+%% @doc Check if a dot belongs to the DotSet.
+-spec is_element(dot_store:dot(), dot_set()) -> boolean().
+is_element(Dot, DotSet) ->
     ordsets:is_element(Dot, DotSet).
 
-%% @doc Subtract the second DotSet to the first.
--spec subtract(dot_store:dot_set(), dot_store:dot_set()) -> dot_store:dot_set().
-subtract({dot_set, DotSetA}, {dot_set, DotSetB}) ->
-    {dot_set, ordsets:subtract(DotSetA, DotSetB)}.
-
-%% @doc Convert a DotSet to a list of Dots
--spec to_list(dot_store:dot_set()) -> [dot_store:dot()].
-to_list({dot_set, DotSet}) ->
-    ordsets:to_list(DotSet).
-
 %% @doc Union two DotSets.
--spec union(dot_store:dot_set(), dot_store:dot_set()) -> dot_store:dot_set().
-union({dot_set, DotSetA}, {dot_set, DotSetB}) ->
-    {dot_set, ordsets:union(DotSetA, DotSetB)}.
+-spec union(dot_set(), dot_set()) -> dot_set().
+union(DotSetA, DotSetB) ->
+    ordsets:union(DotSetA, DotSetB).
+
+%% @doc Intersect two DotSets.
+-spec intersection(dot_set(), dot_set()) -> dot_set().
+intersection(DotSetA, DotSetB) ->
+    ordsets:intersection(DotSetA, DotSetB).
+
+%% @doc Subtract a DotSet from a DotSet.
+-spec subtract(dot_set(), dot_set()) -> dot_set().
+subtract(DotSetA, DotSetB) ->
+    ordsets:subtract(DotSetA, DotSetB).
+
+%% @doc Subtract a CausalContext from a DotSet.
+-spec subtract_causal_context(dot_set(),
+                              causal_context:causal_context()) ->
+    dot_set().
+subtract_causal_context(DotSet, CausalContext) ->
+    ordsets:filter(
+        fun(Dot) ->
+            not causal_context:is_element(Dot, CausalContext)
+        end,
+        DotSet
+    ).
+
+%% @doc Convert a DotSet to a list.
+-spec to_list(dot_set()) -> list(dot_store:dot()).
+to_list(DotSet) ->
+    ordsets:to_list(DotSet).

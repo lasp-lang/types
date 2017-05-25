@@ -28,74 +28,46 @@
 
 -behaviour(dot_store).
 
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
--endif.
-
--export([new/0,
-         new/1,
-         is_empty/1]).
-
-%% DotMap related (following the same API as `orddict')
--export([fetch/2,
+-export([
+         new/0,
+         is_empty/1,
+         is_element/3,
          fetch_keys/1,
-         store/3]).
+         fetch/3,
+         store/3
+        ]).
 
-%% @doc Create an empty DotMap (by default with a DotSet as DotStore in values)
--spec new() -> dot_store:dot_map().
+-type dot_map() :: dot_store:dot_map().
+
+%% @doc Create an empty DotMap.
+-spec new() -> dot_map().
 new() ->
-    new(dot_set).
-
-%% @doc Create an empty DotMap with a given DotStore type in values
--spec new(term()) -> dot_store:dot_map().
-new(DotStoreType) ->
-    {{dot_map, DotStoreType}, orddict:new()}.
+    orddict:new().
 
 %% @doc Check if a DotMap is empty.
--spec is_empty(dot_store:dot_map()) -> boolean().
-is_empty({{dot_map, _DotStoreType}, DotMap}) ->
+-spec is_empty(dot_map()) -> boolean().
+is_empty(DotMap) ->
     orddict:is_empty(DotMap).
 
+%% @doc Check if a dot belongs to the DotMap.
+-spec is_element(dot_store:type(), dot_store:dot(), dot_map()) ->
+    boolean().
+is_element(DotStoreType, Dot, DotMap) ->
+    DotSet = state_causal_type:dots({dot_map, DotStoreType}, DotMap),
+    dot_set:is_element(Dot, DotSet).
 
-%% DotMap API
-%% @doc Given a key and a DotMap, get the correspondent DotStore.
-%%      If the key is not found, an empty DotStore will be returned.
--spec fetch(term(), dot_store:dot_map()) -> dot_store:dot_store().
-fetch(Key, {{dot_map, DotStoreType}, DotMap}) ->
-    case orddict:find(Key, DotMap) of
-        {ok, DotStore} ->
-            DotStore;
-        error ->
-            case DotStoreType of
-                dot_set ->
-                    dot_set:new();
-                {dot_fun, CRDTType} ->
-                    dot_fun:new(CRDTType);
-                CCausalCRDTType ->
-                    {CausalCRDTType, Args} = state_type:extract_args(CCausalCRDTType),
-                    {CausalCRDTType, {EmptyDotStore, _CC}} = CausalCRDTType:new(Args),
-                    %% DotMap's can only embed DotStore's.
-                    %% For example, an ORMap<K, AWSet<E>>
-                    %% never actually stores an AWSet in the values
-                    %% only the underlying DotStore (and that's why
-                    %% an ORMap can only embed Causal CRDTs)
-                    %% We know that an AWSet is <DotStore, CausalContext>
-                    %% but the CausalContext is not stored per key-value
-                    %% because all the key-value pairs in the ORMap
-                    %% share the same CausalContext.
-                    %% This behaviour can easily be observed in
-                    %% `state_ormap:query/1' function.
-                    EmptyDotStore
-            end
-    end.
+-spec fetch(term(), dot_map(), dot_store:dot_store() | undefined) ->
+    dot_store:dot_store().
+fetch(Key, DotMap, Default) ->
+    orddict_ext:fetch(Key, DotMap, Default).
 
 %% @doc Get a list of keys in the DotMap.
 -spec fetch_keys(dot_store:dot_map()) -> [term()].
-fetch_keys({{dot_map, _DotStoreType}, DotMap}) ->
+fetch_keys(DotMap) ->
     orddict:fetch_keys(DotMap).
 
 %% @doc Stores a new {Key, DotStore} pair in the DotMap.
 %%      If `Key` already in the DotMap, then its value is replaced.
--spec store(term(), dot_store:dot_store(), dot_store:dot_map()) -> dot_store:dot_map().
-store(Key, SubDotStore, {{dot_map, DotStoreType}, DotMap}) ->
-    {{dot_map, DotStoreType}, orddict:store(Key, SubDotStore, DotMap)}.
+-spec store(term(), dot_store:dot_store(), dot_map()) -> dot_map().
+store(Key, DotStore, DotMap) ->
+    orddict:store(Key, DotStore, DotMap).

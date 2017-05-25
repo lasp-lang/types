@@ -58,7 +58,7 @@ all() ->
         pair_with_pair_with_gcounter_and_gmap_and_gmap_test,
         gmap_with_pair_test,
         maps_within_maps_test,
-        ormap_nested_rmv_test
+        awmap_nested_rmv_test
     ].
 
 %% ===================================================================
@@ -269,8 +269,8 @@ pair_with_gcounter_and_gmap_test(_Config) ->
 
     ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, []}, {?GMAP_TYPE, {?BOOLEAN_TYPE, []}}}}, Pair0),
     ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, [{Actor, 1}]}, {?GMAP_TYPE, {?BOOLEAN_TYPE, []}}}}, Pair1),
-    ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, [{Actor, 1}]}, {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}}}}, Pair2),
-    ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, [{Actor, 2}]}, {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}}}}, Pair3),
+    ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, [{Actor, 1}]}, {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, 1}]}}}}, Pair2),
+    ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, [{Actor, 2}]}, {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, 1}]}}}}, Pair3),
     ?assertEqual({2, [{Actor, true}]}, Query).
 
 pair_with_gmap_and_pair_with_gcounter_and_gmap_test(_Config) ->
@@ -295,24 +295,24 @@ pair_with_gmap_and_pair_with_gcounter_and_gmap_test(_Config) ->
         }}
     }}, Pair0),
     ?assertEqual({?PAIR_TYPE, {
-        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}},
+        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, 1}]}},
         {?PAIR_TYPE, {
             {?GCOUNTER_TYPE, []},
             {?GMAP_TYPE, {?BOOLEAN_TYPE, []}}
         }}
     }}, Pair1),
     ?assertEqual({?PAIR_TYPE, {
-        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}},
+        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, 1}]}},
         {?PAIR_TYPE, {
             {?GCOUNTER_TYPE, [{Actor, 1}]},
             {?GMAP_TYPE, {?BOOLEAN_TYPE, []}}
         }}
     }}, Pair2),
     ?assertEqual({?PAIR_TYPE, {
-        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}},
+        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, 1}]}},
         {?PAIR_TYPE, {
             {?GCOUNTER_TYPE, [{Actor, 1}]},
-            {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}}
+            {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, 1}]}}
         }}
     }}, Pair3),
     ?assertEqual({
@@ -346,21 +346,21 @@ pair_with_pair_with_gcounter_and_gmap_and_gmap_test(_Config) ->
             {?GCOUNTER_TYPE, []},
             {?GMAP_TYPE, {?BOOLEAN_TYPE, []}}
         }},
-        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}}
+        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, 1}]}}
     }}, Pair1),
     ?assertEqual({?PAIR_TYPE, {
         {?PAIR_TYPE, {
             {?GCOUNTER_TYPE, [{Actor, 1}]},
             {?GMAP_TYPE, {?BOOLEAN_TYPE, []}}
         }},
-        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}}
+        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, 1}]}}
     }}, Pair2),
     ?assertEqual({?PAIR_TYPE, {
         {?PAIR_TYPE, {
             {?GCOUNTER_TYPE, [{Actor, 1}]},
-            {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}}
+            {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, 1}]}}
         }},
-        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}}
+        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, 1}]}}
     }}, Pair3),
     ?assertEqual({
         {1, [{Actor, true}]},
@@ -377,9 +377,9 @@ gmap_with_pair_test(_Config) ->
     Query = ?GMAP_TYPE:query(GMap3),
 
     ?assertEqual({?GMAP_TYPE, {CType, []}}, GMap0),
-    ?assertEqual({?GMAP_TYPE, {CType, [{Actor, {?PAIR_TYPE, {{?BOOLEAN_TYPE, 1}, {?BOOLEAN_TYPE, 0}}}}]}}, GMap1),
-    ?assertEqual({?GMAP_TYPE, {CType, [{Actor, {?PAIR_TYPE, {{?BOOLEAN_TYPE, 0}, {?BOOLEAN_TYPE, 1}}}}]}}, GMap2),
-    ?assertEqual({?GMAP_TYPE, {CType, [{Actor, {?PAIR_TYPE, {{?BOOLEAN_TYPE, 1}, {?BOOLEAN_TYPE, 1}}}}]}}, GMap3),
+    ?assertEqual({?GMAP_TYPE, {CType, [{Actor, {{?BOOLEAN_TYPE, 1}, {?BOOLEAN_TYPE, 0}}}]}}, GMap1),
+    ?assertEqual({?GMAP_TYPE, {CType, [{Actor, {{?BOOLEAN_TYPE, 0}, {?BOOLEAN_TYPE, 1}}}]}}, GMap2),
+    ?assertEqual({?GMAP_TYPE, {CType, [{Actor, {{?BOOLEAN_TYPE, 1}, {?BOOLEAN_TYPE, 1}}}]}}, GMap3),
     ?assertEqual([{Actor, {true, true}}], Query).
 
 maps_within_maps_test(_Config) ->
@@ -388,27 +388,27 @@ maps_within_maps_test(_Config) ->
             map_with_awset(MapType),
             map_with_map_with_awset(MapType)
         end,
-        [?GMAP_TYPE, ?ORMAP_TYPE]
+        [?GMAP_TYPE, ?AWMAP_TYPE]
     ).
 
-ormap_nested_rmv_test(_Config) ->
+awmap_nested_rmv_test(_Config) ->
     Actor = "A",
-    CType = {?ORMAP_TYPE, [?AWSET_TYPE]},
-    Map0 = ?ORMAP_TYPE:new([CType]),
-    {ok, Map1} = ?ORMAP_TYPE:mutate({apply, "hello", {apply, "world_one", {add, 3}}}, Actor, Map0),
-    {ok, Map2} = ?ORMAP_TYPE:mutate({apply, "hello", {apply, "world_two", {add, 7}}}, Actor, Map1),
-    {ok, Map3} = ?ORMAP_TYPE:mutate({apply, "world", {apply, "hello", {add, 17}}}, Actor, Map2),
-    {ok, Map4} = ?ORMAP_TYPE:mutate({apply, "hello", {rmv, "world_one"}}, Actor, Map3),
-    {ok, Map5} = ?ORMAP_TYPE:mutate({rmv, "world"}, Actor, Map4),
-    {ok, Map6} = ?ORMAP_TYPE:mutate({apply, "hello", {apply, "world_z", {add, 23}}}, Actor, Map5),
-    {ok, Map7} = ?ORMAP_TYPE:mutate({apply, "hello", {rmv, "world_two"}}, Actor, Map6),
-    {ok, Map8} = ?ORMAP_TYPE:mutate({apply, "hello", {rmv, "world_z"}}, Actor, Map7),
-    Query3 = ?ORMAP_TYPE:query(Map3),
-    Query4 = ?ORMAP_TYPE:query(Map4),
-    Query5 = ?ORMAP_TYPE:query(Map5),
-    Query6 = ?ORMAP_TYPE:query(Map6),
-    Query7 = ?ORMAP_TYPE:query(Map7),
-    Query8 = ?ORMAP_TYPE:query(Map8),
+    CType = {?AWMAP_TYPE, [?AWSET_TYPE]},
+    Map0 = ?AWMAP_TYPE:new([CType]),
+    {ok, Map1} = ?AWMAP_TYPE:mutate({apply, "hello", {apply, "world_one", {add, 3}}}, Actor, Map0),
+    {ok, Map2} = ?AWMAP_TYPE:mutate({apply, "hello", {apply, "world_two", {add, 7}}}, Actor, Map1),
+    {ok, Map3} = ?AWMAP_TYPE:mutate({apply, "world", {apply, "hello", {add, 17}}}, Actor, Map2),
+    {ok, Map4} = ?AWMAP_TYPE:mutate({apply, "hello", {rmv, "world_one"}}, Actor, Map3),
+    {ok, Map5} = ?AWMAP_TYPE:mutate({rmv, "world"}, Actor, Map4),
+    {ok, Map6} = ?AWMAP_TYPE:mutate({apply, "hello", {apply, "world_z", {add, 23}}}, Actor, Map5),
+    {ok, Map7} = ?AWMAP_TYPE:mutate({apply, "hello", {rmv, "world_two"}}, Actor, Map6),
+    {ok, Map8} = ?AWMAP_TYPE:mutate({apply, "hello", {rmv, "world_z"}}, Actor, Map7),
+    Query3 = ?AWMAP_TYPE:query(Map3),
+    Query4 = ?AWMAP_TYPE:query(Map4),
+    Query5 = ?AWMAP_TYPE:query(Map5),
+    Query6 = ?AWMAP_TYPE:query(Map6),
+    Query7 = ?AWMAP_TYPE:query(Map7),
+    Query8 = ?AWMAP_TYPE:query(Map8),
 
     ?assertEqual([{"hello", [{"world_one", sets:from_list([3])}, {"world_two", sets:from_list([7])}]}, {"world", [{"hello", sets:from_list([17])}]}], Query3),
     ?assertEqual([{"hello", [{"world_two", sets:from_list([7])}]}, {"world", [{"hello", sets:from_list([17])}]}], Query4),

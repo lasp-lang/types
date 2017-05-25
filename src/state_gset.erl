@@ -42,8 +42,10 @@
 
 -export([new/0, new/1]).
 -export([mutate/3, delta_mutate/3, merge/2]).
--export([query/1, equal/2, is_bottom/1, is_inflation/2, is_strict_inflation/2, irreducible_is_strict_inflation/2]).
--export([join_decomposition/1, delta/3]).
+-export([query/1, equal/2, is_bottom/1,
+         is_inflation/2, is_strict_inflation/2,
+         irreducible_is_strict_inflation/2]).
+-export([join_decomposition/1, delta/2, digest/1]).
 -export([encode/2, decode/2]).
 
 -export_type([state_gset/0, state_gset_op/0]).
@@ -139,10 +141,16 @@ is_strict_inflation({cardinality, Value1}, {?TYPE, _}=GSet) ->
     sets:size(Value2) > Value1.
 
 %% @doc Check for irreducible strict inflation.
--spec irreducible_is_strict_inflation(state_gset(), state_gset()) ->
+-spec irreducible_is_strict_inflation(state_gset(),
+                                      state_type:digest()) ->
     boolean().
-irreducible_is_strict_inflation({?TYPE, _}=Irreducible, {?TYPE, _}=CRDT) ->
-    state_type:irreducible_is_strict_inflation(Irreducible, CRDT).
+irreducible_is_strict_inflation({?TYPE, [E]},
+                                {state, {?TYPE, GSet}}) ->
+    not ordsets:is_element(E, GSet).
+
+-spec digest(state_gset()) -> state_type:digest().
+digest({?TYPE, _}=CRDT) ->
+    {state, CRDT}.
 
 %% @doc Join decomposition for `state_gset()'.
 %%      The join decompostion for a `state_gset()' is the unique set
@@ -159,10 +167,9 @@ join_decomposition({?TYPE, GSet}) ->
     ).
 
 %% @doc Delta calculation for `state_gset()'.
--spec delta(state_type:delta_method(), state_gset(), state_gset()) ->
-    state_gset().
-delta(Method, {?TYPE, _}=A, {?TYPE, _}=B) ->
-    state_type:delta(Method, A, B).
+-spec delta(state_gset(), state_type:digest()) -> state_gset().
+delta({?TYPE, _}=A, B) ->
+    state_type:delta(A, B).
 
 -spec encode(state_type:format(), state_gset()) -> binary().
 encode(erlang, {?TYPE, _}=CRDT) ->
@@ -279,8 +286,8 @@ join_decomposition_test() ->
 
 delta_test() ->
     A = {?TYPE, ["a", "b", "c"]},
-    B = {?TYPE, ["b", "d"]},
-    Delta = delta(state_driven, A, B),
+    B = {state, {?TYPE, ["b", "d"]}},
+    Delta = delta(A, B),
     ?assertEqual({?TYPE, ["a", "c"]}, Delta).
 
 encode_decode_test() ->

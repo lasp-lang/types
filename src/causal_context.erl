@@ -18,8 +18,6 @@
 %% -------------------------------------------------------------------
 
 %% @doc Causal Context.
-%%      The current implementation does not have any optimisations such as
-%%      the causal context compression.
 %%
 %% @reference Paulo Sérgio Almeida, Ali Shoker, and Carlos Baquero
 %%      Delta State Replicated Data Types (2016)
@@ -28,99 +26,123 @@
 -module(causal_context).
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
--endif.
-
--export([new/0,
-         merge/2,
+-export([
+         new/0,
+         from_dot_set/1,
+         dots/1,
          add_dot/2,
-         max_dot/2,
          next_dot/2,
-         to_dot_set/1,
-         to_causal_context/1]).
+         is_empty/1,
+         is_element/2,
+         union/2
+        ]).
 
 -export_type([causal_context/0]).
 
--type causal_context() :: ordsets:ordset(dot_store:dot()).
+-type dot_set() :: dot_store:dot_set().
+-type compressed() :: orddict:orddict(dot_store:dot_actor(),
+                                      dot_store:dot_sequence()).
+-type causal_context() :: {compressed(), dot_set()}.
 
 %% @doc Create an empty Causal Context.
 -spec new() -> causal_context().
 new() ->
-    ordsets:new().
+    {orddict:new(), dot_set:new()}.
 
-%% @doc Merge two Causal Contexts.
--spec merge(causal_context(), causal_context()) -> causal_context().
-merge(CausalContextA, CausalContextB) ->
-    ordsets:union(CausalContextA, CausalContextB).
-
--spec add_dot(dot_store:dot(), causal_context()) -> causal_context().
-add_dot(Dot, CausalContext) ->
-    ordsets:add_element(Dot, CausalContext).
-
-%% @doc Get `dot_actor()''s max dot
--spec max_dot(dot_store:dot_actor(), causal_context()) -> dot_store:dot().
-max_dot(DotActor, CausalContext) ->
-    MaxValue = ordsets:fold(
-        fun({Actor, Value}, CurrentMax) ->
-            case Actor == DotActor andalso Value > CurrentMax of
-                true ->
-                    Value;
-                false ->
-                    CurrentMax
-            end
-        end,
-        0,
-        CausalContext
-    ),
-    {DotActor, MaxValue}.
-
-%% @doc Get `dot_actor()''s next dot
--spec next_dot(dot_store:dot_actor(), causal_context()) -> dot_store:dot().
-next_dot(DotActor, CausalContext) ->
-    {DotActor, MaxValue} = max_dot(DotActor, CausalContext),
-    {DotActor, MaxValue + 1}.
-
-%% @doc Convert a CausalContext to a DotSet
--spec to_dot_set(causal_context()) -> dot_store:dot_set().
-to_dot_set(CausalContext) ->
-    ordsets:fold(
-        fun(Dot, DotSet) ->
-            dot_set:add_element(Dot, DotSet)
-        end,
-        dot_set:new(),
-        CausalContext
-    ).
-
-%% @doc Given a DotStore, extract a Causal Context.
--spec to_causal_context(dot_store:dot_store()) -> causal_context().
-to_causal_context({dot_set, DotSet}) ->
-    ordsets:fold(
-        fun(Dot, CausalContext) ->
-            causal_context:add_dot(Dot, CausalContext)
-        end,
-        causal_context:new(),
-        DotSet
-    );
-
-to_causal_context({{dot_fun, _CRDTType}, DotFun}) ->
-    Dots = orddict:fetch_keys(DotFun),
+%% @doc Create a CausalContext from a DotSet.
+-spec from_dot_set(dot_set()) -> causal_context().
+from_dot_set(DotSet) ->
     lists:foldl(
         fun(Dot, CausalContext) ->
             causal_context:add_dot(Dot, CausalContext)
         end,
         causal_context:new(),
-        Dots
-    );
+        dot_set:to_list(DotSet)
+    ).
 
-to_causal_context({{dot_map, _DotStoreType}, DotMap}) ->
-    orddict:fold(
-        fun(_Key, SubDotStore, CausalContext) ->
-            causal_context:merge(
-                to_causal_context(SubDotStore),
-                CausalContext
+%% @doc Return a list of dots from a CausalContext.
+-spec dots(causal_context()) -> dot_set().
+dots({Compressed, DotSet}) ->
+    CompressedDots = orddict:fold(
+        fun(Actor, Sequence, Acc0) ->
+            lists:foldl(
+                fun(I, Acc1) ->
+                    dot_set:add_dot({Actor, I}, Acc1)
+                end,
+                Acc0,
+                lists:seq(1, Sequence)
             )
         end,
-        causal_context:new(),
-        DotMap
+        dot_set:new(),
+        Compressed
+    ),
+
+    dot_set:union(CompressedDots, DotSet).
+
+%% @doc Add a dot to the CausalContext.
+-spec add_dot(dot_store:dot(), causal_context()) -> causal_context().
+add_dot({Actor, Sequence}=Dot, {Compressed0, DotSet0}=CC) ->
+    Current = orddict_ext:fetch(Actor, Compressed0, 0),
+
+    case is_element(Dot, CC) of
+        true ->
+            %% if dot already in the cc, ignore
+            CC;
+        false ->
+            case Sequence == Current + 1 of
+                true ->
+                    %% if previous dot already in the compressed component
+                    %% add it there
+                    Compressed1 = orddict:store(Actor, Sequence, Compressed0),
+                    compress({Compressed1, DotSet0});
+                false ->
+                    %% otherwise store in the DotSet
+                    DotSet1 = dot_set:add_dot(Dot, DotSet0),
+                    {Compressed0, DotSet1}
+            end
+    end.
+
+%% @doc Get `dot_actor()''s next dot
+-spec next_dot(dot_store:dot_actor(), causal_context()) ->
+    dot_store:dot().
+next_dot(Actor, {Compressed, _DotSet}) ->
+    MaxValue = orddict_ext:fetch(Actor, Compressed, 0),
+    {Actor, MaxValue + 1}.
+
+%% @doc Check if a Causal Context is empty.
+-spec is_empty(causal_context()) -> boolean().
+is_empty({Compressed, DotSet}) ->
+    orddict:is_empty(Compressed) andalso dot_set:is_empty(DotSet).
+
+%% @doc Check if a dot belongs to the CausalContext.
+-spec is_element(dot_store:dot(), causal_context()) -> boolean().
+is_element({Actor, Sequence}=Dot, {Compressed, DotSet}) ->
+    Current = orddict_ext:fetch(Actor, Compressed, 0),
+    BelongsToCompressed = Sequence =< Current,
+    BelongsToDotSet = dot_set:is_element(Dot, DotSet),
+    BelongsToCompressed orelse BelongsToDotSet.
+
+%% @doc Merge two Causal Contexts.
+-spec union(causal_context(), causal_context()) -> causal_context().
+union({CompressedA, DotSetA}, {CompressedB, DotSetB}) ->
+    Compressed = orddict:merge(
+        fun(_Actor, SequenceA, SequenceB) ->
+            max(SequenceA, SequenceB)
+        end,
+        CompressedA,
+        CompressedB
+    ),
+    DotSet = dot_set:union(DotSetA, DotSetB),
+    compress({Compressed, DotSet}).
+
+%% @private Try to add the dots in the DotSet to the compressed
+%%          component.
+-spec compress(causal_context()) -> causal_context().
+compress({Compressed, DotSet}) ->
+    lists:foldl(
+        fun(Dot, CausalContext) ->
+            add_dot(Dot, CausalContext)
+        end,
+        {Compressed, dot_set:new()},
+        dot_set:to_list(DotSet)
     ).

@@ -30,35 +30,30 @@
 -author("Vitor Enes Duarte <vitorenesduarte@gmail.com>").
 
 -export_type([dot_actor/0,
+              dot_sequence/0,
               dot/0,
-              dot_store/0,
               dot_set/0,
               dot_fun/0,
               dot_map/0,
+              dot_store/0,
               type/0]).
 
 -type dot_actor() :: term().
--type dot() :: {dot_actor(), pos_integer()}.
+-type dot_sequence() :: pos_integer().
+-type dot() :: {dot_actor(), dot_sequence()}.
 
--type dot_set_payload() :: ordsets:ordset(dot()).
--type dot_set() :: {dot_set, dot_set_payload()}.
-
--type dot_fun_payload() :: orddict:orddict(dot(), term()).
--type dot_fun() :: {{dot_fun, state_type:state_type()}, dot_fun_payload()}.
-
--type dot_map_payload() :: orddict:orddict(term(), dot_store()).
--type dot_map() :: {{dot_map, type()}, dot_map_payload()}.
+-type dot_set() :: ordsets:ordset(dot()).
+-type dot_fun() :: orddict:orddict(dot(), term()).
+-type dot_map() :: orddict:orddict(term(), dot_store()).
 
 -type type() :: dot_set |
                 {dot_fun, state_type:state_type()} |
-                {dot_map, type()} |
-                state_type:state_type().
+                {dot_map, type()}.
 -type dot_store() :: dot_set() | dot_fun() | dot_map().
 
 
 %% @doc Create an empty DotStore.
 -callback new() -> dot_store().
--callback new(term()) -> dot_store().
 
 %% @doc Check if a DotStore is empty.
 -callback is_empty(dot_store()) -> boolean().
