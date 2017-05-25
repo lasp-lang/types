@@ -1,3 +1,13 @@
 -define(AA, keep_op1_add_op2).
 -define(AR, keep_op1_dont_add_op2).
 -define(RA, remove_op1_add_op2).
+
+-define(AWSET_TYPE, pure_awset).
+-define(DWFLAG_TYPE, pure_dwflag).
+-define(EWFLAG_TYPE, pure_ewflag).
+-define(GCOUNTER_TYPE, pure_gcounter).
+-define(GSET_TYPE, pure_gset).
+-define(MVREGISTER_TYPE, pure_mvregister).
+-define(PNCOUNTER_TYPE, pure_pncounter).
+-define(RWSET_TYPE, pure_rwset).
+-define(TWOPSET_TYPE, pure_twopset).

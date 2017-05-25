@@ -23,6 +23,8 @@
 -module(pure_type).
 -author("Georges Younes <georges.r.younes@gmail.com>").
 
+-include("pure_type.hrl").
+
 -export_type([pure_type/0,
               crdt/0,
               polog/0,
@@ -30,6 +32,7 @@
               element/0]).
 
 -export([reset/2]).
+-export([crdt_size/1]).
 
 %% Define some initial types.
 -type pure_type() :: pure_awset |
@@ -61,3 +64,26 @@ reset(VV, {Type, {POLog, _Crystal}}) ->
         POLog
     ),
     {Type, {POLog1, Crystal}}.
+
+-define(AWSET_TYPE, pure_awset).
+-define(DWFLAG_TYPE, pure_dwflag).
+-define(EWFLAG_TYPE, pure_ewflag).
+-define(GCOUNTER_TYPE, pure_gcounter).
+-define(GSET_TYPE, pure_gset).
+-define(MVREGISTER_TYPE, pure_mvregister).
+-define(PNCOUNTER_TYPE, pure_pncounter).
+-define(RWSET_TYPE, pure_rwset).
+-define(TWOPSET_TYPE, pure_twopset).
+
+%% @doc Term size.
+crdt_size({?AWSET_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?DWFLAG_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?EWFLAG_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?GCOUNTER_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?GSET_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?MVREGISTER_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?RWSET_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?PNCOUNTER_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size({?TWOPSET_TYPE, CRDT}) -> crdt_size(CRDT);
+crdt_size(T) ->
+    erts_debug:flat_size(T).
