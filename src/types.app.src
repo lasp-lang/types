@@ -1,6 +1,6 @@
 {application,types,
              [{description,"Conflict-free Replicated Data Types"},
-              {vsn,"0.1.4"},
+              {vsn,"0.1.5"},
               {registered,[]},
               {applications,[kernel,stdlib,crypto]},
               {mod,{types_app,[]}},

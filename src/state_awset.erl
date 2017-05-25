@@ -180,12 +180,20 @@ is_bottom({?TYPE, _}=CRDT) ->
 %% @todo
 -spec is_inflation(state_awset(), state_awset()) -> boolean().
 is_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    state_type:is_inflation(CRDT1, CRDT2).
+    state_type:is_inflation(CRDT1, CRDT2);
+
+%% @todo get back here later
+is_inflation({cardinality, Value}, {?TYPE, _}=CRDT) ->
+    sets:size(query(CRDT)) >= Value.
 
 %% @doc Check for strict inflation.
 -spec is_strict_inflation(state_awset(), state_awset()) -> boolean().
 is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    state_type:is_strict_inflation(CRDT1, CRDT2).
+    state_type:is_strict_inflation(CRDT1, CRDT2);
+
+%% @todo get back here later
+is_strict_inflation({cardinality, Value}, {?TYPE, _}=CRDT) ->
+    sets:size(query(CRDT)) > Value.
 
 %% @doc Check for irreducible strict inflation.
 -spec irreducible_is_strict_inflation(state_awset(),
