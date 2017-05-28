@@ -126,39 +126,34 @@ merge({dot_map, Type}, {DotMapA, CausalContextA},
     %% - CRDTType (causal)
     Default = ds_bottom(Type),
 
-    KeysA = dot_map:fetch_keys(DotMapA),
-    KeysB = dot_map:fetch_keys(DotMapB),
-    Keys = ordsets:union(
-        ordsets:from_list(KeysA),
-        ordsets:from_list(KeysB)
-    ),
+    DotStoreType = get_type(Type),
 
-    DotStore = ordsets:fold(
-        fun(Key, DotMap) ->
-            KeyDotStoreA = dot_map:fetch(Key, DotMapA, Default),
-            KeyDotStoreB = dot_map:fetch(Key, DotMapB, Default),
-
-            {VK, _} = merge(get_type(Type),
+    %% merge two dot maps
+    DotStore0 = dot_map:merge(
+        fun(_Key, KeyDotStoreA, KeyDotStoreB) ->
+            {VK, _} = merge(DotStoreType,
                 {KeyDotStoreA, CausalContextA},
                 {KeyDotStoreB, CausalContextB}
             ),
-
-            case VK == Default of
-                true ->
-                    %% if the resulting ds is empty
-                    DotMap;
-                false ->
-                    dot_map:store(Key, VK, DotMap)
-            end
+            
+            VK
         end,
-        dot_map:new(),
-        Keys
+        DotMapA,
+        DotMapB
+    ),
+
+    %% remove keys that are bottom
+    DotStore1 = dot_map:filter(
+        fun(_Key, KeyDotStore) ->
+            KeyDotStore /= Default
+        end,
+        DotStore0
     ),
 
     CausalContext = causal_context:union(CausalContextA,
                                          CausalContextB),
 
-    {DotStore, CausalContext}.
+    {DotStore1, CausalContext}.
 
 %% @doc Get an empty DotStore.
 -spec ds_bottom(dot_store:type()) -> dot_store:dot_store().

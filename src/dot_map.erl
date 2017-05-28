@@ -34,6 +34,8 @@
          fetch_keys/1,
          fetch/3,
          store/3,
+         merge/3,
+         filter/2,
          to_list/1
         ]).
 
@@ -68,6 +70,16 @@ fetch_keys(DotMap) ->
 -spec store(term(), dot_store:dot_store(), dot_map()) -> dot_map().
 store(Key, DotStore, DotMap) ->
     orddict:store(Key, DotStore, DotMap).
+
+%% @doc Merge two DotMap.
+-spec merge(function(), dot_map(), dot_map()) -> dot_map().
+merge(Fun, DotMapA, DotMapB) ->
+    orddict:merge(Fun, DotMapA, DotMapB).
+
+%% @doc Filter a DotMap.
+-spec filter(function(), dot_map()) -> dot_map().
+filter(Fun, DotMap) ->
+    orddict:filter(Fun, DotMap).
 
 %% @doc Convert a DotMap to a list.
 -spec to_list(dot_map()) -> [{term(), dot_store:dot_store()}].
