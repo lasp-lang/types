@@ -35,6 +35,7 @@
 -export([new/1,
          merge/3,
          ds_bottom/1,
+         is_element/3,
          dots/2]).
 
 -export_type([causal_crdt/0]).
@@ -169,6 +170,22 @@ ds_bottom(T) ->
             DS
     end,
     DSType:new().
+
+%% @doc Check if a dot belongs to the DotStore.
+-spec is_element(dot_store:type(), dot_store:dot(),
+                 dot_store:dot_store()) -> boolean().
+is_element(dot_set, Dot, DotSet) ->
+    dot_set:is_element(Dot, DotSet);
+is_element({dot_fun, _}, Dot, DotFun) ->
+    dot_fun:is_element(Dot, DotFun);
+is_element({dot_map, T}, Dot, DotMap) ->
+    lists:any(
+        fun(Key) ->
+            DotStore = dot_map:fetch(Key, DotMap, undefined),
+            is_element(get_type(T), Dot, DotStore)
+        end,
+        dot_map:fetch_keys(DotMap)
+    ).
 
 %% @doc Get dots from a DotStore.
 -spec dots(dot_store:type(), dot_store:dot_store()) ->
