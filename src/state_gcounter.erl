@@ -1,4 +1,4 @@
-
+%%
 %% Copyright (c) 2015-2016 Christopher Meiklejohn.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
