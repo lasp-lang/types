@@ -43,7 +43,7 @@ proper:
 lint:
 	${REBAR} as lint lint
 
-bench:
+bench: compile
 	bin/state_bench.sh
 
 shell:
