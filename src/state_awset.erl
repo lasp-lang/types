@@ -206,7 +206,7 @@ irreducible_is_strict_inflation({?TYPE, {DSA, CCA}},
     not causal_context:is_element(Dot, CCB) orelse
     %% or if it was a not observed removal
     (dot_map:is_empty(DSA) andalso
-     dot_map:is_element(dot_set, Dot, DSB));
+     state_causal_type:is_element({dot_map, dot_set}, Dot, DSB));
 irreducible_is_strict_inflation({?TYPE, {DSA, CCA}},
                                 {mdata, {ActiveDots, CCB}}) ->
     [Dot] = dot_set:to_list(causal_context:dots(CCA)),
@@ -219,16 +219,23 @@ irreducible_is_strict_inflation({?TYPE, {DSA, CCA}},
 %% @doc Join decomposition for `state_awset()'.
 -spec join_decomposition(state_awset()) -> [state_awset()].
 join_decomposition({?TYPE, {DotStore, CausalContext}}) ->
-    Elements = dot_map:fetch_keys(DotStore),
     {DecompList, ActiveDots} = lists:foldl(
-        fun(Elem, {List0, ActiveDots0}) ->
-            ElemDotSet = dot_map:fetch(Elem, DotStore, dot_set:new()),
-
+        fun({Elem, ElemDotSet}, {List0, ActiveDots0}) ->
             List1 = lists:foldl(
                 fun(Dot, List2) ->
-                    DotSet = dot_set:add_dot(Dot, dot_set:new()),
-                    DS = dot_map:store(Elem, DotSet, dot_map:new()),
-                    CC = causal_context:from_dot_set(DotSet),
+                    DotSet = dot_set:add_dot(
+                        Dot,
+                        dot_set:new()
+                    ),
+                    DS = dot_map:store(
+                        Elem,
+                        DotSet,
+                        dot_map:new()
+                    ),
+                    CC = causal_context:add_dot(
+                        Dot,
+                        causal_context:new()
+                    ),
                     Decomp = {?TYPE, {DS, CC}},
                     [Decomp | List2]
                 end,
@@ -241,7 +248,7 @@ join_decomposition({?TYPE, {DotStore, CausalContext}}) ->
             {List1, ActiveDots1}
         end,
         {[], dot_set:new()},
-        Elements
+        dot_map:to_list(DotStore)
     ),
 
     CCDotSet = causal_context:dots(CausalContext),

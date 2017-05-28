@@ -84,22 +84,20 @@ dots({Compressed, DotSet}) ->
 add_dot({Actor, Sequence}=Dot, {Compressed0, DotSet0}=CC) ->
     Current = orddict_ext:fetch(Actor, Compressed0, 0),
 
-    case is_element(Dot, CC) of
+    case Sequence == Current + 1 of
         true ->
-            %% if dot already in the cc, ignore
-            CC;
+            %% update the compressed component
+            Compressed1 = orddict:store(Actor, Sequence, Compressed0),
+            {Compressed1, DotSet0};
         false ->
-            case Sequence == Current + 1 of
+            case Sequence > Current + 1 of
                 true ->
-                    %% if previous dot already in the compressed component
-                    %% add it there
-                    Compressed1 = orddict:store(Actor, Sequence, Compressed0),
-                    compress({Compressed1, DotSet0});
-                false ->
-                    %% otherwise store in the DotSet
+                    %% store in the DotSet if in the future
                     DotSet1 = dot_set:add_dot(Dot, DotSet0),
-                    {Compressed0, DotSet1}
-            end
+                    {Compressed0, DotSet1};
+                false ->
+                    CC
+           end
     end.
 
 %% @doc Get `dot_actor()''s next dot
@@ -118,9 +116,7 @@ is_empty({Compressed, DotSet}) ->
 -spec is_element(dot_store:dot(), causal_context()) -> boolean().
 is_element({Actor, Sequence}=Dot, {Compressed, DotSet}) ->
     Current = orddict_ext:fetch(Actor, Compressed, 0),
-    BelongsToCompressed = Sequence =< Current,
-    BelongsToDotSet = dot_set:is_element(Dot, DotSet),
-    BelongsToCompressed orelse BelongsToDotSet.
+    Sequence =< Current orelse dot_set:is_element(Dot, DotSet).
 
 %% @doc Merge two Causal Contexts.
 -spec union(causal_context(), causal_context()) -> causal_context().
