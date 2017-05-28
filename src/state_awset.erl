@@ -358,6 +358,7 @@ rmv_test() ->
     {ok, Set1} = mutate({add, "a"}, Actor, Set0),
     {ok, Set1} = mutate({rmv, "b"}, Actor, Set1),
     {ok, Set2} = mutate({rmv, "a"}, Actor, Set1),
+
     ?assertEqual(sets:new(), query(Set2)).
 
 add_all_test() ->

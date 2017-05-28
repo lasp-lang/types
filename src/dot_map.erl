@@ -34,8 +34,7 @@
          fetch_keys/1,
          fetch/3,
          store/3,
-         merge/3,
-         filter/2,
+         merge/4,
          to_list/1
         ]).
 
@@ -72,14 +71,31 @@ store(Key, DotStore, DotMap) ->
     orddict:store(Key, DotStore, DotMap).
 
 %% @doc Merge two DotMap.
--spec merge(function(), dot_map(), dot_map()) -> dot_map().
-merge(Fun, DotMapA, DotMapB) ->
-    orddict:merge(Fun, DotMapA, DotMapB).
+-spec merge(function(), dot_store:dot_store(),
+            dot_map(), dot_map()) -> dot_map().
+merge(_Fun, _Default, [], []) ->
+    [];
+merge(Fun, Default, [{Key, ValueA} | RestA], []) ->
+    do_merge(Fun, Default, Key, ValueA, Default, RestA, []);
+merge(Fun, Default, [], [{Key, ValueB} | RestB]) ->
+    do_merge(Fun, Default, Key, Default, ValueB, [], RestB);
+merge(Fun, Default, [{Key, ValueA} | RestA],
+                    [{Key, ValueB} | RestB]) ->
+    do_merge(Fun, Default, Key, ValueA, ValueB, RestA, RestB);
+merge(Fun, Default, [{KeyA, ValueA} | RestA],
+                    [{KeyB, _} | _]=RestB) when KeyA < KeyB ->
+    do_merge(Fun, Default, KeyA, ValueA, Default, RestA, RestB);
+merge(Fun, Default, [{KeyA, _} | _]=RestA,
+                    [{KeyB, ValueB} | RestB]) when KeyA > KeyB ->
+    do_merge(Fun, Default, KeyB, Default, ValueB, RestA, RestB).
 
-%% @doc Filter a DotMap.
--spec filter(function(), dot_map()) -> dot_map().
-filter(Fun, DotMap) ->
-    orddict:filter(Fun, DotMap).
+do_merge(Fun, Default, Key, ValueA, ValueB, RestA, RestB) ->
+    case Fun(ValueA, ValueB) of
+        Default ->
+            merge(Fun, Default, RestA, RestB);
+        Value ->
+            [{Key, Value} | merge(Fun, Default, RestA, RestB)]
+    end.
 
 %% @doc Convert a DotMap to a list.
 -spec to_list(dot_map()) -> [{term(), dot_store:dot_store()}].

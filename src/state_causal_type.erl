@@ -121,39 +121,27 @@ merge({dot_fun, CRDTType}=DSType, {DotFunA, CausalContextA},
 merge({dot_map, Type}, {DotMapA, CausalContextA},
                        {DotMapB, CausalContextB}) ->
 
-    %% Type can be:
-    %% - DotStoreType
-    %% - CRDTType (causal)
     Default = ds_bottom(Type),
-
     DotStoreType = get_type(Type),
 
     %% merge two dot maps
-    DotStore0 = dot_map:merge(
-        fun(_Key, KeyDotStoreA, KeyDotStoreB) ->
+    DotStore = dot_map:merge(
+        fun(KeyDotStoreA, KeyDotStoreB) ->
             {VK, _} = merge(DotStoreType,
                 {KeyDotStoreA, CausalContextA},
                 {KeyDotStoreB, CausalContextB}
             ),
-            
             VK
         end,
+        Default,
         DotMapA,
         DotMapB
-    ),
-
-    %% remove keys that are bottom
-    DotStore1 = dot_map:filter(
-        fun(_Key, KeyDotStore) ->
-            KeyDotStore /= Default
-        end,
-        DotStore0
     ),
 
     CausalContext = causal_context:union(CausalContextA,
                                          CausalContextB),
 
-    {DotStore1, CausalContext}.
+    {DotStore, CausalContext}.
 
 %% @doc Get an empty DotStore.
 -spec ds_bottom(dot_store:type()) -> dot_store:dot_store().
