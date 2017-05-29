@@ -36,8 +36,7 @@
          store/3,
          merge/4,
          any/2,
-         fold/3,
-         to_list/1
+         fold/3
         ]).
 
 -type dot_map() :: dot_store:dot_map().
@@ -108,8 +107,3 @@ any(Pred, DotMap) ->
 -spec fold(function(), term(), dot_map()) -> term().
 fold(Fun, AccIn, DotMap) ->
     orddict:fold(Fun, AccIn, DotMap).
-
-%% @doc Convert a DotMap to a list.
--spec to_list(dot_map()) -> [{term(), dot_store:dot_store()}].
-to_list(DotMap) ->
-    orddict:to_list(DotMap).

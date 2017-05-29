@@ -216,8 +216,8 @@ irreducible_is_strict_inflation({?TYPE, {DSA, CCA}},
 %% @doc Join decomposition for `state_awset()'.
 -spec join_decomposition(state_awset()) -> [state_awset()].
 join_decomposition({?TYPE, {DotStore, CausalContext}}) ->
-    {DecompList, ActiveDots} = lists:foldl(
-        fun({Elem, ElemDotSet}, {List0, ActiveDots0}) ->
+    {DecompList, ActiveDots} = dot_map:fold(
+        fun(Elem, ElemDotSet, {List0, ActiveDots0}) ->
             List1 = dot_set:fold(
                 fun(Dot, List2) ->
                     DotSet = dot_set:add_dot(
@@ -245,7 +245,7 @@ join_decomposition({?TYPE, {DotStore, CausalContext}}) ->
             {List1, ActiveDots1}
         end,
         {[], dot_set:new()},
-        dot_map:to_list(DotStore)
+        DotStore
     ),
 
     CCDotSet = causal_context:dots(CausalContext),
