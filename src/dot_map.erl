@@ -35,6 +35,8 @@
          fetch/3,
          store/3,
          merge/4,
+         any/2,
+         fold/3,
          to_list/1
         ]).
 
@@ -96,6 +98,16 @@ do_merge(Fun, Default, Key, ValueA, ValueB, RestA, RestB) ->
         Value ->
             [{Key, Value} | merge(Fun, Default, RestA, RestB)]
     end.
+
+%% @doc True if Pred is true for at least one entry in the DotMap.
+-spec any(function(), dot_map()) -> boolean().
+any(Pred, DotMap) ->
+    lists:any(Pred, DotMap).
+
+%% @doc Fold a DotMap.
+-spec fold(function(), term(), dot_map()) -> term().
+fold(Fun, AccIn, DotMap) ->
+    orddict:fold(Fun, AccIn, DotMap).
 
 %% @doc Convert a DotMap to a list.
 -spec to_list(dot_map()) -> [{term(), dot_store:dot_store()}].

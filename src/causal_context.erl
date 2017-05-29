@@ -34,7 +34,8 @@
          next_dot/2,
          is_empty/1,
          is_element/2,
-         union/2
+         union/2,
+         to_dot/1
         ]).
 
 -export_type([causal_context/0]).
@@ -52,12 +53,12 @@ new() ->
 %% @doc Create a CausalContext from a DotSet.
 -spec from_dot_set(dot_set()) -> causal_context().
 from_dot_set(DotSet) ->
-    lists:foldl(
+    dot_set:fold(
         fun(Dot, CausalContext) ->
             causal_context:add_dot(Dot, CausalContext)
         end,
         causal_context:new(),
-        dot_set:to_list(DotSet)
+        DotSet
     ).
 
 %% @doc Return a list of dots from a CausalContext.
@@ -96,6 +97,7 @@ add_dot({Actor, Sequence}=Dot, {Compressed0, DotSet0}=CC) ->
                     DotSet1 = dot_set:add_dot(Dot, DotSet0),
                     {Compressed0, DotSet1};
                 false ->
+                    %% dot already in the CausalContext.
                     CC
            end
     end.
@@ -135,10 +137,15 @@ union({CompressedA, DotSetA}, {CompressedB, DotSetB}) ->
 %%          component.
 -spec compress(causal_context()) -> causal_context().
 compress({Compressed, DotSet}) ->
-    lists:foldl(
+    dot_set:fold(
         fun(Dot, CausalContext) ->
             add_dot(Dot, CausalContext)
         end,
         {Compressed, dot_set:new()},
-        dot_set:to_list(DotSet)
+        DotSet
     ).
+
+%% @private Convert a CausalContext with a single dot, to that dot.
+-spec to_dot(causal_context()) -> dot_store:dot().
+to_dot({[Dot], []}) -> Dot;
+to_dot({[], [Dot]}) -> Dot.

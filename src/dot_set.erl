@@ -38,7 +38,7 @@
          intersection/2,
          subtract/2,
          subtract_causal_context/2,
-         to_list/1
+         fold/3
         ]).
 
 -type dot_set() :: dot_store:dot_set().
@@ -102,6 +102,6 @@ subtract_causal_context(DotSet, CausalContext) ->
     ).
 
 %% @doc Convert a DotSet to a list.
--spec to_list(dot_set()) -> list(dot_store:dot()).
-to_list(DotSet) ->
-    ordsets:to_list(DotSet).
+-spec fold(function(), term(), dot_set()) -> term().
+fold(Fun, AccIn, DotSet) ->
+    ordsets:fold(Fun, AccIn, DotSet).

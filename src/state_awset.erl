@@ -198,17 +198,17 @@ is_strict_inflation({cardinality, Value}, {?TYPE, _}=CRDT) ->
     boolean().
 irreducible_is_strict_inflation({?TYPE, {DSA, CCA}},
                                 {state, {?TYPE, {DSB, CCB}}}) ->
-    [Dot] = dot_set:to_list(causal_context:dots(CCA)),
+    Dot = causal_context:to_dot(CCA),
     %% will inflate if the dot does not belong to the other cc
-    not causal_context:is_element(Dot, CCB) orelse
+    (not causal_context:is_element(Dot, CCB)) orelse
     %% or if it was a not observed removal
     (dot_map:is_empty(DSA) andalso
      state_causal_type:is_element({dot_map, dot_set}, Dot, DSB));
 irreducible_is_strict_inflation({?TYPE, {DSA, CCA}},
                                 {mdata, {ActiveDots, CCB}}) ->
-    [Dot] = dot_set:to_list(causal_context:dots(CCA)),
+    Dot = causal_context:to_dot(CCA),
     %% will inflate if the dot does not belong to the other cc
-    not causal_context:is_element(Dot, CCB) orelse
+    (not causal_context:is_element(Dot, CCB)) orelse
     %% or if it was a not observed removal
     (dot_map:is_empty(DSA) andalso
      dot_set:is_element(Dot, ActiveDots)).
@@ -218,7 +218,7 @@ irreducible_is_strict_inflation({?TYPE, {DSA, CCA}},
 join_decomposition({?TYPE, {DotStore, CausalContext}}) ->
     {DecompList, ActiveDots} = lists:foldl(
         fun({Elem, ElemDotSet}, {List0, ActiveDots0}) ->
-            List1 = lists:foldl(
+            List1 = dot_set:fold(
                 fun(Dot, List2) ->
                     DotSet = dot_set:add_dot(
                         Dot,
@@ -237,7 +237,7 @@ join_decomposition({?TYPE, {DotStore, CausalContext}}) ->
                     [Decomp | List2]
                 end,
                 List0,
-                dot_set:to_list(ElemDotSet)
+                ElemDotSet
             ),
 
             ActiveDots1 = dot_set:union(ActiveDots0, ElemDotSet),
@@ -251,7 +251,7 @@ join_decomposition({?TYPE, {DotStore, CausalContext}}) ->
     CCDotSet = causal_context:dots(CausalContext),
     InactiveDots = dot_set:subtract(CCDotSet, ActiveDots),
 
-    lists:foldl(
+    dot_set:fold(
         fun(InactiveDot, List) ->
             DS = dot_map:new(),
             CC = causal_context:add_dot(InactiveDot,
@@ -260,7 +260,7 @@ join_decomposition({?TYPE, {DotStore, CausalContext}}) ->
             [Decomp | List]
         end,
         DecompList,
-        dot_set:to_list(InactiveDots)
+        InactiveDots
     ).
 
 %% @doc Delta calculation for `state_awset()'.
