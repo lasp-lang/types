@@ -109,21 +109,18 @@ query({?TYPE, {CType, GMap}}) ->
 %%      If a key is present in both `state_gmap()', the new value
 %%      will be the `merge/2' of both values.
 -spec merge(state_gmap(), state_gmap()) -> state_gmap().
-merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    MergeFun = fun({?TYPE, {CType, GMap1}}, {?TYPE, {CType, GMap2}}) ->
-        {Type, _Args} = state_type:extract_args(CType),
-        GMap = orddict:merge(
-            fun(_, Value1, Value2) ->
-                {Type, Value} = Type:merge({Type, Value1},
-                                           {Type, Value2}),
-                Value
-            end,
-            GMap1,
-            GMap2
-        ),
-        {?TYPE, {CType, GMap}}
-    end,
-    state_type:merge(CRDT1, CRDT2, MergeFun).
+merge({?TYPE, {CType, GMap1}}, {?TYPE, {CType, GMap2}}) ->
+    {Type, _Args} = state_type:extract_args(CType),
+    GMap = orddict:merge(
+        fun(_, Value1, Value2) ->
+            {Type, Value} = Type:merge({Type, Value1},
+                                       {Type, Value2}),
+            Value
+        end,
+        GMap1,
+        GMap2
+    ),
+    {?TYPE, {CType, GMap}}.
 
 %% @doc Equality for `state_gmap()'.
 %%      Two `state_gmap()' are equal if they have the same keys

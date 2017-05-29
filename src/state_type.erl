@@ -24,7 +24,6 @@
 
 -export([new/1,
          mutate/3,
-         merge/3,
          is_inflation/2,
          is_strict_inflation/2,
          irreducible_is_strict_inflation/2]).
@@ -129,11 +128,6 @@ mutate(Op, Actor, {Type, _}=CRDT) ->
         Error ->
             Error
     end.
-
-%% @doc Generic Merge.
--spec merge(crdt(), crdt(), function()) -> crdt().
-merge({Type, CRDT1}, {Type, CRDT2}, MergeFun) ->
-    MergeFun({Type, CRDT1}, {Type, CRDT2}).
 
 %% @doc Generic check for inflation.
 -spec is_inflation(crdt(), crdt()) -> boolean().

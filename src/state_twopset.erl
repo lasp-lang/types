@@ -109,13 +109,10 @@ query({?TYPE, {Added, Removed}}) ->
 %% @doc Merge two `state_twopset()'.
 %%      The result is the component wise set union.
 -spec merge(state_twopset(), state_twopset()) -> state_twopset().
-merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    MergeFun = fun({?TYPE, {Added1, Removed1}}, {?TYPE, {Added2, Removed2}}) ->
-        Added = ordsets:union(Added1, Added2),
-        Removed = ordsets:union(Removed1, Removed2),
-        {?TYPE, {Added, Removed}}
-    end,
-    state_type:merge(CRDT1, CRDT2, MergeFun).
+merge({?TYPE, {Added1, Removed1}}, {?TYPE, {Added2, Removed2}}) ->
+    Added = ordsets:union(Added1, Added2),
+    Removed = ordsets:union(Removed1, Removed2),
+    {?TYPE, {Added, Removed}}.
 
 %% @doc Equality for `state_twopset()'.
 -spec equal(state_twopset(), state_twopset()) -> boolean().

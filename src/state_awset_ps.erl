@@ -187,12 +187,9 @@ query({?TYPE, {{ElemDataStore, _EventDataStore}, _FilteredOutEvents, _AllEvents}
 %% @doc Merge two `state_awset_ps()'.
 %% Merging will be handled by the join_awset_ps().
 -spec merge(state_awset_ps(), state_awset_ps()) -> state_awset_ps().
-merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    MergeFun = fun({?TYPE, AWSet1}, {?TYPE, AWSet2}) ->
-        AWSet = join_awset_ps(AWSet1, AWSet2),
-        {?TYPE, AWSet}
-    end,
-    state_type:merge(CRDT1, CRDT2, MergeFun).
+merge({?TYPE, AWSet1}, {?TYPE, AWSet2}) ->
+    AWSet = join_awset_ps(AWSet1, AWSet2),
+    {?TYPE, AWSet}.
 
 %% @doc Equality for `state_awset_ps()'.
 -spec equal(state_awset_ps(), state_awset_ps()) -> boolean().

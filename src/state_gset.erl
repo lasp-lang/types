@@ -100,12 +100,9 @@ query({?TYPE, GSet}) ->
 %%      The result is the set union of both sets in the
 %%      `state_gset()' passed as argument.
 -spec merge(state_gset(), state_gset()) -> state_gset().
-merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    MergeFun = fun({?TYPE, GSet1}, {?TYPE, GSet2}) ->
-        GSet = ordsets:union(GSet1, GSet2),
-        {?TYPE, GSet}
-    end,
-    state_type:merge(CRDT1, CRDT2, MergeFun).
+merge({?TYPE, GSet1}, {?TYPE, GSet2}) ->
+    GSet = ordsets:union(GSet1, GSet2),
+    {?TYPE, GSet}.
 
 %% @doc Equality for `state_gset()'.
 -spec equal(state_gset(), state_gset()) -> boolean().

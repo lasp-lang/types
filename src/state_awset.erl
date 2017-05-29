@@ -156,14 +156,11 @@ query({?TYPE, {DotStore, _CausalContext}}) ->
 %%      Merging is handled by the `merge' function in
 %%      `state_causal_type' common library.
 -spec merge(state_awset(), state_awset()) -> state_awset().
-merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    MergeFun = fun({?TYPE, AWSet1}, {?TYPE, AWSet2}) ->
-        AWSet = state_causal_type:merge({dot_map, dot_set},
-                                        AWSet1,
-                                        AWSet2),
-        {?TYPE, AWSet}
-    end,
-    state_type:merge(CRDT1, CRDT2, MergeFun).
+merge({?TYPE, AWSet1}, {?TYPE, AWSet2}) ->
+    AWSet = state_causal_type:merge({dot_map, dot_set},
+                                    AWSet1,
+                                    AWSet2),
+    {?TYPE, AWSet}.
 
 %% @doc Equality for `state_awset()'.
 %%      Since everything is ordered, == should work.

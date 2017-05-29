@@ -82,11 +82,8 @@ query({?TYPE, Value}) ->
 %% @doc Merge two `state_max_int()'.
 %%      Join is the max function.
 -spec merge(state_max_int(), state_max_int()) -> state_max_int().
-merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    MergeFun = fun({?TYPE, Value1}, {?TYPE, Value2}) ->
-        {?TYPE, max(Value1, Value2)}
-    end,
-    state_type:merge(CRDT1, CRDT2, MergeFun).
+merge({?TYPE, Value1}, {?TYPE, Value2}) ->
+    {?TYPE, max(Value1, Value2)}.
 
 %% @doc Equality for `state_max_int()'.
 -spec equal(state_max_int(), state_max_int()) -> boolean().

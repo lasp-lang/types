@@ -165,24 +165,21 @@ query({?TYPE, ORSet}) ->
 %%              * active (true) if both were active before
 %%              * inactive (false) otherwise
 -spec merge(state_orset(), state_orset()) -> state_orset().
-merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    MergeFun = fun({?TYPE, ORSet1}, {?TYPE, ORSet2}) ->
-        ORSet = orddict:merge(
-            fun(_Elem, Tokens1, Tokens2) ->
-                orddict:merge(
-                    fun(_Token, Active1, Active2) ->
-                        Active1 andalso Active2
-                    end,
-                    Tokens1,
-                    Tokens2
-                )
-            end,
-            ORSet1,
-            ORSet2
-        ),
-        {?TYPE, ORSet}
-    end,
-    state_type:merge(CRDT1, CRDT2, MergeFun).
+merge({?TYPE, ORSet1}, {?TYPE, ORSet2}) ->
+    ORSet = orddict:merge(
+        fun(_Elem, Tokens1, Tokens2) ->
+            orddict:merge(
+                fun(_Token, Active1, Active2) ->
+                    Active1 andalso Active2
+                end,
+                Tokens1,
+                Tokens2
+            )
+        end,
+        ORSet1,
+        ORSet2
+    ),
+    {?TYPE, ORSet}.
 
 %% @doc Equality for `state_orset()'.
 %%      Since everything is ordered, == should work.
