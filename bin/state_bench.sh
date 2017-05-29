@@ -141,21 +141,30 @@ adds(Type, Seq, WithSync, R0) ->
                     R2
             end,
 
-            %% perform a read
+            %% perform query and join_decompositions
             lists:foldl(
                 fun(Replica, {StateIn, MetricsIn}) ->
                     Value = orddict:fetch(Replica, StateIn),
 
-                    {Time, _} = timer:tc(
+                    {TimeQuery, _} = timer:tc(
                         fun() ->
                             Type:query(Value)
                         end
                     ),
 
-                    MetricsOut = orddict:append(query,
-                                                Time,
-                                                MetricsIn),
-                    {StateIn, MetricsOut}
+                    {TimeJD, _} = timer:tc(
+                        fun() ->
+                            Type:join_decomposition(Value)
+                        end
+                    ),
+
+                    MetricsOut0 = orddict:append(query,
+                                                 TimeQuery,
+                                                 MetricsIn),
+                    MetricsOut1 = orddict:append(join_decompositions,
+                                                 TimeJD,
+                                                 MetricsOut0),
+                    {StateIn, MetricsOut1}
                 end,
                 R3,
                 replicas()
