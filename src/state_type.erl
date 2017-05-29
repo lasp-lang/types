@@ -147,7 +147,7 @@ is_strict_inflation({Type, _}=CRDT1, {Type, _}=CRDT2) ->
 -spec irreducible_is_strict_inflation(crdt(),
                                       digest()) -> boolean().
 irreducible_is_strict_inflation({Type, _}=Irreducible,
-                                {state, {Type, _}}=CRDT) ->
+                                {state, {Type, _}=CRDT}) ->
     Merged = Type:merge(Irreducible, CRDT),
     Type:is_strict_inflation(CRDT, Merged).
 
