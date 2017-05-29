@@ -86,18 +86,18 @@ prop_union() ->
             Union = causal_context:union(CC1, CC2),
 
             %% Dots from the cc's belong to the union.
-            R1 = lists:foldl(
+            R1 = dot_set:fold(
                 fun(Dot, Acc) ->
                     Acc andalso
                     causal_context:is_element(Dot, Union)
                 end,
                 true,
-                dot_set:to_list(causal_context:dots(CC1)) ++
-                dot_set:to_list(causal_context:dots(CC2))
+                dot_set:union(causal_context:dots(CC1),
+                              causal_context:dots(CC2))
             ),
 
             %% Dots from the union belong to one of the cc's.
-            R2 =  lists:foldl(
+            R2 =  dot_set:fold(
                 fun(Dot, Acc) ->
                     Acc andalso
                     (
@@ -106,19 +106,19 @@ prop_union() ->
                     )
                 end,
                 true,
-                dot_set:to_list(causal_context:dots(Union))
+                causal_context:dots(Union)
             ),
 
             %% Dots in the DotSet don't belong in the compressed part
             {Compressed, DotSet} = Union,
             FakeUnion = {Compressed, dot_set:new()},
-            R3 = lists:foldl(
+            R3 = dot_set:fold(
                 fun(Dot, Acc) ->
                     Acc andalso
                     not causal_context:is_element(Dot, FakeUnion)
                 end,
                 true,
-                dot_set:to_list(DotSet)
+                DotSet
             ),
 
             R1 andalso R2 andalso R3

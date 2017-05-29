@@ -53,17 +53,17 @@ prop_union() ->
             Union = dot_set:union(DS1, DS2),
 
             %% Dots from the ds's belong to the union.
-            R1 = lists:foldl(
+            R1 = dot_set:fold(
                 fun(Dot, Acc) ->
                     Acc andalso
                     dot_set:is_element(Dot, Union)
                 end,
                 true,
-                dot_set:to_list(DS1) ++ dot_set:to_list(DS2)
+                dot_set:union(DS1, DS2)
             ),
 
             %% Dots from the union belong to one of the ds's.
-            R2 =  lists:foldl(
+            R2 =  dot_set:fold(
                 fun(Dot, Acc) ->
                     Acc andalso
                     (
@@ -72,7 +72,7 @@ prop_union() ->
                     )
                 end,
                 true,
-                dot_set:to_list(Union)
+                Union
             ),
 
             R1 andalso R2
@@ -89,7 +89,7 @@ prop_intersection() ->
             Intersection = dot_set:intersection(DS1, DS2),
 
             %% Dots from the intersection belong to one of the ds's.
-            lists:foldl(
+            dot_set:fold(
                 fun(Dot, Acc) ->
                     Acc andalso
                     (
@@ -98,7 +98,7 @@ prop_intersection() ->
                     )
                 end,
                 true,
-                dot_set:to_list(Intersection)
+                Intersection
             )
         end
     ).
@@ -111,12 +111,12 @@ prop_subtract() ->
             DS1 = ds(L1),
             DS2 = ds(L2),
             Subtract = dot_set:subtract(DS1, DS2),
-            lists:foldl(
+            dot_set:fold(
                 fun(Dot, Acc) ->
                     Acc andalso not dot_set:is_element(Dot, Subtract)
                 end,
                 true,
-                dot_set:to_list(DS2)
+                DS2
             )
         end
     ).
@@ -129,12 +129,12 @@ prop_subtract_causal_context() ->
             DS = ds(L1),
             CC = cc(L2),
             Subtract = dot_set:subtract_causal_context(DS, CC),
-            lists:foldl(
+            dot_set:fold(
                 fun(Dot, Acc) ->
                     Acc andalso not dot_set:is_element(Dot, Subtract)
                 end,
                 true,
-                dot_set:to_list(causal_context:dots(CC))
+                causal_context:dots(CC)
             )
         end
     ).
