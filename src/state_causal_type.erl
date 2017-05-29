@@ -198,7 +198,7 @@ dots({dot_fun, _}, DotFun) ->
     dot_set:from_dots(Dots);
 dots({dot_map, T}, DotMap) ->
     dot_map:fold(
-        fun({_, DS}, Acc) ->
+        fun(_, DS, Acc) ->
             DotSet = dots(T, DS),
             dot_set:union(DotSet, Acc)
         end,
