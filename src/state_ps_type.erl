@@ -46,6 +46,7 @@
     state_ps_type/0,
     state_ps_event_type/0,
     state_ps_event_info/0,
+    state_ps_event_id/0,
     state_ps_event/0,
     state_ps_dot/0,
     state_ps_provenance/0,
