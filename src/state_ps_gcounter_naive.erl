@@ -79,7 +79,8 @@ query({?TYPE, Payload}) ->
     case InternalSet of
         [] ->
             0;
-        [Value] ->
+        [ValueAsProvenance] ->
+            Value = state_ps_type:get_events_from_provenance(ValueAsProvenance),
             ordsets:fold(
                 fun({state_ps_event_partial_order_downward_closed, {_, Counter}},
                     AccResult) ->
@@ -107,10 +108,12 @@ equal({?TYPE, PayloadA}, {?TYPE, PayloadB}) ->
 delta_mutate(increment, Actor, {?TYPE, Payload}) ->
     %% Get next Event from AllEvents.
     NextEvent = get_next_event(Actor, Payload),
+    ValueAsProvenance =
+        ordsets:add_element(
+            ordsets:add_element(NextEvent, ordsets:new()), ordsets:new()),
     %% Get a delta object.
     DeltaPayload =
-        state_ps_poe_orset:delta_insert(
-            NextEvent, ordsets:add_element(NextEvent, ordsets:new()), Payload),
+        state_ps_poe_orset:delta_insert(NextEvent, ValueAsProvenance, Payload),
     {ok, {?TYPE, DeltaPayload}}.
 
 %% @doc Merge two `state_ps_gcounter_naive()'.
@@ -174,10 +177,7 @@ merge_state_ps_gcounter_naive({?TYPE, PayloadA}, {?TYPE, PayloadB}) ->
             ordsets:new(),
             ProvenanceStore),
     MergedProvenanceStore =
-        orddict:store(
-            state_ps_type:get_events_from_provenance(MergedProvenance),
-            MergedProvenance,
-            orddict:new()),
+        orddict:store(MergedProvenance, MergedProvenance, orddict:new()),
     {?TYPE, {MergedProvenanceStore, SubsetEvents, AllEvents}}.
 
 %% ===================================================================
@@ -196,10 +196,9 @@ query_test() ->
     Counter0 = new(),
     Counter1 =
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 3}}],
-                [
-                    [{?EVENT_TYPE, {EventId1, 2}}],
-                    [{?EVENT_TYPE, {EventId2, 3}}]]}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 3}}]],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 3}}]]}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 3}}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 3}}]}},
     ?assertEqual(0, query(Counter0)),
@@ -217,47 +216,49 @@ delta_increment_test() ->
     Counter3 = merge({?TYPE, Delta3}, Counter2),
     ?assertEqual(
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 1}}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 1}}]],
                 [[{?EVENT_TYPE, {EventId1, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 1}}],
             [{?EVENT_TYPE, {EventId1, 1}}]}},
         {?TYPE, Delta1}),
     ?assertEqual(
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 1}}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 1}}]],
                 [[{?EVENT_TYPE, {EventId1, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 1}}],
             [{?EVENT_TYPE, {EventId1, 1}}]}},
         Counter1),
     ?assertEqual(
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId2, 1}}],
+            [{
+                [[{?EVENT_TYPE, {EventId2, 1}}]],
                 [[{?EVENT_TYPE, {EventId2, 1}}]]}],
             [{?EVENT_TYPE, {EventId2, 1}}],
             [{?EVENT_TYPE, {EventId2, 1}}]}},
         {?TYPE, Delta2}),
     ?assertEqual(
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 1}}, {?EVENT_TYPE, {EventId2, 1}}],
-                [
-                    [{?EVENT_TYPE, {EventId1, 1}}],
-                    [{?EVENT_TYPE, {EventId2, 1}}]]}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 1}}], [{?EVENT_TYPE, {EventId2, 1}}]],
+                [[{?EVENT_TYPE, {EventId1, 1}}], [{?EVENT_TYPE, {EventId2, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 1}}, {?EVENT_TYPE, {EventId2, 1}}],
             [{?EVENT_TYPE, {EventId1, 1}}, {?EVENT_TYPE, {EventId2, 1}}]}},
         Counter2),
     ?assertEqual(
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 2}}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 2}}]],
                 [[{?EVENT_TYPE, {EventId1, 2}}]]}],
             [{?EVENT_TYPE, {EventId1, 2}}],
             [{?EVENT_TYPE, {EventId1, 2}}]}},
         {?TYPE, Delta3}),
     ?assertEqual(
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}}],
-                [
-                    [{?EVENT_TYPE, {EventId1, 2}}],
-                    [{?EVENT_TYPE, {EventId2, 1}}]]}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}]],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}}]}},
         Counter3).
@@ -271,26 +272,25 @@ increment_test() ->
     {ok, Counter3} = mutate(increment, EventId1, Counter2),
     ?assertEqual(
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 1}}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 1}}]],
                 [[{?EVENT_TYPE, {EventId1, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 1}}],
             [{?EVENT_TYPE, {EventId1, 1}}]}},
         Counter1),
     ?assertEqual(
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 1}}, {?EVENT_TYPE, {EventId2, 1}}],
-                [
-                    [{?EVENT_TYPE, {EventId1, 1}}],
-                    [{?EVENT_TYPE, {EventId2, 1}}]]}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 1}}], [{?EVENT_TYPE, {EventId2, 1}}]],
+                [[{?EVENT_TYPE, {EventId1, 1}}], [{?EVENT_TYPE, {EventId2, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 1}}, {?EVENT_TYPE, {EventId2, 1}}],
             [{?EVENT_TYPE, {EventId1, 1}}, {?EVENT_TYPE, {EventId2, 1}}]}},
         Counter2),
     ?assertEqual(
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}}],
-                [
-                    [{?EVENT_TYPE, {EventId1, 2}}],
-                    [{?EVENT_TYPE, {EventId2, 1}}]]}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}]],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}}]}},
         Counter3).
@@ -301,16 +301,16 @@ merge_idempotent_test() ->
     EventId3 = {<<"object1">>, c},
     Counter1 =
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 3}}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 3}}]],
                 [[{?EVENT_TYPE, {EventId1, 3}}]]}],
             [{?EVENT_TYPE, {EventId1, 3}}],
             [{?EVENT_TYPE, {EventId1, 3}}]}},
     Counter2 =
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId2, 4}}, {?EVENT_TYPE, {EventId3, 2}}],
-                [
-                    [{?EVENT_TYPE, {EventId2, 4}}],
-                    [{?EVENT_TYPE, {EventId3, 2}}]]}],
+            [{
+                [[{?EVENT_TYPE, {EventId2, 4}}], [{?EVENT_TYPE, {EventId3, 2}}]],
+                [[{?EVENT_TYPE, {EventId2, 4}}], [{?EVENT_TYPE, {EventId3, 2}}]]}],
             [{?EVENT_TYPE, {EventId2, 4}}, {?EVENT_TYPE, {EventId3, 2}}],
             [{?EVENT_TYPE, {EventId2, 4}}, {?EVENT_TYPE, {EventId3, 2}}]}},
     Counter3 = merge(Counter1, Counter1),
@@ -324,16 +324,16 @@ merge_commutative_test() ->
     EventId3 = {<<"object1">>, c},
     Counter1 =
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 3}}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 3}}]],
                 [[{?EVENT_TYPE, {EventId1, 3}}]]}],
             [{?EVENT_TYPE, {EventId1, 3}}],
             [{?EVENT_TYPE, {EventId1, 3}}]}},
     Counter2 =
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId2, 4}}, {?EVENT_TYPE, {EventId3, 2}}],
-                [
-                    [{?EVENT_TYPE, {EventId2, 4}}],
-                    [{?EVENT_TYPE, {EventId3, 2}}]]}],
+            [{
+                [[{?EVENT_TYPE, {EventId2, 4}}], [{?EVENT_TYPE, {EventId3, 2}}]],
+                [[{?EVENT_TYPE, {EventId2, 4}}], [{?EVENT_TYPE, {EventId3, 2}}]]}],
             [{?EVENT_TYPE, {EventId2, 4}}, {?EVENT_TYPE, {EventId3, 2}}],
             [{?EVENT_TYPE, {EventId2, 4}}, {?EVENT_TYPE, {EventId3, 2}}]}},
     Counter3 = merge(Counter1, Counter2),
@@ -341,8 +341,8 @@ merge_commutative_test() ->
     ?assertEqual(
         {?TYPE, {
             [{
-                [{?EVENT_TYPE, {EventId1, 3}}, {?EVENT_TYPE, {EventId2, 4}},
-                    {?EVENT_TYPE, {EventId3, 2}}],
+                [[{?EVENT_TYPE, {EventId1, 3}}], [{?EVENT_TYPE, {EventId2, 4}}],
+                    [{?EVENT_TYPE, {EventId3, 2}}]],
                 [[{?EVENT_TYPE, {EventId1, 3}}], [{?EVENT_TYPE, {EventId2, 4}}],
                     [{?EVENT_TYPE, {EventId3, 2}}]]}],
             [{?EVENT_TYPE, {EventId1, 3}}, {?EVENT_TYPE, {EventId2, 4}},
@@ -353,8 +353,8 @@ merge_commutative_test() ->
     ?assertEqual(
         {?TYPE, {
             [{
-                [{?EVENT_TYPE, {EventId1, 3}}, {?EVENT_TYPE, {EventId2, 4}},
-                    {?EVENT_TYPE, {EventId3, 2}}],
+                [[{?EVENT_TYPE, {EventId1, 3}}], [{?EVENT_TYPE, {EventId2, 4}}],
+                    [{?EVENT_TYPE, {EventId3, 2}}]],
                 [[{?EVENT_TYPE, {EventId1, 3}}], [{?EVENT_TYPE, {EventId2, 4}}],
                     [{?EVENT_TYPE, {EventId3, 2}}]]}],
             [{?EVENT_TYPE, {EventId1, 3}}, {?EVENT_TYPE, {EventId2, 4}},
@@ -368,27 +368,24 @@ merge_same_id_test() ->
     EventId2 = {<<"object1">>, b},
     Counter1 =
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 4}}],
-                [
-                    [{?EVENT_TYPE, {EventId1, 2}}],
-                    [{?EVENT_TYPE, {EventId2, 4}}]]}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 4}}]],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 4}}]]}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 4}}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 4}}]}},
     Counter2 =
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 3}}, {?EVENT_TYPE, {EventId2, 3}}],
-                [
-                    [{?EVENT_TYPE, {EventId1, 3}}],
-                    [{?EVENT_TYPE, {EventId2, 3}}]]}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 3}}], [{?EVENT_TYPE, {EventId2, 3}}]],
+                [[{?EVENT_TYPE, {EventId1, 3}}], [{?EVENT_TYPE, {EventId2, 3}}]]}],
             [{?EVENT_TYPE, {EventId1, 3}}, {?EVENT_TYPE, {EventId2, 3}}],
             [{?EVENT_TYPE, {EventId1, 3}}, {?EVENT_TYPE, {EventId2, 3}}]}},
     Counter3 = merge(Counter1, Counter2),
     ?assertEqual(
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 3}}, {?EVENT_TYPE, {EventId2, 4}}],
-                [
-                    [{?EVENT_TYPE, {EventId1, 3}}],
-                    [{?EVENT_TYPE, {EventId2, 4}}]]}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 3}}], [{?EVENT_TYPE, {EventId2, 4}}]],
+                [[{?EVENT_TYPE, {EventId1, 3}}], [{?EVENT_TYPE, {EventId2, 4}}]]}],
             [{?EVENT_TYPE, {EventId1, 3}}, {?EVENT_TYPE, {EventId2, 4}}],
             [{?EVENT_TYPE, {EventId1, 3}}, {?EVENT_TYPE, {EventId2, 4}}]}},
         Counter3).
@@ -398,26 +395,23 @@ merge_deltas_test() ->
     EventId2 = {<<"object1">>, b},
     Counter1 =
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 3}}],
-                [
-                    [{?EVENT_TYPE, {EventId1, 2}}],
-                    [{?EVENT_TYPE, {EventId2, 3}}]]}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 3}}]],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 3}}]]}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 3}}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 3}}]}},
     Delta1 =
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 4}}, {?EVENT_TYPE, {EventId2, 4}}],
-                [
-                    [{?EVENT_TYPE, {EventId1, 4}}],
-                    [{?EVENT_TYPE, {EventId2, 4}}]]}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 4}}], [{?EVENT_TYPE, {EventId2, 4}}]],
+                [[{?EVENT_TYPE, {EventId1, 4}}], [{?EVENT_TYPE, {EventId2, 4}}]]}],
             [{?EVENT_TYPE, {EventId1, 4}}, {?EVENT_TYPE, {EventId2, 4}}],
             [{?EVENT_TYPE, {EventId1, 4}}, {?EVENT_TYPE, {EventId2, 4}}]}},
     Delta2 =
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 3}}, {?EVENT_TYPE, {EventId2, 5}}],
-                [
-                    [{?EVENT_TYPE, {EventId1, 3}}],
-                    [{?EVENT_TYPE, {EventId2, 5}}]]}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 3}}], [{?EVENT_TYPE, {EventId2, 5}}]],
+                [[{?EVENT_TYPE, {EventId1, 3}}], [{?EVENT_TYPE, {EventId2, 5}}]]}],
             [{?EVENT_TYPE, {EventId1, 3}}, {?EVENT_TYPE, {EventId2, 5}}],
             [{?EVENT_TYPE, {EventId1, 3}}, {?EVENT_TYPE, {EventId2, 5}}]}},
     Counter2 = merge(Delta1, Counter1),
@@ -425,28 +419,25 @@ merge_deltas_test() ->
     DeltaGroup = merge(Delta1, Delta2),
     ?assertEqual(
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 4}}, {?EVENT_TYPE, {EventId2, 4}}],
-                [
-                    [{?EVENT_TYPE, {EventId1, 4}}],
-                    [{?EVENT_TYPE, {EventId2, 4}}]]}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 4}}], [{?EVENT_TYPE, {EventId2, 4}}]],
+                [[{?EVENT_TYPE, {EventId1, 4}}], [{?EVENT_TYPE, {EventId2, 4}}]]}],
             [{?EVENT_TYPE, {EventId1, 4}}, {?EVENT_TYPE, {EventId2, 4}}],
             [{?EVENT_TYPE, {EventId1, 4}}, {?EVENT_TYPE, {EventId2, 4}}]}},
         Counter2),
     ?assertEqual(
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 4}}, {?EVENT_TYPE, {EventId2, 4}}],
-                [
-                    [{?EVENT_TYPE, {EventId1, 4}}],
-                    [{?EVENT_TYPE, {EventId2, 4}}]]}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 4}}], [{?EVENT_TYPE, {EventId2, 4}}]],
+                [[{?EVENT_TYPE, {EventId1, 4}}], [{?EVENT_TYPE, {EventId2, 4}}]]}],
             [{?EVENT_TYPE, {EventId1, 4}}, {?EVENT_TYPE, {EventId2, 4}}],
             [{?EVENT_TYPE, {EventId1, 4}}, {?EVENT_TYPE, {EventId2, 4}}]}},
         Counter3),
     ?assertEqual(
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 4}}, {?EVENT_TYPE, {EventId2, 5}}],
-                [
-                    [{?EVENT_TYPE, {EventId1, 4}}],
-                    [{?EVENT_TYPE, {EventId2, 5}}]]}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 4}}], [{?EVENT_TYPE, {EventId2, 5}}]],
+                [[{?EVENT_TYPE, {EventId1, 4}}], [{?EVENT_TYPE, {EventId2, 5}}]]}],
             [{?EVENT_TYPE, {EventId1, 4}}, {?EVENT_TYPE, {EventId2, 5}}],
             [{?EVENT_TYPE, {EventId1, 4}}, {?EVENT_TYPE, {EventId2, 5}}]}},
         DeltaGroup).
@@ -459,8 +450,8 @@ equal_test() ->
     Counter1 =
         {?TYPE, {
             [{
-                [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}},
-                    {?EVENT_TYPE, {EventId3, 1}}],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}],
+                    [{?EVENT_TYPE, {EventId3, 1}}]],
                 [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}],
                     [{?EVENT_TYPE, {EventId3, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}},
@@ -470,12 +461,10 @@ equal_test() ->
     Counter2 =
         {?TYPE, {
             [{
-                [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}},
-                    {?EVENT_TYPE, {EventId3, 1}}, {?EVENT_TYPE, {EventId4, 1}}],
-                [[{?EVENT_TYPE, {EventId1, 2}}],
-                    [{?EVENT_TYPE, {EventId2, 1}}],
-                    [{?EVENT_TYPE, {EventId3, 1}}],
-                    [{?EVENT_TYPE, {EventId4, 1}}]]}],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}],
+                    [{?EVENT_TYPE, {EventId3, 1}}], [{?EVENT_TYPE, {EventId4, 1}}]],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}],
+                    [{?EVENT_TYPE, {EventId3, 1}}], [{?EVENT_TYPE, {EventId4, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}},
                 {?EVENT_TYPE, {EventId3, 1}}, {?EVENT_TYPE, {EventId4, 1}}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}},
@@ -483,8 +472,8 @@ equal_test() ->
     Counter3 =
         {?TYPE, {
             [{
-                [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 2}},
-                    {?EVENT_TYPE, {EventId3, 1}}],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 2}}],
+                    [{?EVENT_TYPE, {EventId3, 1}}]],
                 [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 2}}],
                     [{?EVENT_TYPE, {EventId3, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 2}},
@@ -493,10 +482,9 @@ equal_test() ->
                 {?EVENT_TYPE, {EventId3, 1}}]}},
     Counter4 =
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}}],
-                [
-                    [{?EVENT_TYPE, {EventId1, 2}}],
-                    [{?EVENT_TYPE, {EventId2, 1}}]]}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}]],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}}]}},
     ?assert(equal(Counter1, Counter1)),
@@ -512,8 +500,8 @@ is_inflation_test() ->
     Counter1 =
         {?TYPE, {
             [{
-                [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}},
-                    {?EVENT_TYPE, {EventId3, 1}}],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}],
+                    [{?EVENT_TYPE, {EventId3, 1}}]],
                 [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}],
                     [{?EVENT_TYPE, {EventId3, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}},
@@ -523,12 +511,10 @@ is_inflation_test() ->
     Counter2 =
         {?TYPE, {
             [{
-                [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}},
-                    {?EVENT_TYPE, {EventId3, 1}}, {?EVENT_TYPE, {EventId4, 1}}],
-                [[{?EVENT_TYPE, {EventId1, 2}}],
-                    [{?EVENT_TYPE, {EventId2, 1}}],
-                    [{?EVENT_TYPE, {EventId3, 1}}],
-                    [{?EVENT_TYPE, {EventId4, 1}}]]}],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}],
+                    [{?EVENT_TYPE, {EventId3, 1}}], [{?EVENT_TYPE, {EventId4, 1}}]],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}],
+                    [{?EVENT_TYPE, {EventId3, 1}}], [{?EVENT_TYPE, {EventId4, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}},
                 {?EVENT_TYPE, {EventId3, 1}}, {?EVENT_TYPE, {EventId4, 1}}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}},
@@ -536,8 +522,8 @@ is_inflation_test() ->
     Counter3 =
         {?TYPE, {
             [{
-                [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 2}},
-                    {?EVENT_TYPE, {EventId3, 1}}],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 2}}],
+                    [{?EVENT_TYPE, {EventId3, 1}}]],
                 [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 2}}],
                     [{?EVENT_TYPE, {EventId3, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 2}},
@@ -546,10 +532,9 @@ is_inflation_test() ->
                 {?EVENT_TYPE, {EventId3, 1}}]}},
     Counter4 =
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}}],
-                [
-                    [{?EVENT_TYPE, {EventId1, 2}}],
-                    [{?EVENT_TYPE, {EventId2, 1}}]]}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}]],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}}]}},
     ?assert(is_inflation(Counter1, Counter1)),
@@ -570,8 +555,8 @@ is_strict_inflation_test() ->
     Counter1 =
         {?TYPE, {
             [{
-                [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}},
-                    {?EVENT_TYPE, {EventId3, 1}}],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}],
+                    [{?EVENT_TYPE, {EventId3, 1}}]],
                 [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}],
                     [{?EVENT_TYPE, {EventId3, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}},
@@ -581,12 +566,10 @@ is_strict_inflation_test() ->
     Counter2 =
         {?TYPE, {
             [{
-                [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}},
-                    {?EVENT_TYPE, {EventId3, 1}}, {?EVENT_TYPE, {EventId4, 1}}],
-                [[{?EVENT_TYPE, {EventId1, 2}}],
-                    [{?EVENT_TYPE, {EventId2, 1}}],
-                    [{?EVENT_TYPE, {EventId3, 1}}],
-                    [{?EVENT_TYPE, {EventId4, 1}}]]}],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}],
+                    [{?EVENT_TYPE, {EventId3, 1}}], [{?EVENT_TYPE, {EventId4, 1}}]],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}],
+                    [{?EVENT_TYPE, {EventId3, 1}}], [{?EVENT_TYPE, {EventId4, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}},
                 {?EVENT_TYPE, {EventId3, 1}}, {?EVENT_TYPE, {EventId4, 1}}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}},
@@ -594,8 +577,8 @@ is_strict_inflation_test() ->
     Counter3 =
         {?TYPE, {
             [{
-                [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 2}},
-                    {?EVENT_TYPE, {EventId3, 1}}],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 2}}],
+                    [{?EVENT_TYPE, {EventId3, 1}}]],
                 [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 2}}],
                     [{?EVENT_TYPE, {EventId3, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 2}},
@@ -604,10 +587,9 @@ is_strict_inflation_test() ->
                 {?EVENT_TYPE, {EventId3, 1}}]}},
     Counter4 =
         {?TYPE, {
-            [{[{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}}],
-                [
-                    [{?EVENT_TYPE, {EventId1, 2}}],
-                    [{?EVENT_TYPE, {EventId2, 1}}]]}],
+            [{
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}]],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}}]}},
     ?assertNot(is_strict_inflation(Counter1, Counter1)),
@@ -623,12 +605,10 @@ encode_decode_test() ->
     Counter =
         {?TYPE, {
             [{
-                [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}},
-                    {?EVENT_TYPE, {EventId3, 1}}, {?EVENT_TYPE, {EventId4, 1}}],
-                [[{?EVENT_TYPE, {EventId1, 2}}],
-                    [{?EVENT_TYPE, {EventId2, 1}}],
-                    [{?EVENT_TYPE, {EventId3, 1}}],
-                    [{?EVENT_TYPE, {EventId4, 1}}]]}],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}],
+                    [{?EVENT_TYPE, {EventId3, 1}}], [{?EVENT_TYPE, {EventId4, 1}}]],
+                [[{?EVENT_TYPE, {EventId1, 2}}], [{?EVENT_TYPE, {EventId2, 1}}],
+                    [{?EVENT_TYPE, {EventId3, 1}}], [{?EVENT_TYPE, {EventId4, 1}}]]}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}},
                 {?EVENT_TYPE, {EventId3, 1}}, {?EVENT_TYPE, {EventId4, 1}}],
             [{?EVENT_TYPE, {EventId1, 2}}, {?EVENT_TYPE, {EventId2, 1}},
