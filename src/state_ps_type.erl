@@ -164,6 +164,24 @@ is_dominant(
     EventL == EventR
         orelse (ReplicaIdL == ReplicaIdR andalso CounterL =< CounterR);
 is_dominant(
+    {state_ps_event_partial_order_provenance,
+        {most_dominant, EventsSetL}}=EventL,
+    {state_ps_event_partial_order_provenance,
+        {most_dominant, EventsSetR}}=EventR) ->
+    EventL == EventR
+        orelse ordsets:is_subset(EventsSetL, EventsSetR);
+is_dominant(
+    {state_ps_event_partial_order_provenance,
+        {most_dominant, _EventsSetL}}=_EventL,
+    {state_ps_event_partial_order_provenance, _ProvenanceR}=_EventR) ->
+    false;
+is_dominant(
+    {state_ps_event_partial_order_provenance, ProvenanceL}=_EventL,
+    {state_ps_event_partial_order_provenance,
+        {most_dominant, EventsSetR}}=_EventR) ->
+    EventsInProvenanceL = get_events_from_provenance(ProvenanceL),
+    ordsets:is_subset(EventsInProvenanceL, EventsSetR);
+is_dominant(
     {state_ps_event_partial_order_provenance, ProvenanceL}=EventL,
     {state_ps_event_partial_order_provenance, ProvenanceR}=EventR) ->
     EventL == EventR
