@@ -62,10 +62,12 @@
 %% A list of types with the provenance semiring.
 -type state_ps_type() :: state_ps_aworset_naive
                        | state_ps_gcounter_naive
-                       | state_ps_lwwregister_naive.
+                       | state_ps_lwwregister_naive
+                       | state_ps_size_t_naive.
 %% A list of types of events.
 -type state_ps_event_type() :: state_ps_event_partial_order_independent
                              | state_ps_event_partial_order_downward_closed
+                             | state_ps_event_partial_order_provenance
                              | state_ps_event_total_order.
 %% The contents of an event.
 -type state_ps_event_info() :: term().
@@ -161,6 +163,11 @@ is_dominant(
         {{ObjectId, ReplicaIdR}, CounterR}}=EventR) ->
     EventL == EventR
         orelse (ReplicaIdL == ReplicaIdR andalso CounterL =< CounterR);
+is_dominant(
+    {state_ps_event_partial_order_provenance, ProvenanceL}=EventL,
+    {state_ps_event_partial_order_provenance, ProvenanceR}=EventR) ->
+    EventL == EventR
+        orelse ordsets:is_subset(ProvenanceL, ProvenanceR);
 is_dominant(
     {state_ps_event_total_order, {{ObjectId, ReplicaIdL}, CounterL}}=EventL,
     {state_ps_event_total_order, {{ObjectId, ReplicaIdR}, CounterR}}=EventR) ->
