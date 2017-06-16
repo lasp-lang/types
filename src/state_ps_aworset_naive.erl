@@ -46,6 +46,10 @@
     encode/2,
     decode/2,
     get_next_event/2]).
+-export([
+    flatten/1,
+    unflatten/1,
+    length/1]).
 
 -export_type([
     state_ps_aworset_naive/0,
@@ -161,6 +165,98 @@ get_next_event(EventId, {_, _, AllEvents}=_Payload) ->
             0,
             AllEvents),
     {state_ps_event_partial_order_independent, {EventId, MaxCnt + 1}}.
+
+%% @doc @todo
+-spec flatten(state_ps_aworset_naive()) -> state_ps_aworset_naive().
+flatten({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
+    {FlattenedElem, FlattenedProvenance} =
+        orddict:fold(
+            fun(Elem, Provenance, {AccFlattenedElem, AccFlattenedProvenance}) ->
+                NewElem = lists:append(AccFlattenedElem, Elem),
+                NewProvenance =
+                    case AccFlattenedProvenance of
+                        [] ->
+                            Provenance;
+                        _ ->
+                            state_ps_type:cross_provenance(
+                                AccFlattenedProvenance, Provenance)
+                    end,
+                {NewElem, NewProvenance}
+            end,
+            {[], ordsets:new()},
+            ProvenanceStore),
+    NewProvenanceStore =
+        orddict:store(FlattenedElem, FlattenedProvenance, orddict:new()),
+    NewPayload = {NewProvenanceStore, SubsetEvents, AllEvents},
+    {?TYPE, NewPayload}.
+
+%% @doc @todo
+-spec unflatten(state_ps_aworset_naive()) -> state_ps_aworset_naive().
+unflatten({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
+    [{ListElem, Provenance}] = ProvenanceStore,
+    NewProvenanceStore =
+        lists:foldl(
+            fun(Elem, AccNewProvenanceStore) ->
+                orddict:store([Elem], Provenance, AccNewProvenanceStore)
+            end,
+            orddict:new(),
+            ListElem),
+    NewPayload = {NewProvenanceStore, SubsetEvents, AllEvents},
+    {?TYPE, NewPayload}.
+
+%% @doc @todo
+-spec length(state_ps_aworset_naive()) -> state_ps_type:crdt().
+length({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
+    {{SizeTPS, SizeTSE, SizeTAE}, EventsInPS} =
+        orddict:fold(
+            fun(_Elem, Provenance, {AccSizeTPayload, AccEventsInPS}) ->
+                NewAccEventsInPS =
+                    ordsets:union(
+                        AccEventsInPS,
+                        state_ps_type:get_events_from_provenance(Provenance)),
+                NewSizeTEvent =
+                    {state_ps_event_partial_order_provenance, Provenance},
+                ValueAsProvenance =
+                    ordsets:add_element(
+                        ordsets:add_element(NewSizeTEvent, ordsets:new()),
+                        ordsets:new()),
+                NewAccSizeTPayload =
+                    state_ps_poe_orset:insert(
+                        NewSizeTEvent, ValueAsProvenance, AccSizeTPayload),
+                {NewAccSizeTPayload, NewAccEventsInPS}
+            end,
+            {state_ps_poe_orset:new(), ordsets:new()},
+            ProvenanceStore),
+    FilteredOutEvents = ordsets:subtract(SubsetEvents, EventsInPS),
+    LeastDominantFilteredOutProvenances =
+        ordsets:fold(
+            fun(FilteredOutEvent, AccIn) ->
+                LeastDominantFilteredOutProvenance =
+                    ordsets:add_element(
+                        ordsets:add_element(FilteredOutEvent, ordsets:new()),
+                        ordsets:new()),
+                NewSizeTEvent =
+                    {state_ps_event_partial_order_provenance,
+                        LeastDominantFilteredOutProvenance},
+                ordsets:add_element(NewSizeTEvent, AccIn)
+            end,
+            ordsets:new(),
+            FilteredOutEvents),
+    FinalSizeTSE = ordsets:union(SizeTSE, LeastDominantFilteredOutProvenances),
+    RemovedEvents = ordsets:subtract(AllEvents, SubsetEvents),
+    FinalSizeTAE =
+        case RemovedEvents of
+            [] ->
+                ordsets:union(SizeTAE, LeastDominantFilteredOutProvenances);
+            _ ->
+                MostDominantRemovedProvenance =
+                    {state_ps_event_partial_order_provenance,
+                        {most_dominant, RemovedEvents}},
+                ordsets:add_element(
+                    MostDominantRemovedProvenance,
+                    ordsets:union(SizeTAE, LeastDominantFilteredOutProvenances))
+        end,
+    {state_ps_size_t_naive, {SizeTPS, FinalSizeTSE, FinalSizeTAE}}.
 
 %% @private
 merge_state_ps_aworset_naive({?TYPE, PayloadA}, {?TYPE, PayloadB}) ->
