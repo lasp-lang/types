@@ -387,6 +387,44 @@ merge_ordered_provenance_test() ->
                     [{?SET_EVENT_TYPE, {EventId3, 1}}]]}]}},
         SizeT3).
 
+merge_after_elem_removed_test() ->
+    EventId1 = {<<"object1">>, a},
+    EventId2 = {<<"object1">>, b},
+    SizeT1 =
+        {?TYPE, {
+            [{
+                [[{?EVENT_TYPE, [
+                    [{?SET_EVENT_TYPE, {EventId1, 1}},
+                        {?SET_EVENT_TYPE, {EventId2, 1}}]]}]],
+                [[{?EVENT_TYPE, [
+                    [{?SET_EVENT_TYPE, {EventId1, 1}},
+                        {?SET_EVENT_TYPE, {EventId2, 1}}]]}]]}],
+            [{?EVENT_TYPE, [
+                [{?SET_EVENT_TYPE, {EventId1, 1}},
+                    {?SET_EVENT_TYPE, {EventId2, 1}}]]}],
+            [{?EVENT_TYPE, [
+                [{?SET_EVENT_TYPE, {EventId1, 1}},
+                    {?SET_EVENT_TYPE, {EventId2, 1}}]]}]}},
+    SizeT2 =
+        {?TYPE, {
+            [],
+            [{?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId2, 1}}]]}],
+            [
+                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId1, 1}}]]},
+                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId2, 1}}]]}]}},
+    SizeT3 = merge(SizeT1, SizeT2),
+    ?assertEqual(
+        {?TYPE, {
+            [],
+            [{?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId2, 1}}]]}],
+            [
+                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId1, 1}}]]},
+                {?EVENT_TYPE, [
+                    [{?SET_EVENT_TYPE, {EventId1, 1}},
+                        {?SET_EVENT_TYPE, {EventId2, 1}}]]},
+                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId2, 1}}]]}]}},
+        SizeT3).
+
 equal_test() ->
     EventId = {<<"object1">>, a},
 %%    Set1 =

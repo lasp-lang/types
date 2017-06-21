@@ -68,6 +68,7 @@
 -type state_ps_event_type() :: state_ps_event_partial_order_independent
                              | state_ps_event_partial_order_downward_closed
                              | state_ps_event_partial_order_provenance
+                             | state_ps_event_partial_order_dot
                              | state_ps_event_total_order.
 %% The contents of an event.
 -type state_ps_event_info() :: term().
@@ -184,8 +185,72 @@ is_dominant(
 is_dominant(
     {state_ps_event_partial_order_provenance, ProvenanceL}=EventL,
     {state_ps_event_partial_order_provenance, ProvenanceR}=EventR) ->
-    EventL == EventR
-        orelse ordsets:is_subset(ProvenanceL, ProvenanceR);
+%%    EventL == EventR
+%%        orelse ordsets:is_subset(ProvenanceL, ProvenanceR);
+    case EventL == EventR of
+        true ->
+            true;
+        false ->
+            NotDominantDots =
+                ordsets:fold(
+                    fun(DotL, AccNotDominantDots) ->
+                        ordsets:fold(
+                            fun(DotR, AccNotDominantDots0) ->
+                                case is_dominant(
+                                    {state_ps_event_partial_order_dot,
+                                        DotL},
+                                    {state_ps_event_partial_order_dot,
+                                        DotR}) of
+                                    true ->
+                                        ordsets:add_element(
+                                            DotL,
+                                            AccNotDominantDots0);
+                                    false ->
+                                        AccNotDominantDots0
+                                end
+                            end,
+                            AccNotDominantDots,
+                            ProvenanceR)
+                    end,
+                    ordsets:new(),
+                    ProvenanceL),
+            NotDominantDots == ProvenanceL
+    end;
+is_dominant(
+    {state_ps_event_partial_order_dot, DotL}=EventL,
+    {state_ps_event_partial_order_dot, DotR}=EventR) ->
+    case EventL == EventR of
+        true ->
+            true;
+        false ->
+            case ordsets:is_subset(DotL, DotR)
+                orelse ordsets:is_subset(DotR, DotL) of
+                true ->
+                    false;
+                false ->
+                    DominantEvents =
+                        ordsets:fold(
+                            fun(EventInDotR, AccDominantEvents) ->
+                                ordsets:fold(
+                                    fun(EventInDotL, AccDominantEvents0) ->
+                                        case is_dominant(
+                                            EventInDotL, EventInDotR) of
+                                            true ->
+                                                ordsets:add_element(
+                                                    EventInDotR,
+                                                    AccDominantEvents0);
+                                            false ->
+                                                AccDominantEvents0
+                                        end
+                                    end,
+                                    AccDominantEvents,
+                                    DotL)
+                            end,
+                            ordsets:new(),
+                            DotR),
+                    DominantEvents == DotR
+            end
+    end;
 is_dominant(
     {state_ps_event_total_order, {{ObjectId, ReplicaIdL}, CounterL}}=EventL,
     {state_ps_event_total_order, {{ObjectId, ReplicaIdR}, CounterR}}=EventR) ->
@@ -225,29 +290,67 @@ max_events(EventSet) ->
 -spec minus_events(
     ordsets:ordset(state_ps_event()), ordsets:ordset(state_ps_event())) ->
     ordsets:ordset(state_ps_event()).
+minus_events(EventSetL, []) ->
+    EventSetL;
 minus_events(EventSetL, EventSetR) ->
-    ordsets:fold(
-        fun(EventL, AccMinusEvents) ->
-            FoundDominant =
-                ordsets:fold(
-                    fun(EventR, AccFoundDominant) ->
+    {RemainEvents, HasProvenances} =
+        ordsets:fold(
+            fun(EventL, {AccRemainEvents, AccHasProvenances}) ->
+                FoundDominant =
+                    ordsets:fold(
+                        fun(EventR, AccFoundDominant) ->
+                            {EventLType, _} = EventL,
+                            {EventRType, _} = EventR,
+                            AccFoundDominant orelse
+                                (EventLType == EventRType andalso
+                                    is_dominant(EventL, EventR))
+                        end,
+                        false,
+                        EventSetR),
+                case FoundDominant of
+                    false ->
+                        NewRemainEvents =
+                            ordsets:add_element(EventL, AccRemainEvents),
                         {EventLType, _} = EventL,
-                        {EventRType, _} = EventR,
-                        AccFoundDominant orelse
-                            (EventLType == EventRType andalso
-                                is_dominant(EventL, EventR))
-                    end,
-                    false,
-                    EventSetR),
-            case FoundDominant of
-                false ->
-                    ordsets:add_element(EventL, AccMinusEvents);
-                true ->
-                    AccMinusEvents
-            end
-        end,
-        ordsets:new(),
-        EventSetL).
+                        NewHasProvenances =
+                            AccHasProvenances orelse
+                                (EventLType ==
+                                    state_ps_event_partial_order_provenance),
+                        {NewRemainEvents, NewHasProvenances};
+                    true ->
+                        {AccRemainEvents, AccHasProvenances}
+                end
+            end,
+            {ordsets:new(), false},
+            EventSetL),
+    case HasProvenances of
+        false ->
+            RemainEvents;
+        true ->
+            minus_events_provenances(RemainEvents, EventSetR)
+    end.
+%%    ordsets:fold(
+%%        fun(EventL, AccMinusEvents) ->
+%%            FoundDominant =
+%%                ordsets:fold(
+%%                    fun(EventR, AccFoundDominant) ->
+%%                        {EventLType, _} = EventL,
+%%                        {EventRType, _} = EventR,
+%%                        AccFoundDominant orelse
+%%                            (EventLType == EventRType andalso
+%%                                is_dominant(EventL, EventR))
+%%                    end,
+%%                    false,
+%%                    EventSetR),
+%%            case FoundDominant of
+%%                false ->
+%%                    ordsets:add_element(EventL, AccMinusEvents);
+%%                true ->
+%%                    AccMinusEvents
+%%            end
+%%        end,
+%%        ordsets:new(),
+%%        EventSetL).
 
 %% @doc Return all events in a provenance.
 -spec get_events_from_provenance(state_ps_provenance()) ->
@@ -291,3 +394,85 @@ new_subset_events() ->
 -spec new_all_events() -> state_ps_all_events().
 new_all_events() ->
     ordsets:new().
+
+%% @private
+minus_events_provenances(EventSetL, EventSetR) ->
+    ordsets:fold(
+        fun({EventLType, EventLInfo}=EventL, AccRemainEvents) ->
+            case EventLType == state_ps_event_partial_order_provenance of
+                false ->
+                    ordsets:add_element(EventL, AccRemainEvents);
+                true ->
+                    case ordsets:size(EventLInfo) of
+                        0 ->
+                            %% possible?
+                            ordsets:add_element(EventL, AccRemainEvents);
+                        1 ->
+                            %% check if a crossed provenance
+                            [DotL] = EventLInfo,
+                            case ordsets:size(DotL) > 1 of
+                                false ->
+                                    ordsets:add_element(
+                                        EventL, AccRemainEvents);
+                                true ->
+                                    %% for a crossed provenance
+                                    FoundEvents =
+                                        ordsets:fold(
+                                            fun(EventInDotL, AccFoundEvents) ->
+                                                case ordsets:is_element(
+                                                    {EventLType,
+                                                        ordsets:add_element(
+                                                            ordsets:add_element(
+                                                                EventInDotL,
+                                                                ordsets:new()),
+                                                            ordsets:new())},
+                                                    EventSetR) of
+                                                    true ->
+                                                        ordsets:add_element(
+                                                            EventInDotL,
+                                                            AccFoundEvents);
+                                                    false ->
+                                                        AccFoundEvents
+                                                end
+                                            end,
+                                            ordsets:new(),
+                                            DotL),
+                                    case FoundEvents == DotL of
+                                        true ->
+                                            AccRemainEvents;
+                                        false ->
+                                            ordsets:add_element(
+                                                EventL, AccRemainEvents)
+                                    end
+                            end;
+                        _ ->
+                            %% for a plussed provenance
+                            FoundDots =
+                                ordsets:fold(
+                                    fun(DotL, AccFoundDots) ->
+                                        case ordsets:is_element(
+                                            {EventLType,
+                                                ordsets:add_element(
+                                                    DotL,
+                                                    ordsets:new())},
+                                            EventSetR) of
+                                            true ->
+                                                ordsets:add_element(
+                                                    DotL, AccFoundDots);
+                                            false ->
+                                                AccFoundDots
+                                        end
+                                    end,
+                                    ordsets:new(),
+                                    EventLInfo),
+                            case FoundDots == EventLInfo of
+                                true ->
+                                    AccRemainEvents;
+                                false ->
+                                    ordsets:add_element(EventL, AccRemainEvents)
+                            end
+                    end
+            end
+        end,
+        ordsets:new(),
+        EventSetL).

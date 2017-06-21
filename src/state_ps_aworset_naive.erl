@@ -248,6 +248,15 @@ length({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
         case RemovedEvents of
             [] ->
                 ordsets:union(SizeTAE, LeastDominantFilteredOutProvenances);
+            [Event] ->
+                RemovedProvenance =
+                    {state_ps_event_partial_order_provenance,
+                        ordsets:add_element(
+                            ordsets:add_element(Event, ordsets:new()),
+                            ordsets:new())},
+                ordsets:add_element(
+                    RemovedProvenance,
+                    ordsets:union(SizeTAE, LeastDominantFilteredOutProvenances));
             _ ->
                 MostDominantRemovedProvenance =
                     {state_ps_event_partial_order_provenance,
