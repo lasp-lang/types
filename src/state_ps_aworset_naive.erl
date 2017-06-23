@@ -48,7 +48,6 @@
     get_next_event/2]).
 -export([
     flatten/1,
-    unflatten/1,
     length/1]).
 
 -export_type([
@@ -167,7 +166,7 @@ get_next_event(EventId, {_, _, AllEvents}=_Payload) ->
     {state_ps_event_partial_order_independent, {EventId, MaxCnt + 1}}.
 
 %% @doc @todo
--spec flatten(state_ps_aworset_naive()) -> state_ps_aworset_naive().
+-spec flatten(state_ps_aworset_naive()) -> state_ps_type:crdt().
 flatten({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
     {FlattenedElem, FlattenedProvenance} =
         orddict:fold(
@@ -188,21 +187,7 @@ flatten({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
     NewProvenanceStore =
         orddict:store(FlattenedElem, FlattenedProvenance, orddict:new()),
     NewPayload = {NewProvenanceStore, SubsetEvents, AllEvents},
-    {?TYPE, NewPayload}.
-
-%% @doc @todo
--spec unflatten(state_ps_aworset_naive()) -> state_ps_aworset_naive().
-unflatten({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
-    [{ListElem, Provenance}] = ProvenanceStore,
-    NewProvenanceStore =
-        lists:foldl(
-            fun(Elem, AccNewProvenanceStore) ->
-                orddict:store([Elem], Provenance, AccNewProvenanceStore)
-            end,
-            orddict:new(),
-            ListElem),
-    NewPayload = {NewProvenanceStore, SubsetEvents, AllEvents},
-    {?TYPE, NewPayload}.
+    {state_ps_flattened_orset_naive, NewPayload}.
 
 %% @doc @todo
 -spec length(state_ps_aworset_naive()) -> state_ps_type:crdt().

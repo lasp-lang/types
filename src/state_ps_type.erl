@@ -61,6 +61,7 @@
 -type format() :: erlang.
 %% A list of types with the provenance semiring.
 -type state_ps_type() :: state_ps_aworset_naive
+                       | state_ps_flattened_orset_naive
                        | state_ps_gcounter_naive
                        | state_ps_lwwregister_naive
                        | state_ps_size_t_naive.
