@@ -101,7 +101,7 @@ subtract_causal_context(DotSet, CausalContext) ->
         DotSet
     ).
 
-%% @doc Convert a DotSet to a list.
+%% @doc Fold a DotSet.
 -spec fold(function(), term(), dot_set()) -> term().
 fold(Fun, AccIn, DotSet) ->
     ordsets:fold(Fun, AccIn, DotSet).
