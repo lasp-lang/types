@@ -31,7 +31,8 @@
 -export([
     is_dominant/2,
     max_events/1,
-    minus_events/2]).
+    minus_events/2,
+    prune_event_set/1]).
 -export([
     get_events_from_provenance/1,
     plus_provenance/2,
@@ -70,6 +71,7 @@
                              | state_ps_event_partial_order_downward_closed
                              | state_ps_event_partial_order_provenance
                              | state_ps_event_partial_order_dot
+                             | state_ps_event_partial_order_event_set
                              | state_ps_event_total_order.
 %% The contents of an event.
 -type state_ps_event_info() :: term().
@@ -253,6 +255,11 @@ is_dominant(
             end
     end;
 is_dominant(
+    {state_ps_event_partial_order_event_set, EventSetL}=EventL,
+    {state_ps_event_partial_order_event_set, EventSetR}=EventR) ->
+    EventL == EventR
+        orelse ordsets:is_subset(EventSetL, EventSetR);
+is_dominant(
     {state_ps_event_total_order, {{ObjectId, ReplicaIdL}, CounterL}}=EventL,
     {state_ps_event_total_order, {{ObjectId, ReplicaIdR}, CounterR}}=EventR) ->
     EventL == EventR
@@ -352,6 +359,35 @@ minus_events(EventSetL, EventSetR) ->
 %%        end,
 %%        ordsets:new(),
 %%        EventSetL).
+
+%% @doc @todo
+-spec prune_event_set(
+    ordsets:ordset(state_ps_event())) -> ordsets:ordset(state_ps_event()).
+prune_event_set(EventSet) ->
+    ordsets:fold(
+        fun({EventType, EventInfo}, AccIn) ->
+            case EventType of
+                state_ps_event_partial_order_event_set ->
+                    Survived =
+                        ordsets:fold(
+                            fun(Event, AccSurvived) ->
+                                AccSurvived andalso
+                                    ordsets:is_element(Event, EventSet)
+                            end,
+                            true,
+                            EventInfo),
+                    case Survived of
+                        false ->
+                            AccIn;
+                        true ->
+                            ordsets:add_element({EventType, EventInfo}, AccIn)
+                    end;
+                _ ->
+                    ordsets:add_element({EventType, EventInfo}, AccIn)
+            end
+        end,
+        ordsets:new(),
+        EventSet).
 
 %% @doc Return all events in a provenance.
 -spec get_events_from_provenance(state_ps_provenance()) ->

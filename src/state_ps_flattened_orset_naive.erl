@@ -181,33 +181,8 @@ threshold_met_strict(
 
 %% @private
 merge_state_ps_flattened_orset_naive({?TYPE, PayloadA}, {?TYPE, PayloadB}) ->
-    {MergedProvenanceStore, MergedSubsetEvents, MergedAllEvents} =
-        state_ps_poe_orset:join(PayloadA, PayloadB),
-    FinalProvenanceStore =
-        orddict:fold(
-            fun(Elem, Provenance, AccFinalProvenanceStore) ->
-                FoundSuperSet =
-                    orddict:fold(
-                        fun(ElemOther, ProvenanceOther, AccFoundSuperSet) ->
-                            [Dot] = Provenance,
-                            [DotOther] = ProvenanceOther,
-                            AccFoundSuperSet orelse
-                                (Elem /= ElemOther andalso
-                                    ordsets:is_subset(Dot, DotOther))
-                        end,
-                        false,
-                        MergedProvenanceStore),
-                case FoundSuperSet of
-                    false ->
-                        orddict:store(
-                            Elem, Provenance, AccFinalProvenanceStore);
-                    true ->
-                        AccFinalProvenanceStore
-                end
-            end,
-            orddict:new(),
-            MergedProvenanceStore),
-    {?TYPE, {FinalProvenanceStore, MergedSubsetEvents, MergedAllEvents}}.
+    MergedPayload = state_ps_poe_orset:join(PayloadA, PayloadB),
+    {?TYPE, MergedPayload}.
 
 %% ===================================================================
 %% EUnit tests

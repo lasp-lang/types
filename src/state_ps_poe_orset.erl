@@ -146,6 +146,8 @@ join(
             ordsets:union(
                 state_ps_type:minus_events(SubsetEventsL, AllEventsR),
                 state_ps_type:minus_events(SubsetEventsR, AllEventsL))),
+    PrunedSubsetEvents =
+        state_ps_type:prune_event_set(JoinedSubsetEvents),
     MergedProvenanceStore =
         orddict:merge(
             fun(_Elem, ProvenanceL, ProvenanceR) ->
@@ -154,8 +156,8 @@ join(
             ProvenanceStoreL,
             ProvenanceStoreR),
     JoinedProvenanceStore =
-        prune_provenance_store(MergedProvenanceStore, JoinedSubsetEvents),
-    {JoinedProvenanceStore, JoinedSubsetEvents, JoinedAllEvents}.
+        prune_provenance_store(MergedProvenanceStore, PrunedSubsetEvents),
+    {JoinedProvenanceStore, PrunedSubsetEvents, JoinedAllEvents}.
 
 %% @doc @todo
 -spec map(function(), state_ps_poe_orset()) -> state_ps_poe_orset().

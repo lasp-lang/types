@@ -184,9 +184,35 @@ flatten({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
             end,
             {[], ordsets:new()},
             ProvenanceStore),
+    {NewFlattenedProvenance, AddedEvents} =
+        ordsets:fold(
+            fun(Dot, {AccNewFlattenedProvenance, AccAddedEvents}) ->
+                case ordsets:size(Dot) > 1 of
+                    false ->
+                        NewProvenance =
+                            ordsets:add_element(Dot, AccNewFlattenedProvenance),
+                        {NewProvenance, AccAddedEvents};
+                    true ->
+                        NewEvent =
+                            {state_ps_event_partial_order_event_set, Dot},
+                        NewDot =
+                            ordsets:add_element(NewEvent, Dot),
+                        NewProvenance =
+                            ordsets:add_element(
+                                NewDot, AccNewFlattenedProvenance),
+                        NewAddedEvents =
+                            ordsets:add_element(NewEvent, AccAddedEvents),
+                        {NewProvenance, NewAddedEvents}
+                end
+            end,
+            {ordsets:new(), ordsets:new()},
+            FlattenedProvenance),
     NewProvenanceStore =
-        orddict:store(FlattenedElem, FlattenedProvenance, orddict:new()),
-    NewPayload = {NewProvenanceStore, SubsetEvents, AllEvents},
+        orddict:store(FlattenedElem, NewFlattenedProvenance, orddict:new()),
+    NewAddedEvents = state_ps_type:max_events(AddedEvents),
+    NewSubsetEvents = ordsets:union(SubsetEvents, NewAddedEvents),
+    NewAllEvents = ordsets:union(AllEvents, NewAddedEvents),
+    NewPayload = {NewProvenanceStore, NewSubsetEvents, NewAllEvents},
     {state_ps_flattened_orset_naive, NewPayload}.
 
 %% @doc @todo
