@@ -187,28 +187,23 @@ flatten({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
     {NewFlattenedProvenance, AddedEvents} =
         ordsets:fold(
             fun(Dot, {AccNewFlattenedProvenance, AccAddedEvents}) ->
-                case ordsets:size(Dot) > 1 of
-                    false ->
-                        NewProvenance =
-                            ordsets:add_element(Dot, AccNewFlattenedProvenance),
-                        {NewProvenance, AccAddedEvents};
-                    true ->
-                        NewEvent =
-                            {state_ps_event_partial_order_event_set, Dot},
-                        NewDot =
-                            ordsets:add_element(NewEvent, Dot),
-                        NewProvenance =
-                            ordsets:add_element(
-                                NewDot, AccNewFlattenedProvenance),
-                        NewAddedEvents =
-                            ordsets:add_element(NewEvent, AccAddedEvents),
-                        {NewProvenance, NewAddedEvents}
-                end
+                NewEvent = {state_ps_event_partial_order_event_set, Dot},
+                NewDot = ordsets:add_element(NewEvent, Dot),
+                NewProvenance =
+                    ordsets:add_element(NewDot, AccNewFlattenedProvenance),
+                NewAddedEvents = ordsets:add_element(NewEvent, AccAddedEvents),
+                {NewProvenance, NewAddedEvents}
             end,
             {ordsets:new(), ordsets:new()},
             FlattenedProvenance),
     NewProvenanceStore =
-        orddict:store(FlattenedElem, NewFlattenedProvenance, orddict:new()),
+        case NewFlattenedProvenance of
+            [] ->
+                orddict:new();
+            _ ->
+                orddict:store(
+                    FlattenedElem, NewFlattenedProvenance, orddict:new())
+        end,
     NewAddedEvents = state_ps_type:max_events(AddedEvents),
     NewSubsetEvents = ordsets:union(SubsetEvents, NewAddedEvents),
     NewAllEvents = ordsets:union(AllEvents, NewAddedEvents),
