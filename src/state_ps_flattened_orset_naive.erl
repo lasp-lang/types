@@ -149,14 +149,18 @@ get_next_event(_EventId, _Payload) ->
 -spec unflatten(
     state_ps_flattened_orset_naive()) -> state_ps_type:crdt().
 unflatten({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
-    [{ListElem, Provenance}] = ProvenanceStore,
     NewProvenanceStore =
-        lists:foldl(
-            fun(Elem, AccNewProvenanceStore) ->
-                orddict:store([Elem], Provenance, AccNewProvenanceStore)
-            end,
-            orddict:new(),
-            ListElem),
+        case ProvenanceStore of
+            [] ->
+                [];
+            [{ListElem, Provenance}] ->
+                lists:foldl(
+                    fun(Elem, AccNewProvenanceStore) ->
+                        orddict:store([Elem], Provenance, AccNewProvenanceStore)
+                    end,
+                    orddict:new(),
+                    ListElem)
+        end,
     NewPayload = {NewProvenanceStore, SubsetEvents, AllEvents},
     {state_ps_aworset_naive, NewPayload}.
 
