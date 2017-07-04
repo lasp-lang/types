@@ -159,14 +159,12 @@ is_dominant(
     {state_ps_event_partial_order_independent, _}=EventR) ->
     EventL == EventR;
 is_dominant(
-    {
-        state_ps_event_partial_order_downward_closed,
-        {{ObjectId, ReplicaIdL}, CounterL}}=EventL,
-    {
-        state_ps_event_partial_order_downward_closed,
-        {{ObjectId, ReplicaIdR}, CounterR}}=EventR) ->
+    {state_ps_event_partial_order_downward_closed,
+        {{_ObjectIdL, _ReplicaIdL}=EventIdL, EventCounterL}}=EventL,
+    {state_ps_event_partial_order_downward_closed,
+        {{_ObjectIdR, _ReplicaIdR}=EventIdR, EventCounterR}}=EventR) ->
     EventL == EventR
-        orelse (ReplicaIdL == ReplicaIdR andalso CounterL =< CounterR);
+        orelse (EventIdL == EventIdR andalso EventCounterL =< EventCounterR);
 is_dominant(
     {state_ps_event_partial_order_provenance,
         {most_dominant, EventsSetL}}=EventL,
