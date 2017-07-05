@@ -222,11 +222,11 @@ singleton({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
 %% @doc @todo
 -spec length(state_ps_aworset_naive()) -> state_ps_type:crdt().
 length({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
-    {SizeTProvenance, AddedProvenances} =
+    {SizeTProvenance, AddedProvenanceEvents} =
         orddict:fold(
             fun(_Elem,
                 Provenance,
-                {AccSizeTProvenance, AccAddedProvenances}) ->
+                {AccSizeTProvenance, AccAddedProvenanceEvents}) ->
                 NewSizeTEvent =
                     {state_ps_event_partial_order_provenance, Provenance},
                 NewSizeTProvenance =
@@ -236,7 +236,8 @@ length({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
                 {
                     state_ps_type:plus_provenance(
                         AccSizeTProvenance, NewSizeTProvenance),
-                    ordsets:add_element(Provenance, AccAddedProvenances)}
+                    ordsets:add_element(
+                        NewSizeTEvent, AccAddedProvenanceEvents)}
             end,
             {ordsets:new(), ordsets:new()},
             ProvenanceStore),
@@ -258,7 +259,7 @@ length({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
                     {state_ps_event_partial_order_provenance, NewProvenance},
                 ordsets:add_element(NewProvenanceEvent, AccSizeTSubsetEvents)
             end,
-            AddedProvenances,
+            AddedProvenanceEvents,
             SubsetEvents),
     RemovedEvents = ordsets:subtract(AllEvents, SubsetEvents),
     SizeTAllEvents =
