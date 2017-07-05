@@ -259,11 +259,16 @@ length({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
             AddedProvenances,
             SubsetEvents),
     RemovedEvents = ordsets:subtract(AllEvents, SubsetEvents),
-    RemovedProvenanceEvent =
-        {state_ps_event_partial_order_provenance,
-            {most_dominant, RemovedEvents}},
     SizeTAllEvents =
-        ordsets:add_element(RemovedProvenanceEvent, SizeTSubsetEvents),
+        case RemovedEvents of
+            [] ->
+                SizeTSubsetEvents;
+            _ ->
+                RemovedProvenanceEvent =
+                    {state_ps_event_partial_order_provenance,
+                        {most_dominant, RemovedEvents}},
+                ordsets:add_element(RemovedProvenanceEvent, SizeTSubsetEvents)
+        end,
     {state_ps_size_t_naive,
         {SizeTProvenanceStore, SizeTSubsetEvents, SizeTAllEvents}}.
 
