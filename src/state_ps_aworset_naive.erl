@@ -47,7 +47,7 @@
     decode/2,
     get_next_event/2]).
 -export([
-    flatten/1,
+    singleton/1,
     length/1]).
 
 -export_type([
@@ -166,12 +166,12 @@ get_next_event(EventId, {_, _, AllEvents}=_Payload) ->
     {state_ps_event_partial_order_independent, {EventId, MaxCnt + 1}}.
 
 %% @doc @todo
--spec flatten(state_ps_aworset_naive()) -> state_ps_type:crdt().
-flatten({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
-    {FlattenedElem, FlattenedProvenance} =
+-spec singleton(state_ps_aworset_naive()) -> state_ps_type:crdt().
+singleton({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
+    {SingletonElem, SingletonProvenance} =
         orddict:fold(
             fun(Elem, Provenance, {AccFlattenedElem, AccFlattenedProvenance}) ->
-                NewElem = lists:append(AccFlattenedElem, Elem),
+                NewElem = lists:append(AccFlattenedElem, [Elem]),
                 NewProvenance =
                     case AccFlattenedProvenance of
                         [] ->
@@ -184,94 +184,88 @@ flatten({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
             end,
             {[], ordsets:new()},
             ProvenanceStore),
-    {NewFlattenedProvenance, AddedEvents} =
+    {NewSingletonProvenance, AddedEvents} =
         ordsets:fold(
-            fun(Dot, {AccNewFlattenedProvenance, AccAddedEvents}) ->
+            fun(Dot, {AccNewSingletonProvenance, AccAddedEvents}) ->
                 NewEvent = {state_ps_event_partial_order_event_set, Dot},
                 NewDot = ordsets:add_element(NewEvent, Dot),
                 NewProvenance =
-                    ordsets:add_element(NewDot, AccNewFlattenedProvenance),
+                    ordsets:add_element(NewDot, AccNewSingletonProvenance),
                 NewAddedEvents = ordsets:add_element(NewEvent, AccAddedEvents),
                 {NewProvenance, NewAddedEvents}
             end,
             {ordsets:new(), ordsets:new()},
-            FlattenedProvenance),
+            SingletonProvenance),
     NewProvenanceStore =
-        case NewFlattenedProvenance of
+        case NewSingletonProvenance of
             [] ->
                 orddict:new();
             _ ->
                 orddict:store(
-                    FlattenedElem, NewFlattenedProvenance, orddict:new())
+                    SingletonElem, NewSingletonProvenance, orddict:new())
         end,
-    NewAddedEvents = state_ps_type:max_events(AddedEvents),
-    NewSubsetEvents = ordsets:union(SubsetEvents, NewAddedEvents),
-    NewAllEvents = ordsets:union(AllEvents, NewAddedEvents),
+    NewSubsetEvents =
+        state_ps_type:events_max(
+            state_ps_type:events_union(
+                SubsetEvents,
+                state_ps_type:add_event_to_events(
+                    AddedEvents, state_ps_type:new_subset_events()))),
+    NewAllEvents =
+        state_ps_type:events_max(
+            state_ps_type:events_union(
+                AllEvents,
+                state_ps_type:add_event_to_events(
+                    AddedEvents, state_ps_type:new_all_events()))),
     NewPayload = {NewProvenanceStore, NewSubsetEvents, NewAllEvents},
-    {state_ps_flattened_orset_naive, NewPayload}.
+    {state_ps_singleton_orset_naive, NewPayload}.
 
 %% @doc @todo
 -spec length(state_ps_aworset_naive()) -> state_ps_type:crdt().
 length({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
-    {{SizeTPS, SizeTSE, SizeTAE}, EventsInPS} =
+    {SizeTProvenance, AddedProvenances} =
         orddict:fold(
-            fun(_Elem, Provenance, {AccSizeTPayload, AccEventsInPS}) ->
-                NewAccEventsInPS =
-                    ordsets:union(
-                        AccEventsInPS,
-                        state_ps_type:get_events_from_provenance(Provenance)),
+            fun(_Elem,
+                Provenance,
+                {AccSizeTProvenance, AccAddedProvenances}) ->
                 NewSizeTEvent =
                     {state_ps_event_partial_order_provenance, Provenance},
-                ValueAsProvenance =
+                NewSizeTProvenance =
                     ordsets:add_element(
                         ordsets:add_element(NewSizeTEvent, ordsets:new()),
                         ordsets:new()),
-                NewAccSizeTPayload =
-                    state_ps_poe_orset:insert(
-                        NewSizeTEvent, ValueAsProvenance, AccSizeTPayload),
-                {NewAccSizeTPayload, NewAccEventsInPS}
+                {
+                    state_ps_type:plus_provenance(
+                        AccSizeTProvenance, NewSizeTProvenance),
+                    ordsets:add_element(Provenance, AccAddedProvenances)}
             end,
-            {state_ps_poe_orset:new(), ordsets:new()},
+            {ordsets:new(), ordsets:new()},
             ProvenanceStore),
-    FilteredOutEvents = ordsets:subtract(SubsetEvents, EventsInPS),
-    LeastDominantFilteredOutProvenances =
-        ordsets:fold(
-            fun(FilteredOutEvent, AccIn) ->
-                LeastDominantFilteredOutProvenance =
-                    ordsets:add_element(
-                        ordsets:add_element(FilteredOutEvent, ordsets:new()),
-                        ordsets:new()),
-                NewSizeTEvent =
-                    {state_ps_event_partial_order_provenance,
-                        LeastDominantFilteredOutProvenance},
-                ordsets:add_element(NewSizeTEvent, AccIn)
-            end,
-            ordsets:new(),
-            FilteredOutEvents),
-    FinalSizeTSE = ordsets:union(SizeTSE, LeastDominantFilteredOutProvenances),
-    RemovedEvents = ordsets:subtract(AllEvents, SubsetEvents),
-    FinalSizeTAE =
-        case RemovedEvents of
+    SizeTProvenanceStore =
+        case SizeTProvenance of
             [] ->
-                ordsets:union(SizeTAE, LeastDominantFilteredOutProvenances);
-            [Event] ->
-                RemovedProvenance =
-                    {state_ps_event_partial_order_provenance,
-                        ordsets:add_element(
-                            ordsets:add_element(Event, ordsets:new()),
-                            ordsets:new())},
-                ordsets:add_element(
-                    RemovedProvenance,
-                    ordsets:union(SizeTAE, LeastDominantFilteredOutProvenances));
+                orddict:new();
             _ ->
-                MostDominantRemovedProvenance =
-                    {state_ps_event_partial_order_provenance,
-                        {most_dominant, RemovedEvents}},
-                ordsets:add_element(
-                    MostDominantRemovedProvenance,
-                    ordsets:union(SizeTAE, LeastDominantFilteredOutProvenances))
+                orddict:store(SizeTProvenance, SizeTProvenance, orddict:new())
         end,
-    {state_ps_size_t_naive, {SizeTPS, FinalSizeTSE, FinalSizeTAE}}.
+    SizeTSubsetEvents =
+        ordsets:fold(
+            fun(Event, AccSizeTSubsetEvents) ->
+                NewProvenance =
+                    ordsets:add_element(
+                        ordsets:add_element(Event, ordsets:new()),
+                        ordsets:new()),
+                ordsets:add_element(NewProvenance, AccSizeTSubsetEvents)
+            end,
+            AddedProvenances,
+            SubsetEvents),
+    RemovedEvents = ordsets:subtract(AllEvents, SubsetEvents),
+    RemovedProvenanceEvent =
+        {state_ps_event_partial_order_provenance,
+            {most_dominant, RemovedEvents}},
+    SizeTAllEvents =
+        ordsets:add_element(RemovedProvenanceEvent, SizeTSubsetEvents),
+    {state_ps_size_t_naive,
+        {SizeTProvenanceStore, SizeTSubsetEvents, SizeTAllEvents}}.
 
 %% @private
 merge_state_ps_aworset_naive({?TYPE, PayloadA}, {?TYPE, PayloadB}) ->

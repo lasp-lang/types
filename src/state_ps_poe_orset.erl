@@ -84,13 +84,15 @@ insert(Event, Elem, ORSet) ->
     state_ps_type:state_ps_event(), element(), state_ps_poe_orset()) ->
     state_ps_poe_orset().
 delta_insert(
-    Event, Elem, {_ProvenanceStore, _SubsetEvents, AllEvents}=ORSet) ->
+    Event,
+    Elem,
+    {_ProvenanceStore, _SubsetEvents, AllEvents}=ORSet) ->
     CanBeSkipped =
         ordsets:fold(
             fun(MaxEvent, AccCanBeSkipped) ->
                 AccCanBeSkipped orelse
-                    (state_ps_type:is_dominant(Event, MaxEvent) andalso
-                        Event /= MaxEvent)
+                    (Event /= MaxEvent andalso
+                        state_ps_type:is_dominant(Event, MaxEvent))
             end,
             false,
             AllEvents),
@@ -102,8 +104,12 @@ delta_insert(
                 ordsets:add_element(
                     ordsets:add_element(Event, ordsets:new()), ordsets:new()),
             {orddict:store(Elem, NewProvenance, orddict:new()),
-                ordsets:add_element(Event, ordsets:new()),
-                ordsets:add_element(Event, ordsets:new())}
+                state_ps_type:add_event_to_events(
+                    ordsets:add_element(Event, ordsets:new()),
+                    state_ps_type:new_subset_events()),
+                state_ps_type:add_event_to_events(
+                    ordsets:add_element(Event, ordsets:new()),
+                    state_ps_type:new_all_events())}
     end.
 
 %% @doc @todo
@@ -118,7 +124,11 @@ delta_delete(Elem, {ProvenanceStore, _SubsetEvents, _AllEvents}=ORSet) ->
         {ok, Provenance} ->
             DeletedEvents =
                 state_ps_type:get_events_from_provenance(Provenance),
-            {orddict:new(), ordsets:new(), DeletedEvents};
+            {orddict:new(),
+                state_ps_type:new_subset_events(),
+                state_ps_type:add_event_to_events(
+                    DeletedEvents,
+                    state_ps_type:new_all_events())};
         error ->
             ORSet
     end.
@@ -138,16 +148,10 @@ read({ProvenanceStore, _SubsetEvents, _AllEvents}=_ORSet) ->
 join(
     {ProvenanceStoreL, SubsetEventsL, AllEventsL}=_ORSetL,
     {ProvenanceStoreR, SubsetEventsR, AllEventsR}=_ORSetR) ->
-    JoinedAllEvents =
-        state_ps_type:max_events(ordsets:union(AllEventsL, AllEventsR)),
+    JoinedAllEvents = state_ps_type:join_all_events(AllEventsL, AllEventsR),
     JoinedSubsetEvents =
-        ordsets:union(
-            ordsets:intersection(SubsetEventsL, SubsetEventsR),
-            ordsets:union(
-                state_ps_type:minus_events(SubsetEventsL, AllEventsR),
-                state_ps_type:minus_events(SubsetEventsR, AllEventsL))),
-    PrunedSubsetEvents =
-        state_ps_type:prune_event_set(JoinedSubsetEvents),
+        state_ps_type:join_subset_events(
+            SubsetEventsL, AllEventsL, SubsetEventsR, AllEventsR),
     MergedProvenanceStore =
         orddict:merge(
             fun(_Elem, ProvenanceL, ProvenanceR) ->
@@ -156,8 +160,8 @@ join(
             ProvenanceStoreL,
             ProvenanceStoreR),
     JoinedProvenanceStore =
-        prune_provenance_store(MergedProvenanceStore, PrunedSubsetEvents),
-    {JoinedProvenanceStore, PrunedSubsetEvents, JoinedAllEvents}.
+        prune_provenance_store(MergedProvenanceStore, JoinedSubsetEvents),
+    {JoinedProvenanceStore, JoinedSubsetEvents, JoinedAllEvents}.
 
 %% @doc @todo
 -spec map(function(), state_ps_poe_orset()) -> state_ps_poe_orset().
@@ -202,14 +206,10 @@ union(ORSetL, ORSetR) ->
 product(
     {ProvenanceStoreL, SubsetEventsL, AllEventsL}=_ORSetL,
     {ProvenanceStoreR, SubsetEventsR, AllEventsR}=_ORSetR) ->
-    ProductAllEvents =
-        state_ps_type:max_events(ordsets:union(AllEventsL, AllEventsR)),
+    ProductAllEvents = state_ps_type:join_all_events(AllEventsL, AllEventsR),
     ProductSubsetEvents =
-        ordsets:union(
-            ordsets:intersection(SubsetEventsL, SubsetEventsR),
-            ordsets:union(
-                state_ps_type:minus_events(SubsetEventsL, AllEventsR),
-                state_ps_type:minus_events(SubsetEventsR, AllEventsL))),
+        state_ps_type:join_subset_events(
+            SubsetEventsL, AllEventsL, SubsetEventsR, AllEventsR),
     CrossedProvenanceStore =
         orddict:fold(
             fun(ElemL, ProvenanceL, AccInProductProvenanceStoreL) ->
@@ -234,13 +234,13 @@ product(
     {ProductProvenanceStore, ProductSubsetEvents, ProductAllEvents}.
 
 %% @private
-prune_provenance_store(ProvenanceStore, EventSet) ->
+prune_provenance_store(ProvenanceStore, Events) ->
     orddict:fold(
-        fun(Elem, Provenance, AccPruneProvenanceStore) ->
+        fun(Elem, Provenance, AccPrunedProvenanceStore) ->
             NewProvenance =
                 ordsets:fold(
                     fun(Dot, AccNewProvenance) ->
-                        case ordsets:is_subset(Dot, EventSet) of
+                        case ordsets:is_subset(Dot, Events) of
                             true ->
                                 ordsets:add_element(Dot, AccNewProvenance);
                             false ->
@@ -251,9 +251,9 @@ prune_provenance_store(ProvenanceStore, EventSet) ->
                     Provenance),
             case NewProvenance of
                 [] ->
-                    AccPruneProvenanceStore;
+                    AccPrunedProvenanceStore;
                 _ ->
-                    orddict:store(Elem, NewProvenance, AccPruneProvenanceStore)
+                    orddict:store(Elem, NewProvenance, AccPrunedProvenanceStore)
             end
         end,
         orddict:new(),
@@ -265,6 +265,10 @@ prune_provenance_store(ProvenanceStore, EventSet) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({orddict:new(), ordsets:new(), ordsets:new()}, new()).
+    ?assertEqual(
+        {orddict:new(),
+            state_ps_type:new_subset_events(),
+            state_ps_type:new_all_events()},
+        new()).
 
 -endif.

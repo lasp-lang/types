@@ -135,7 +135,7 @@ decode(erlang, Binary) ->
     state_ps_type:state_ps_event_id(),
     state_ps_type:state_ps_payload()) -> state_ps_type:state_ps_event().
 get_next_event(_EventId, _Payload) ->
-    {state_ps_event_partial_order_provenance, ordsets:new()}.
+    {state_ps_event_bottom, undefined}.
 
 %% @private
 merge_state_ps_size_t_naive({?TYPE, PayloadA}, {?TYPE, PayloadB}) ->
@@ -399,18 +399,25 @@ merge_after_elem_removed_test() ->
                 [[{?EVENT_TYPE, [
                     [{?SET_EVENT_TYPE, {EventId1, 1}},
                         {?SET_EVENT_TYPE, {EventId2, 1}}]]}]]}],
-            [{?EVENT_TYPE, [
-                [{?SET_EVENT_TYPE, {EventId1, 1}},
-                    {?SET_EVENT_TYPE, {EventId2, 1}}]]}],
-            [{?EVENT_TYPE, [
-                [{?SET_EVENT_TYPE, {EventId1, 1}},
-                    {?SET_EVENT_TYPE, {EventId2, 1}}]]}]}},
+            [
+                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId1, 1}}]]},
+                {?EVENT_TYPE, [
+                    [{?SET_EVENT_TYPE, {EventId1, 1}},
+                        {?SET_EVENT_TYPE, {EventId2, 1}}]]},
+                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId2, 1}}]]}],
+            [
+                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId1, 1}}]]},
+                {?EVENT_TYPE, [
+                    [{?SET_EVENT_TYPE, {EventId1, 1}},
+                        {?SET_EVENT_TYPE, {EventId2, 1}}]]},
+                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId2, 1}}]]}]}},
     SizeT2 =
         {?TYPE, {
             [],
             [{?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId2, 1}}]]}],
             [
-                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId1, 1}}]]},
+                {?EVENT_TYPE,
+                    {most_dominant, [{?SET_EVENT_TYPE, {EventId1, 1}}]}},
                 {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId2, 1}}]]}]}},
     SizeT3 = merge(SizeT1, SizeT2),
     ?assertEqual(
@@ -418,10 +425,8 @@ merge_after_elem_removed_test() ->
             [],
             [{?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId2, 1}}]]}],
             [
-                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId1, 1}}]]},
-                {?EVENT_TYPE, [
-                    [{?SET_EVENT_TYPE, {EventId1, 1}},
-                        {?SET_EVENT_TYPE, {EventId2, 1}}]]},
+                {?EVENT_TYPE,
+                    {most_dominant, [{?SET_EVENT_TYPE, {EventId1, 1}}]}},
                 {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId2, 1}}]]}]}},
         SizeT3).
 
@@ -448,7 +453,8 @@ equal_test() ->
         {?TYPE, {
             [],
             [],
-            [{?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 1}}]]}]}},
+            [{?EVENT_TYPE,
+                {most_dominant, [{?SET_EVENT_TYPE, {EventId, 1}}]}}]}},
 %%    Set3 =
 %%        {?TYPE, {
 %%            [{<<"1">>, [[{?EVENT_TYPE, {EventId, 1}}]]}],
@@ -461,8 +467,9 @@ equal_test() ->
                 [[{?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 1}}]]}]]}],
             [{?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 1}}]]}],
             [
-                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 1}}]]},
-                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 2}}]]}]}},
+                {?EVENT_TYPE,
+                    {most_dominant, [{?SET_EVENT_TYPE, {EventId, 2}}]}},
+                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 1}}]]}]}},
     ?assert(equal(SizeT1, SizeT1)),
     ?assert(equal(SizeT2, SizeT2)),
     ?assert(equal(SizeT3, SizeT3)),
@@ -493,7 +500,8 @@ is_inflation_test() ->
         {?TYPE, {
             [],
             [],
-            [{?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 1}}]]}]}},
+            [{?EVENT_TYPE,
+                {most_dominant, [{?SET_EVENT_TYPE, {EventId, 1}}]}}]}},
 %%    Set3 =
 %%        {?TYPE, {
 %%            [{<<"1">>, [[{?EVENT_TYPE, {EventId, 1}}]]}],
@@ -506,8 +514,9 @@ is_inflation_test() ->
                 [[{?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 1}}]]}]]}],
             [{?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 1}}]]}],
             [
-                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 1}}]]},
-                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 2}}]]}]}},
+                {?EVENT_TYPE,
+                    {most_dominant, [{?SET_EVENT_TYPE, {EventId, 2}}]}},
+                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 1}}]]}]}},
     ?assert(is_inflation(SizeT1, SizeT1)),
     ?assert(is_inflation(SizeT1, SizeT2)),
     ?assertNot(is_inflation(SizeT2, SizeT1)),
@@ -545,7 +554,8 @@ is_strict_inflation_test() ->
         {?TYPE, {
             [],
             [],
-            [{?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 1}}]]}]}},
+            [{?EVENT_TYPE,
+                {most_dominant, [{?SET_EVENT_TYPE, {EventId, 1}}]}}]}},
 %%    Set3 =
 %%        {?TYPE, {
 %%            [{<<"1">>, [[{?EVENT_TYPE, {EventId, 1}}]]}],
@@ -558,8 +568,9 @@ is_strict_inflation_test() ->
                 [[{?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 1}}]]}]]}],
             [{?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 1}}]]}],
             [
-                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 1}}]]},
-                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 2}}]]}]}},
+                {?EVENT_TYPE,
+                    {most_dominant, [{?SET_EVENT_TYPE, {EventId, 2}}]}},
+                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 1}}]]}]}},
     ?assertNot(is_strict_inflation(SizeT1, SizeT1)),
     ?assert(is_strict_inflation(SizeT1, SizeT2)),
     ?assertNot(is_strict_inflation(SizeT2, SizeT1)),
@@ -576,8 +587,9 @@ encode_decode_test() ->
                 [[{?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 1}}]]}]]}],
             [{?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 1}}]]}],
             [
-                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 1}}]]},
-                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 2}}]]}]}},
+                {?EVENT_TYPE,
+                    {most_dominant, [{?SET_EVENT_TYPE, {EventId, 2}}]}},
+                {?EVENT_TYPE, [[{?SET_EVENT_TYPE, {EventId, 1}}]]}]}},
     Binary = encode(erlang, SizeT),
     ESizeT = decode(erlang, Binary),
     ?assertEqual(SizeT, ESizeT).
