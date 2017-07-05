@@ -254,7 +254,9 @@ length({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
                     ordsets:add_element(
                         ordsets:add_element(Event, ordsets:new()),
                         ordsets:new()),
-                ordsets:add_element(NewProvenance, AccSizeTSubsetEvents)
+                NewProvenanceEvent =
+                    {state_ps_event_partial_order_provenance, NewProvenance},
+                ordsets:add_element(NewProvenanceEvent, AccSizeTSubsetEvents)
             end,
             AddedProvenances,
             SubsetEvents),
