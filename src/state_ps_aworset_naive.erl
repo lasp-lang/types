@@ -171,7 +171,7 @@ singleton({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
     {SingletonElem, SingletonProvenance} =
         orddict:fold(
             fun(Elem, Provenance, {AccFlattenedElem, AccFlattenedProvenance}) ->
-                NewElem = lists:append(AccFlattenedElem, [Elem]),
+                NewElem = lists:append(AccFlattenedElem, Elem),
                 NewProvenance =
                     case AccFlattenedProvenance of
                         [] ->
