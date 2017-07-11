@@ -430,10 +430,54 @@ cross_provenance(ProvenanceL, ProvenanceR) ->
         fun(DotL, AccCrossProvenance0) ->
             ordsets:fold(
                 fun(DotR, AccCrossProvenance1) ->
-                    CrossDot = ordsets:union(DotL, DotR),
-                    ordsets:add_element(CrossDot, AccCrossProvenance1)
+                    CrossedDot = cross_dot(DotL, DotR),
+                    ordsets:add_element(CrossedDot, AccCrossProvenance1)
                 end, AccCrossProvenance0, ProvenanceR)
         end, ordsets:new(), ProvenanceL).
+
+%% @private
+cross_dot(DotL, DotR) ->
+    {CrossedDotL, ListEventSetsL} =
+        ordsets:fold(
+            fun({EventTypeL, _EventInfoL}=EventL,
+                {AccCrossedDotL, AccListEventSetsL}) ->
+                case EventTypeL of
+                    state_ps_event_partial_order_event_set ->
+                        {AccCrossedDotL, AccListEventSetsL ++ [EventL]};
+                    _ ->
+                        {ordsets:add_element(EventL, AccCrossedDotL),
+                            AccListEventSetsL}
+                end
+            end,
+            {ordsets:new(), []},
+            DotL),
+    {CrossedDotLR, ListEventSetsLR} =
+        ordsets:fold(
+            fun({EventTypeR, _EventInfoR}=EventR,
+                {AccCrossedDotLR, AccListEventSetsLR}) ->
+                case EventTypeR of
+                    state_ps_event_partial_order_event_set ->
+                        {AccCrossedDotLR, AccListEventSetsLR ++ [EventR]};
+                    _ ->
+                        {ordsets:add_element(EventR, AccCrossedDotLR),
+                            AccListEventSetsLR}
+                end
+            end,
+            {CrossedDotL, ListEventSetsL},
+            DotR),
+    case ListEventSetsLR of
+        [] ->
+            CrossedDotLR;
+        [ESetEvent] ->
+            ordsets:add_element(ESetEvent, CrossedDotLR);
+        [ESetEventA, ESetEventB] ->
+            {state_ps_event_partial_order_event_set, EventSetA} = ESetEventA,
+            {state_ps_event_partial_order_event_set, EventSetB} = ESetEventB,
+            NewEvent =
+                {state_ps_event_partial_order_event_set,
+                    ordsets:union(EventSetA, EventSetB)},
+            ordsets:add_element(NewEvent, CrossedDotLR)
+    end.
 
 %% @doc @todo
 -spec new_subset_events() -> state_ps_subset_events().

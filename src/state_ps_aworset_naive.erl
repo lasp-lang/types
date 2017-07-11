@@ -187,8 +187,24 @@ singleton({?TYPE, {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
     {NewSingletonProvenance, AddedEvents} =
         ordsets:fold(
             fun(Dot, {AccNewSingletonProvenance, AccAddedEvents}) ->
-                NewEvent = {state_ps_event_partial_order_event_set, Dot},
-                NewDot = ordsets:add_element(NewEvent, Dot),
+                DotWithoutESet =
+                    ordsets:fold(
+                        fun({EventType, _EventInfo}=Event, AccDotWithoutESet) ->
+                            case EventType of
+                                state_ps_event_partial_order_event_set ->
+                                    AccDotWithoutESet;
+                                _ ->
+                                    ordsets:add_element(
+                                        Event, AccDotWithoutESet)
+                            end
+                        end,
+                        ordsets:new(),
+                        Dot),
+                NewEvent =
+                    {state_ps_event_partial_order_event_set, DotWithoutESet},
+                NewDot =
+                    state_ps_type:events_max(
+                        ordsets:add_element(NewEvent, Dot)),
                 NewProvenance =
                     ordsets:add_element(NewDot, AccNewSingletonProvenance),
                 NewAddedEvents = ordsets:add_element(NewEvent, AccAddedEvents),
