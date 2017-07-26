@@ -79,7 +79,7 @@ query({?TYPE, Payload}) ->
     case InternalSet of
         [] ->
             0;
-        [{Size, _Elems}] ->
+        [Size] ->
             Size
     end.
 
