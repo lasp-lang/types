@@ -142,8 +142,30 @@ delta_delete(
 -spec read(state_ps_agg_poe_orset()) -> sets:set().
 read({ProvenanceStore, _SubsetEvents, _AllEvents}=_ORSet) ->
     orddict:fold(
-        fun(Elem, _Provenance, AccResultSet) ->
-            sets:add_element(Elem, AccResultSet)
+        fun(Elem, Provenance, AccResultSet) ->
+            case Provenance of
+                {dots, _Dots} ->
+                    sets:add_element(Elem, AccResultSet);
+                {tensors, TensorDict} ->
+                    AggElems =
+                        orddict:fold(
+                            fun(AggElem, _AggProvenance, AccAggElems) ->
+                                case AggElem of
+                                    undefined ->
+                                        AccAggElems;
+                                    _ ->
+                                        sets:add_element(AggElem, AccAggElems)
+                                end
+                            end,
+                            sets:new(),
+                            TensorDict),
+                    case AggElems of
+                        [] ->
+                            sets:add_element(Elem, AccResultSet);
+                        _ ->
+                            sets:add_element({Elem, AggElems}, AccResultSet)
+                    end
+            end
         end,
         sets:new(),
         ProvenanceStore).
