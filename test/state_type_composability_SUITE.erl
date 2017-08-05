@@ -58,7 +58,8 @@ all() ->
         pair_with_pair_with_gcounter_and_gmap_and_gmap_test,
         gmap_with_pair_test,
         maps_within_maps_test,
-        awmap_nested_rmv_test
+        awmap_nested_rmv_test,
+        gmap_with_arbitrary_nested_values_test
     ].
 
 %% ===================================================================
@@ -416,6 +417,20 @@ awmap_nested_rmv_test(_Config) ->
     ?assertEqual([{"hello", [{"world_two", sets:from_list([7])}, {"world_z", sets:from_list([23])}]}], Query6),
     ?assertEqual([{"hello", [{"world_z", sets:from_list([23])}]}], Query7),
     ?assertEqual([], Query8).
+
+gmap_with_arbitrary_nested_values_test(_Config) ->
+    Actor = "A",
+    Map0 = ?GMAP_TYPE:new([?LWWREGISTER_TYPE]),
+    {ok, Map1} = ?GMAP_TYPE:mutate({apply, {?GMAP_TYPE, [?AWSET_TYPE]}, "set", {apply, "key", {add, 3}}}, Actor, Map0),
+    {ok, Map2} = ?GMAP_TYPE:mutate({apply, ?LWWREGISTER_TYPE, "reg", {set, 1, "hello"}}, Actor, Map1),
+    {ok, Map3} = ?GMAP_TYPE:mutate({apply, "reg", {set, 2, "world"}}, Actor, Map2),
+    Query1 = ?GMAP_TYPE:query(Map1),
+    Query2 = ?GMAP_TYPE:query(Map2),
+    Query3 = ?GMAP_TYPE:query(Map3),
+
+    ?assertEqual([{"set", [{"key", sets:from_list([3])}]}], Query1),
+    ?assertEqual([{"reg", "hello"}, {"set", [{"key", sets:from_list([3])}]}], Query2),
+    ?assertEqual([{"reg", "world"}, {"set", [{"key", sets:from_list([3])}]}], Query3).
 
 %% ===================================================================
 %% Internal functions
