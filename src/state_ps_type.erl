@@ -67,7 +67,8 @@
                        | state_ps_gcounter_naive
                        | state_ps_lwwregister_naive
                        | state_ps_singleton_orset_naive
-                       | state_ps_size_t_naive.
+                       | state_ps_size_t_naive
+                       | state_ps_size_t_v2_naive.
 %% A list of types of events.
 -type state_ps_event_type() :: state_ps_event_bottom
                              | state_ps_event_partial_order_independent
