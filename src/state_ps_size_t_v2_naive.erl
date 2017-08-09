@@ -81,7 +81,13 @@ mutate(Op, Actor, {?TYPE, _}=CRDT) ->
 %%      This value is a set of not-removed elements.
 -spec query(state_ps_size_t_v2_naive()) -> term().
 query({?TYPE, Payload}) ->
-    state_ps_poe_orset:read(Payload).
+    InternalSet = sets:to_list(state_ps_poe_orset:read(Payload)),
+    case InternalSet of
+        [] ->
+            0;
+        [Length] ->
+            Length
+    end.
 
 %% @doc Equality for `state_ps_size_t_v2_naive()'.
 -spec equal(
@@ -146,8 +152,7 @@ get_next_event(_EventId, _Payload) ->
     {state_ps_event_bottom, undefined}.
 
 %% @doc @todo
--spec length(
-    state_ps_type:state_ps_aworset_naive()) -> state_ps_size_t_v2_naive().
+-spec length(state_ps_type:crdt()) -> state_ps_size_t_v2_naive().
 length(
     {state_ps_aworset_naive,
         {ProvenanceStore, SubsetEvents, AllEvents}=_Payload}) ->
