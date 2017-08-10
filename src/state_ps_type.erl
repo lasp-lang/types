@@ -69,6 +69,7 @@
 -type state_ps_type() ::
     state_ps_aworset_naive |
     state_ps_gcounter_naive |
+    state_ps_group_by_orset_naive |
     state_ps_lwwregister_naive |
     state_ps_singleton_orset_naive |
     state_ps_size_t_naive.
