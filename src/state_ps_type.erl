@@ -172,10 +172,8 @@ is_related_to(
     EventL == EventR orelse
         (EventIdL == EventIdR andalso EventCounterL =< EventCounterR);
 is_related_to(
-    {state_ps_event_partial_order_event_set,
-        {ObjectIdL, EventSetL}=EventL}=EventL,
-    {state_ps_event_partial_order_event_set,
-        {ObjectIdR, EventSetR}=EventR}=EventR) ->
+    {state_ps_event_partial_order_event_set, {ObjectIdL, EventSetL}}=EventL,
+    {state_ps_event_partial_order_event_set, {ObjectIdR, EventSetR}}=EventR) ->
     EventL == EventR orelse
         (ObjectIdL == ObjectIdR andalso
             ordsets:is_subset(EventSetL, EventSetR));
