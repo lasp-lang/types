@@ -54,8 +54,10 @@
 -type payload() :: {ctype(), orddict:orddict()}.
 -type key() :: term().
 -type key_op() :: term().
+-type op() :: {key(), key_op()} | {key(), ctype(), key_op()}.
 -type state_gmap_op() :: {apply, key(), key_op()} |
-                         {apply, state_type:state_type(), key(), key_op()}.
+                         {apply, key(), ctype(), key_op()} |
+                         {apply_all, [op()]}.
 
 %% @doc Create a new, empty `state_gmap()'.
 %%      By default the values are a MaxInt CRDT.
@@ -81,19 +83,31 @@ mutate(Op, Actor, {?TYPE, _}=CRDT) ->
 %%      key.
 -spec delta_mutate(state_gmap_op(), type:id(), state_gmap()) ->
     {ok, state_gmap()}.
-delta_mutate({apply, Key, Op}, Actor, {?TYPE, {CType, _}}=CRDT) ->
-    apply(CType, Key, Op, Actor, CRDT);
-delta_mutate({apply, OpType, Key, Op}, Actor, {?TYPE, {_CType, _}}=CRDT) ->
-    apply(OpType, Key, Op, Actor, CRDT).
+delta_mutate({apply, Key, Op}, Actor, CRDT) ->
+    {ok, apply_op({Key, Op}, Actor, CRDT)};
+delta_mutate({apply, Key, OpType, Op}, Actor, CRDT) ->
+    {ok, apply_op({Key, OpType, Op}, Actor, CRDT)};
+delta_mutate({apply_all, [H|T]}, Actor, CRDT) ->
+    DeltaGroup = lists:foldl(
+        fun(Op, Acc) ->
+            merge(Acc, apply_op(Op, Actor, CRDT))
+        end,
+        apply_op(H, Actor, CRDT),
+        T
+    ),
+
+    {ok, DeltaGroup}.
 
 %% @private
-apply(OpType, Key, Op, Actor, {?TYPE, {CType, GMap}}) ->
+apply_op({Key, Op}, Actor, {?TYPE, {CType, _}}=CRDT) ->
+    apply_op({Key, CType, Op}, Actor, CRDT);
+apply_op({Key, OpType, Op}, Actor, {?TYPE, {CType, GMap}}) ->
     {Type, Args} = state_type:extract_args(OpType),
     Bottom = Type:new(Args),
     Current = orddict_ext:fetch(Key, GMap, Bottom),
     {ok, KeyDelta} = Type:delta_mutate(Op, Actor, Current),
     Delta = orddict:store(Key, KeyDelta, orddict:new()),
-    {ok, {?TYPE, {CType, Delta}}}.
+    {?TYPE, {CType, Delta}}.
 
 %% @doc Returns the value of the `state_gmap()'.
 %%      This value is a dictionary where each key maps to the

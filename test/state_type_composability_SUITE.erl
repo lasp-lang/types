@@ -421,16 +421,24 @@ awmap_nested_rmv_test(_Config) ->
 gmap_with_arbitrary_nested_values_test(_Config) ->
     Actor = "A",
     Map0 = ?GMAP_TYPE:new([?LWWREGISTER_TYPE]),
-    {ok, Map1} = ?GMAP_TYPE:mutate({apply, {?GMAP_TYPE, [?AWSET_TYPE]}, "set", {apply, "key", {add, 3}}}, Actor, Map0),
-    {ok, Map2} = ?GMAP_TYPE:mutate({apply, ?LWWREGISTER_TYPE, "reg", {set, 1, "hello"}}, Actor, Map1),
+    {ok, Map1} = ?GMAP_TYPE:mutate({apply, "set", {?GMAP_TYPE, [?AWSET_TYPE]}, {apply, "key", {add, 3}}}, Actor, Map0),
+    {ok, Map2} = ?GMAP_TYPE:mutate({apply, "reg", ?LWWREGISTER_TYPE, {set, 1, "hello"}}, Actor, Map1),
     {ok, Map3} = ?GMAP_TYPE:mutate({apply, "reg", {set, 2, "world"}}, Actor, Map2),
+
     Query1 = ?GMAP_TYPE:query(Map1),
     Query2 = ?GMAP_TYPE:query(Map2),
     Query3 = ?GMAP_TYPE:query(Map3),
 
     ?assertEqual([{"set", [{"key", sets:from_list([3])}]}], Query1),
     ?assertEqual([{"reg", "hello"}, {"set", [{"key", sets:from_list([3])}]}], Query2),
-    ?assertEqual([{"reg", "world"}, {"set", [{"key", sets:from_list([3])}]}], Query3).
+    ?assertEqual([{"reg", "world"}, {"set", [{"key", sets:from_list([3])}]}], Query3),
+
+    {ok, Map4} = ?GMAP_TYPE:mutate({apply_all, [{"set", {?GMAP_TYPE, [?AWSET_TYPE]}, {apply, "key", {add, 3}}},
+                                                {"reg", ?LWWREGISTER_TYPE, {set, 1, "hello"}},
+                                                {"reg", {set, 2, "world"}}]}, Actor, Map0),
+
+    ?assert(?GMAP_TYPE:equal(Map3, Map4)).
+
 
 %% ===================================================================
 %% Internal functions
