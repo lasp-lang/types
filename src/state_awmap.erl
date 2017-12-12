@@ -139,14 +139,10 @@ query({?TYPE, {CType, {DotMap, CC}}}) ->
 %%      Merging is handled by the `merge' function in
 %%      `state_causal_type' common library.
 -spec merge(state_awmap(), state_awmap()) -> state_awmap().
-merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    MergeFun = fun({?TYPE, {CType, AWMap1}},
-                   {?TYPE, {CType, AWMap2}}) ->
-        Map = state_causal_type:merge({dot_map, CType},
-                                      AWMap1, AWMap2),
-        {?TYPE, {CType, Map}}
-    end,
-    state_type:merge(CRDT1, CRDT2, MergeFun).
+merge({?TYPE, {CType, AWMap1}}, {?TYPE, {CType, AWMap2}}) ->
+    Map = state_causal_type:merge({dot_map, CType},
+                                  AWMap1, AWMap2),
+    {?TYPE, {CType, Map}}.
 
 %% @doc Equality for `state_awmap()'.
 %%      Since everything is ordered, == should work.

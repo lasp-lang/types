@@ -31,10 +31,12 @@
 -export([
          new/0,
          is_empty/1,
-         is_element/3,
          fetch_keys/1,
          fetch/3,
-         store/3
+         store/3,
+         merge/4,
+         any/2,
+         fold/3
         ]).
 
 -type dot_map() :: dot_store:dot_map().
@@ -49,13 +51,10 @@ new() ->
 is_empty(DotMap) ->
     orddict:is_empty(DotMap).
 
-%% @doc Check if a dot belongs to the DotMap.
--spec is_element(dot_store:type(), dot_store:dot(), dot_map()) ->
-    boolean().
-is_element(DotStoreType, Dot, DotMap) ->
-    DotSet = state_causal_type:dots({dot_map, DotStoreType}, DotMap),
-    dot_set:is_element(Dot, DotSet).
-
+%% @doc Given a key, a DotMap and a default,
+%%      return:
+%%        - the correspondent value, if key present in the DotMap
+%%        - default, otherwise
 -spec fetch(term(), dot_map(), dot_store:dot_store() | undefined) ->
     dot_store:dot_store().
 fetch(Key, DotMap, Default) ->
@@ -71,3 +70,40 @@ fetch_keys(DotMap) ->
 -spec store(term(), dot_store:dot_store(), dot_map()) -> dot_map().
 store(Key, DotStore, DotMap) ->
     orddict:store(Key, DotStore, DotMap).
+
+%% @doc Merge two DotMap.
+-spec merge(function(), dot_store:dot_store(),
+            dot_map(), dot_map()) -> dot_map().
+merge(_Fun, _Default, [], []) ->
+    [];
+merge(Fun, Default, [{Key, ValueA} | RestA], []) ->
+    do_merge(Fun, Default, Key, ValueA, Default, RestA, []);
+merge(Fun, Default, [], [{Key, ValueB} | RestB]) ->
+    do_merge(Fun, Default, Key, Default, ValueB, [], RestB);
+merge(Fun, Default, [{Key, ValueA} | RestA],
+                    [{Key, ValueB} | RestB]) ->
+    do_merge(Fun, Default, Key, ValueA, ValueB, RestA, RestB);
+merge(Fun, Default, [{KeyA, ValueA} | RestA],
+                    [{KeyB, _} | _]=RestB) when KeyA < KeyB ->
+    do_merge(Fun, Default, KeyA, ValueA, Default, RestA, RestB);
+merge(Fun, Default, [{KeyA, _} | _]=RestA,
+                    [{KeyB, ValueB} | RestB]) when KeyA > KeyB ->
+    do_merge(Fun, Default, KeyB, Default, ValueB, RestA, RestB).
+
+do_merge(Fun, Default, Key, ValueA, ValueB, RestA, RestB) ->
+    case Fun(ValueA, ValueB) of
+        Default ->
+            merge(Fun, Default, RestA, RestB);
+        Value ->
+            [{Key, Value} | merge(Fun, Default, RestA, RestB)]
+    end.
+
+%% @doc True if Pred is true for at least one entry in the DotMap.
+-spec any(function(), dot_map()) -> boolean().
+any(Pred, DotMap) ->
+    lists:any(Pred, DotMap).
+
+%% @doc Fold a DotMap.
+-spec fold(function(), term(), dot_map()) -> term().
+fold(Fun, AccIn, DotMap) ->
+    orddict:fold(Fun, AccIn, DotMap).

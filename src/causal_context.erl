@@ -34,7 +34,8 @@
          next_dot/2,
          is_empty/1,
          is_element/2,
-         union/2
+         union/2,
+         to_dot/1
         ]).
 
 -export_type([causal_context/0]).
@@ -52,12 +53,12 @@ new() ->
 %% @doc Create a CausalContext from a DotSet.
 -spec from_dot_set(dot_set()) -> causal_context().
 from_dot_set(DotSet) ->
-    lists:foldl(
+    dot_set:fold(
         fun(Dot, CausalContext) ->
             causal_context:add_dot(Dot, CausalContext)
         end,
         causal_context:new(),
-        dot_set:to_list(DotSet)
+        DotSet
     ).
 
 %% @doc Return a list of dots from a CausalContext.
@@ -84,22 +85,21 @@ dots({Compressed, DotSet}) ->
 add_dot({Actor, Sequence}=Dot, {Compressed0, DotSet0}=CC) ->
     Current = orddict_ext:fetch(Actor, Compressed0, 0),
 
-    case is_element(Dot, CC) of
+    case Sequence == Current + 1 of
         true ->
-            %% if dot already in the cc, ignore
-            CC;
+            %% update the compressed component
+            Compressed1 = orddict:store(Actor, Sequence, Compressed0),
+            {Compressed1, DotSet0};
         false ->
-            case Sequence == Current + 1 of
+            case Sequence > Current + 1 of
                 true ->
-                    %% if previous dot already in the compressed component
-                    %% add it there
-                    Compressed1 = orddict:store(Actor, Sequence, Compressed0),
-                    compress({Compressed1, DotSet0});
-                false ->
-                    %% otherwise store in the DotSet
+                    %% store in the DotSet if in the future
                     DotSet1 = dot_set:add_dot(Dot, DotSet0),
-                    {Compressed0, DotSet1}
-            end
+                    {Compressed0, DotSet1};
+                false ->
+                    %% dot already in the CausalContext.
+                    CC
+           end
     end.
 
 %% @doc Get `dot_actor()''s next dot
@@ -118,9 +118,7 @@ is_empty({Compressed, DotSet}) ->
 -spec is_element(dot_store:dot(), causal_context()) -> boolean().
 is_element({Actor, Sequence}=Dot, {Compressed, DotSet}) ->
     Current = orddict_ext:fetch(Actor, Compressed, 0),
-    BelongsToCompressed = Sequence =< Current,
-    BelongsToDotSet = dot_set:is_element(Dot, DotSet),
-    BelongsToCompressed orelse BelongsToDotSet.
+    Sequence =< Current orelse dot_set:is_element(Dot, DotSet).
 
 %% @doc Merge two Causal Contexts.
 -spec union(causal_context(), causal_context()) -> causal_context().
@@ -139,10 +137,15 @@ union({CompressedA, DotSetA}, {CompressedB, DotSetB}) ->
 %%          component.
 -spec compress(causal_context()) -> causal_context().
 compress({Compressed, DotSet}) ->
-    lists:foldl(
+    dot_set:fold(
         fun(Dot, CausalContext) ->
             add_dot(Dot, CausalContext)
         end,
         {Compressed, dot_set:new()},
-        dot_set:to_list(DotSet)
+        DotSet
     ).
+
+%% @private Convert a CausalContext with a single dot, to that dot.
+-spec to_dot(causal_context()) -> dot_store:dot().
+to_dot({[Dot], []}) -> Dot;
+to_dot({[], [Dot]}) -> Dot.

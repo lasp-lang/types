@@ -43,6 +43,9 @@ proper:
 lint:
 	${REBAR} as lint lint
 
+bench: compile
+	bin/state_bench.sh
+
 shell:
 	${REBAR} shell --apps types
 

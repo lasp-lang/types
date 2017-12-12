@@ -82,11 +82,8 @@ query({?TYPE, Boolean}) ->
 %% @doc Merge two `state_boolean()'.
 %%      Join is the logical or.
 -spec merge(state_boolean(), state_boolean()) -> state_boolean().
-merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    MergeFun = fun({?TYPE, Boolean1}, {?TYPE, Boolean2}) ->
-        {?TYPE, max(Boolean1, Boolean2)}
-    end,
-    state_type:merge(CRDT1, CRDT2, MergeFun).
+merge({?TYPE, Boolean1}, {?TYPE, Boolean2}) ->
+    {?TYPE, max(Boolean1, Boolean2)}.
 
 %% @doc Equality for `state_boolean()'.
 -spec equal(state_boolean(), state_boolean()) -> boolean().

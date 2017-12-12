@@ -155,13 +155,10 @@ query({?TYPE, {PNCounter, _GMap}}) ->
 %%      in the first component, and the merge of both
 %%      `state_gmap()' in the second component.
 -spec merge(state_bcounter(), state_bcounter()) -> state_bcounter().
-merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    MergeFun = fun({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) ->
-        PNCounter = ?PNCOUNTER_TYPE:merge(PNCounter1, PNCounter2),
-        GMap = ?GMAP_TYPE:merge(GMap1, GMap2),
-        {?TYPE, {PNCounter, GMap}}
-    end,
-    state_type:merge(CRDT1, CRDT2, MergeFun).
+merge({?TYPE, {PNCounter1, GMap1}}, {?TYPE, {PNCounter2, GMap2}}) ->
+    PNCounter = ?PNCOUNTER_TYPE:merge(PNCounter1, PNCounter2),
+    GMap = ?GMAP_TYPE:merge(GMap1, GMap2),
+    {?TYPE, {PNCounter, GMap}}.
 
 %% @doc Equality for `state_bcounter()'.
 %%      Two `state_bcounter()' are equal if each

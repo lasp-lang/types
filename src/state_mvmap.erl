@@ -91,12 +91,9 @@ query({?TYPE, AWMap}) ->
 
 %% @doc Merge two `state_mvmap()'.
 -spec merge(state_mvmap(), state_mvmap()) -> state_mvmap().
-merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    MergeFun = fun({?TYPE, AWMap1}, {?TYPE, AWMap2}) ->
-        Map = ?AWMAP_TYPE:merge(AWMap1, AWMap2),
-        {?TYPE, Map}
-    end,
-    state_type:merge(CRDT1, CRDT2, MergeFun).
+merge({?TYPE, AWMap1}, {?TYPE, AWMap2}) ->
+    Map = ?AWMAP_TYPE:merge(AWMap1, AWMap2),
+    {?TYPE, Map}.
 
 %% @doc Equality for `state_mvmap()'.
 %%      Since everything is ordered, == should work.

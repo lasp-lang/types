@@ -24,7 +24,6 @@
 
 -export([new/1,
          mutate/3,
-         merge/3,
          is_inflation/2,
          is_strict_inflation/2,
          irreducible_is_strict_inflation/2]).
@@ -130,11 +129,6 @@ mutate(Op, Actor, {Type, _}=CRDT) ->
             Error
     end.
 
-%% @doc Generic Merge.
--spec merge(crdt(), crdt(), function()) -> crdt().
-merge({Type, CRDT1}, {Type, CRDT2}, MergeFun) ->
-    MergeFun({Type, CRDT1}, {Type, CRDT2}).
-
 %% @doc Generic check for inflation.
 -spec is_inflation(crdt(), crdt()) -> boolean().
 is_inflation({Type, _}=CRDT1, {Type, _}=CRDT2) ->
@@ -153,20 +147,26 @@ is_strict_inflation({Type, _}=CRDT1, {Type, _}=CRDT2) ->
 -spec irreducible_is_strict_inflation(crdt(),
                                       digest()) -> boolean().
 irreducible_is_strict_inflation({Type, _}=Irreducible,
-                                {state, {Type, _}}=CRDT) ->
+                                {state, {Type, _}=CRDT}) ->
     Merged = Type:merge(Irreducible, CRDT),
     Type:is_strict_inflation(CRDT, Merged).
 
 %% @doc Generic delta calculation.
 -spec delta(crdt(), digest()) -> crdt().
 delta({Type, _}=A, B) ->
-    Inflations = lists:filter(
-        fun(Irreducible) ->
-            Type:irreducible_is_strict_inflation(Irreducible, B)
+    lists:foldl(
+        fun(Irreducible, Acc) ->
+            case Type:irreducible_is_strict_inflation(Irreducible,
+                                                      B) of
+                true ->
+                    Type:merge(Irreducible, Acc);
+                false ->
+                    Acc
+            end
         end,
+        new(A),
         Type:join_decomposition(A)
-    ),
-    merge_all(new(A), Inflations).
+    ).
 
 %% @doc extract arguments from complex (composite) types
 extract_args({Type, Args}) ->
@@ -198,14 +198,3 @@ crdt_size({?PNCOUNTER_TYPE, CRDT}) -> crdt_size(CRDT);
 crdt_size({?TWOPSET_TYPE, CRDT}) -> crdt_size(CRDT);
 crdt_size(T) ->
     erts_debug:flat_size(T).
-
-%% @private
--spec merge_all(crdt(), list(crdt())) -> crdt().
-merge_all(Bottom, L) ->
-    lists:foldl(
-        fun({Type, _}=CRDT, Acc) ->
-            Type:merge(CRDT, Acc)
-        end,
-        Bottom,
-        L
-    ).

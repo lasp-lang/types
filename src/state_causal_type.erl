@@ -35,6 +35,7 @@
 -export([new/1,
          merge/3,
          ds_bottom/1,
+         is_element/3,
          dots/2]).
 
 -export_type([causal_crdt/0]).
@@ -54,8 +55,10 @@ new(DotStoreType) ->
     causal_crdt().
 merge(_Type, {DotStore, CausalContext}, {DotStore, CausalContext}) ->
     {DotStore, CausalContext};
+merge(Type, A, B) ->
+    merge(Type, A, B, true).
 
-merge(dot_set, {DotSetA, CausalContextA}, {DotSetB, CausalContextB}) ->
+merge(dot_set, {DotSetA, CausalContextA}, {DotSetB, CausalContextB}, MergeCausalContext) ->
 
     Intersection = dot_set:intersection(DotSetA, DotSetB),
     Subtract1 = dot_set:subtract_causal_context(DotSetA,
@@ -66,13 +69,19 @@ merge(dot_set, {DotSetA, CausalContextA}, {DotSetB, CausalContextB}) ->
     DotStore = dot_set:union(Intersection,
                              dot_set:union(Subtract1, Subtract2)),
 
-    CausalContext = causal_context:union(CausalContextA,
-                                         CausalContextB),
+    CausalContext = case MergeCausalContext of
+        true ->
+            causal_context:union(CausalContextA,
+                                 CausalContextB);
+        false ->
+            undefined
+    end,
 
     {DotStore, CausalContext};
 
+
 merge({dot_fun, CRDTType}=DSType, {DotFunA, CausalContextA},
-                                  {DotFunB, CausalContextB}) ->
+                                  {DotFunB, CausalContextB}, MergeCausalContext) ->
 
     Filtered1 = dot_fun:filter(
         fun(Dot, _) ->
@@ -92,7 +101,7 @@ merge({dot_fun, CRDTType}=DSType, {DotFunA, CausalContextA},
     DotSetB = dots(DSType, DotFunB),
     Intersection = dot_set:intersection(DotSetA, DotSetB),
 
-    DotStore0 = lists:foldl(
+    DotStore0 = dot_set:fold(
         fun(Dot, DotFun) ->
             ValueA = dot_fun:fetch(Dot, DotFunA),
             ValueB = dot_fun:fetch(Dot, DotFunB),
@@ -101,7 +110,7 @@ merge({dot_fun, CRDTType}=DSType, {DotFunA, CausalContextA},
             dot_fun:store(Dot, Value, DotFun)
         end,
         dot_fun:new(),
-        dot_set:to_list(Intersection)
+        Intersection
     ),
 
     DotStore1 = lists:foldl(
@@ -112,50 +121,44 @@ merge({dot_fun, CRDTType}=DSType, {DotFunA, CausalContextA},
         dot_fun:to_list(Filtered1) ++ dot_fun:to_list(Filtered2)
     ),
 
-    CausalContext = causal_context:union(CausalContextA,
-                                         CausalContextB),
+    CausalContext = case MergeCausalContext of
+        true ->
+            causal_context:union(CausalContextA,
+                                 CausalContextB);
+        false ->
+            undefined
+    end,
 
     {DotStore1, CausalContext};
 
 merge({dot_map, Type}, {DotMapA, CausalContextA},
-                       {DotMapB, CausalContextB}) ->
+                       {DotMapB, CausalContextB}, MergeCausalContext) ->
 
-    %% Type can be:
-    %% - DotStoreType
-    %% - CRDTType (causal)
     Default = ds_bottom(Type),
+    DotStoreType = get_type(Type),
 
-    KeysA = dot_map:fetch_keys(DotMapA),
-    KeysB = dot_map:fetch_keys(DotMapB),
-    Keys = ordsets:union(
-        ordsets:from_list(KeysA),
-        ordsets:from_list(KeysB)
-    ),
-
-    DotStore = ordsets:fold(
-        fun(Key, DotMap) ->
-            KeyDotStoreA = dot_map:fetch(Key, DotMapA, Default),
-            KeyDotStoreB = dot_map:fetch(Key, DotMapB, Default),
-
-            {VK, _} = merge(get_type(Type),
+    %% merge two dot maps
+    DotStore = dot_map:merge(
+        fun(KeyDotStoreA, KeyDotStoreB) ->
+            {VK, _} = merge(DotStoreType,
                 {KeyDotStoreA, CausalContextA},
-                {KeyDotStoreB, CausalContextB}
+                {KeyDotStoreB, CausalContextB},
+                false %% don't merge the CausalContext
             ),
-
-            case VK == Default of
-                true ->
-                    %% if the resulting ds is empty
-                    DotMap;
-                false ->
-                    dot_map:store(Key, VK, DotMap)
-            end
+            VK
         end,
-        dot_map:new(),
-        Keys
+        Default,
+        DotMapA,
+        DotMapB
     ),
 
-    CausalContext = causal_context:union(CausalContextA,
-                                         CausalContextB),
+    CausalContext = case MergeCausalContext of
+        true ->
+            causal_context:union(CausalContextA,
+                                 CausalContextB);
+        false ->
+            undefined
+    end,
 
     {DotStore, CausalContext}.
 
@@ -170,6 +173,21 @@ ds_bottom(T) ->
     end,
     DSType:new().
 
+%% @doc Check if a dot belongs to the DotStore.
+-spec is_element(dot_store:type(), dot_store:dot(),
+                 dot_store:dot_store()) -> boolean().
+is_element(dot_set, Dot, DotSet) ->
+    dot_set:is_element(Dot, DotSet);
+is_element({dot_fun, _}, Dot, DotFun) ->
+    dot_fun:is_element(Dot, DotFun);
+is_element({dot_map, T}, Dot, DotMap) ->
+    dot_map:any(
+        fun({_Key, DotStore}) ->
+            is_element(get_type(T), Dot, DotStore)
+        end,
+        DotMap
+    ).
+
 %% @doc Get dots from a DotStore.
 -spec dots(dot_store:type(), dot_store:dot_store()) ->
     dot_store:dot_set().
@@ -179,14 +197,13 @@ dots({dot_fun, _}, DotFun) ->
     Dots = [Dot || {Dot, _} <- dot_fun:to_list(DotFun)],
     dot_set:from_dots(Dots);
 dots({dot_map, T}, DotMap) ->
-    lists:foldl(
-        fun(E, Acc) ->
-            DS = dot_map:fetch(E, DotMap, undefined),
+    dot_map:fold(
+        fun(_, DS, Acc) ->
             DotSet = dots(T, DS),
             dot_set:union(DotSet, Acc)
         end,
         dot_set:new(),
-        dot_map:fetch_keys(DotMap)
+        DotMap
     );
 dots(Type, DS) ->
     dots(get_type(Type), DS).

@@ -102,14 +102,11 @@ query({?TYPE, {DotStore, _}}) ->
 
 %% @doc Merge two `state_mvregister()'.
 -spec merge(state_mvregister(), state_mvregister()) -> state_mvregister().
-merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    MergeFun = fun({?TYPE, Register1}, {?TYPE, Register2}) ->
-        Register = state_causal_type:merge({dot_fun, ?IVAR_TYPE},
-                                           Register1,
-                                           Register2),
-        {?TYPE, Register}
-    end,
-    state_type:merge(CRDT1, CRDT2, MergeFun).
+merge({?TYPE, Register1}, {?TYPE, Register2}) ->
+    Register = state_causal_type:merge({dot_fun, ?IVAR_TYPE},
+                                       Register1,
+                                       Register2),
+    {?TYPE, Register}.
 
 %% @doc Equality for `state_mvregister()'.
 %%      Since everything is ordered, == should work.

@@ -93,17 +93,14 @@ query({?TYPE, {_Timestamp, Value}}) ->
 %%      The result is the set union of both sets in the
 %%      `state_lwwregister()' passed as argument.
 -spec merge(state_lwwregister(), state_lwwregister()) -> state_lwwregister().
-merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    MergeFun = fun({?TYPE, {Timestamp1, Value1}}, {?TYPE, {Timestamp2, Value2}}) ->
-        Register = case Timestamp1 > Timestamp2 of
-            true ->
-                {Timestamp1, Value1};
-            false ->
-                {Timestamp2, Value2}
-        end,
-        {?TYPE, Register}
+merge({?TYPE, {Timestamp1, Value1}}, {?TYPE, {Timestamp2, Value2}}) ->
+    Register = case Timestamp1 > Timestamp2 of
+        true ->
+            {Timestamp1, Value1};
+        false ->
+            {Timestamp2, Value2}
     end,
-    state_type:merge(CRDT1, CRDT2, MergeFun).
+    {?TYPE, Register}.
 
 %% @doc Equality for `state_lwwregister()'.
 -spec equal(state_lwwregister(), state_lwwregister()) -> boolean().

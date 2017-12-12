@@ -156,14 +156,11 @@ query({?TYPE, {DotStore, _CausalContext}}) ->
 %%      Merging is handled by the `merge' function in
 %%      `state_causal_type' common library.
 -spec merge(state_awset(), state_awset()) -> state_awset().
-merge({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
-    MergeFun = fun({?TYPE, AWSet1}, {?TYPE, AWSet2}) ->
-        AWSet = state_causal_type:merge({dot_map, dot_set},
-                                        AWSet1,
-                                        AWSet2),
-        {?TYPE, AWSet}
-    end,
-    state_type:merge(CRDT1, CRDT2, MergeFun).
+merge({?TYPE, AWSet1}, {?TYPE, AWSet2}) ->
+    AWSet = state_causal_type:merge({dot_map, dot_set},
+                                    AWSet1,
+                                    AWSet2),
+    {?TYPE, AWSet}.
 
 %% @doc Equality for `state_awset()'.
 %%      Since everything is ordered, == should work.
@@ -201,17 +198,17 @@ is_strict_inflation({cardinality, Value}, {?TYPE, _}=CRDT) ->
     boolean().
 irreducible_is_strict_inflation({?TYPE, {DSA, CCA}},
                                 {state, {?TYPE, {DSB, CCB}}}) ->
-    [Dot] = dot_set:to_list(causal_context:dots(CCA)),
+    Dot = causal_context:to_dot(CCA),
     %% will inflate if the dot does not belong to the other cc
-    not causal_context:is_element(Dot, CCB) orelse
+    (not causal_context:is_element(Dot, CCB)) orelse
     %% or if it was a not observed removal
     (dot_map:is_empty(DSA) andalso
-     dot_map:is_element(dot_set, Dot, DSB));
+     state_causal_type:is_element({dot_map, dot_set}, Dot, DSB));
 irreducible_is_strict_inflation({?TYPE, {DSA, CCA}},
                                 {mdata, {ActiveDots, CCB}}) ->
-    [Dot] = dot_set:to_list(causal_context:dots(CCA)),
+    Dot = causal_context:to_dot(CCA),
     %% will inflate if the dot does not belong to the other cc
-    not causal_context:is_element(Dot, CCB) orelse
+    (not causal_context:is_element(Dot, CCB)) orelse
     %% or if it was a not observed removal
     (dot_map:is_empty(DSA) andalso
      dot_set:is_element(Dot, ActiveDots)).
@@ -219,21 +216,28 @@ irreducible_is_strict_inflation({?TYPE, {DSA, CCA}},
 %% @doc Join decomposition for `state_awset()'.
 -spec join_decomposition(state_awset()) -> [state_awset()].
 join_decomposition({?TYPE, {DotStore, CausalContext}}) ->
-    Elements = dot_map:fetch_keys(DotStore),
-    {DecompList, ActiveDots} = lists:foldl(
-        fun(Elem, {List0, ActiveDots0}) ->
-            ElemDotSet = dot_map:fetch(Elem, DotStore, dot_set:new()),
-
-            List1 = lists:foldl(
+    {DecompList, ActiveDots} = dot_map:fold(
+        fun(Elem, ElemDotSet, {List0, ActiveDots0}) ->
+            List1 = dot_set:fold(
                 fun(Dot, List2) ->
-                    DotSet = dot_set:add_dot(Dot, dot_set:new()),
-                    DS = dot_map:store(Elem, DotSet, dot_map:new()),
-                    CC = causal_context:from_dot_set(DotSet),
+                    DotSet = dot_set:add_dot(
+                        Dot,
+                        dot_set:new()
+                    ),
+                    DS = dot_map:store(
+                        Elem,
+                        DotSet,
+                        dot_map:new()
+                    ),
+                    CC = causal_context:add_dot(
+                        Dot,
+                        causal_context:new()
+                    ),
                     Decomp = {?TYPE, {DS, CC}},
                     [Decomp | List2]
                 end,
                 List0,
-                dot_set:to_list(ElemDotSet)
+                ElemDotSet
             ),
 
             ActiveDots1 = dot_set:union(ActiveDots0, ElemDotSet),
@@ -241,13 +245,13 @@ join_decomposition({?TYPE, {DotStore, CausalContext}}) ->
             {List1, ActiveDots1}
         end,
         {[], dot_set:new()},
-        Elements
+        DotStore
     ),
 
     CCDotSet = causal_context:dots(CausalContext),
     InactiveDots = dot_set:subtract(CCDotSet, ActiveDots),
 
-    lists:foldl(
+    dot_set:fold(
         fun(InactiveDot, List) ->
             DS = dot_map:new(),
             CC = causal_context:add_dot(InactiveDot,
@@ -256,7 +260,7 @@ join_decomposition({?TYPE, {DotStore, CausalContext}}) ->
             [Decomp | List]
         end,
         DecompList,
-        dot_set:to_list(InactiveDots)
+        InactiveDots
     ).
 
 %% @doc Delta calculation for `state_awset()'.
@@ -351,6 +355,7 @@ rmv_test() ->
     {ok, Set1} = mutate({add, "a"}, Actor, Set0),
     {ok, Set1} = mutate({rmv, "b"}, Actor, Set1),
     {ok, Set2} = mutate({rmv, "a"}, Actor, Set1),
+
     ?assertEqual(sets:new(), query(Set2)).
 
 add_all_test() ->
