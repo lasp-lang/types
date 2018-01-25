@@ -29,7 +29,8 @@
          irreducible_is_strict_inflation/2]).
 -export([delta/2]).
 -export([extract_args/1]).
--export([crdt_size/1]).
+-export([crdt_size/1,
+         digest_size/1]).
 
 -export_type([state_type/0,
               crdt/0,
@@ -174,16 +175,36 @@ extract_args({Type, Args}) ->
 extract_args(Type) ->
     {Type, []}.
 
-%% @doc Term size.
-crdt_size({?AWSET_TYPE, {DotMap, {Compressed, DotSet}}}) ->
-    %% size of the dot map here is 2 times its size:
-    %% - 1 for the dot (assuming a single supporting dot)
-    %% - 1 for the element
-    %% size of the causal context is the number of entries
-    %% in the compressed component plus the number
-    %% of the dots in the non-compressed part
-    (2 * orddict:size(DotMap)) + orddict:size(Compressed) + ordsets:size(DotSet);
+%% @doc CRDT size.
+crdt_size({?AWSET_TYPE, {DotMap, CausalContext}}) ->
+    %% size of the dot map
+    dot_map:fold(
+        fun(_, DotSet, Acc) ->
+            %% size of the dot set, +1 for the key
+            Acc + dot_set_size(DotSet) + 1
+        end,
+        0,
+        DotMap
+    ) +
+    causal_context_size(CausalContext);
 crdt_size({?GCOUNTER_TYPE, CRDT}) ->
     orddict:size(CRDT);
 crdt_size({?GSET_TYPE, CRDT}) ->
     ordsets:size(CRDT).
+
+%% @doc Digest size.
+digest_size({ActiveDots, CausalContext}) ->
+    %% awset
+    dot_set_size(ActiveDots) +
+    causal_context_size(CausalContext).
+
+%% @private
+dot_set_size(DotSet) ->
+    ordsets:size(DotSet).
+
+%% @private
+causal_context_size({Compressed, DotSet}) ->
+    %% size of the causal context is the number of entries
+    %% in the compressed component plus the number
+    %% of the dots in the non-compressed part
+    orddict:size(Compressed) + dot_set_size(DotSet).
