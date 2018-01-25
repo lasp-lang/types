@@ -175,26 +175,15 @@ extract_args(Type) ->
     {Type, []}.
 
 %% @doc Term size.
-crdt_size({?AWMAP_TYPE, {_CType, CRDT}}) -> crdt_size(CRDT);
-crdt_size({?AWSET_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?BCOUNTER_TYPE, {CRDT1, CRDT2}}) ->
-    crdt_size(CRDT1) + crdt_size(CRDT2);
-crdt_size({?BOOLEAN_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?DWFLAG_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?EWFLAG_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?GCOUNTER_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?GMAP_TYPE, {_CType, CRDT}}) -> crdt_size(CRDT);
-crdt_size({?GSET_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?IVAR_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?LEXCOUNTER_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?LWWREGISTER_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?MAX_INT_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?MVMAP_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?MVREGISTER_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?ORSET_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?PAIR_TYPE, {CRDT1, CRDT2}}) ->
-    crdt_size(CRDT1) + crdt_size(CRDT2);
-crdt_size({?PNCOUNTER_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?TWOPSET_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size(T) ->
-    erts_debug:flat_size(T).
+crdt_size({?AWSET_TYPE, {DotMap, {Compressed, DotSet}}}) ->
+    %% size of the dot map here is 2 times its size:
+    %% - 1 for the dot (assuming a single supporting dot)
+    %% - 1 for the element
+    %% size of the causal context is the number of entries
+    %% in the compressed component plus the number
+    %% of the dots in the non-compressed part
+    (2 * orddict:size(DotMap)) + orddict:size(Compressed) + ordsets:size(DotSet);
+crdt_size({?GCOUNTER_TYPE, CRDT}) ->
+    orddict:size(CRDT);
+crdt_size({?GSET_TYPE, CRDT}) ->
+    ordsets:size(CRDT).
