@@ -178,6 +178,7 @@ extract_args(Type) ->
 %% @doc CRDT size.
 %%      First component is the metadata size,
 %%      the second component is the payload size.
+-spec crdt_size(crdt()) -> {non_neg_integer(), non_neg_integer()}.
 crdt_size({?AWSET_TYPE, {DotMap, CausalContext}}) ->
     %% size of the dot map
     {M, P} = dot_map:fold(
