@@ -106,7 +106,8 @@ apply_op({Key, OpType, Op}, Actor, {?TYPE, {CType, GMap}}) ->
     Bottom = Type:new(Args),
     Current = orddict_ext:fetch(Key, GMap, Bottom),
     {ok, KeyDelta} = Type:delta_mutate(Op, Actor, Current),
-    Delta = orddict:store(Key, KeyDelta, orddict:new()),
+    % orddict:store(Key, KeyDelta, orddict:new()),
+    Delta = [{Key, KeyDelta}],
     {?TYPE, {CType, Delta}}.
 
 %% @doc Returns the value of the `state_gmap()'.
@@ -195,8 +196,21 @@ digest({?TYPE, _}=CRDT) ->
 %% @doc Join decomposition for `state_gmap()'.
 %% @todo
 -spec join_decomposition(state_gmap()) -> [state_gmap()].
-join_decomposition({?TYPE, _}=CRDT) ->
-    [CRDT].
+join_decomposition({?TYPE, {CType, GMap}}) ->
+    lists:foldl(
+        fun({Key, {Type, _}=CRDT}, Acc0) ->
+            lists:foldl(
+                fun(NestedIrreducible, Acc1) ->
+                    Irreducible = {?TYPE, {CType, [{Key, NestedIrreducible}]}},
+                    [Irreducible | Acc1]
+                end,
+                Acc0,
+                Type:join_decomposition(CRDT)
+            )
+        end,
+        [],
+        GMap
+    ).
 
 %% @doc Delta calculation for `state_gmap()'.
 -spec delta(state_gmap(), state_type:digest()) -> state_gmap().
@@ -291,8 +305,17 @@ is_strict_inflation_test() ->
     ?assertNot(is_strict_inflation(Map1, Map3)).
 
 join_decomposition_test() ->
-    %% @todo
-    ok.
+    Map0 = new([?LWWREGISTER_TYPE]),
+    {ok, Map1} = mutate({apply, key1, {set, 10, x}}, undefined, Map0),
+    {ok, Map2} = mutate({apply, key1, {set, 11, a}}, undefined, Map1),
+    {ok, Map3} = mutate({apply, key2, {set, 12, b}}, undefined, Map2),
+    {ok, Map4} = mutate({apply, key3, {set, 13, c}}, undefined, Map3),
+
+    Expected = [{?TYPE, {?LWWREGISTER_TYPE, [{key1, {?LWWREGISTER_TYPE, {11, a}}}]}},
+                {?TYPE, {?LWWREGISTER_TYPE, [{key2, {?LWWREGISTER_TYPE, {12, b}}}]}},
+                {?TYPE, {?LWWREGISTER_TYPE, [{key3, {?LWWREGISTER_TYPE, {13, c}}}]}}],
+
+    ?assertEqual(lists:sort(Expected), lists:sort(join_decomposition(Map4))).
 
 encode_decode_test() ->
     Map = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
