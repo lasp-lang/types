@@ -129,7 +129,7 @@ is_strict_inflation({?TYPE, {Timestamp1, _}}, {?TYPE, {Timestamp2, _}}) ->
 -spec irreducible_is_strict_inflation(state_lwwregister(),
                                       state_type:digest()) ->
     boolean().
-irreducible_is_strict_inflation(A, B) ->
+irreducible_is_strict_inflation(A, {state, B}) ->
     is_strict_inflation(A, B).
 
 -spec digest(state_lwwregister()) -> state_type:digest().
