@@ -195,7 +195,7 @@ crdt_size({?GCOUNTER_TYPE, CRDT}) ->
 crdt_size({?GSET_TYPE, CRDT}) ->
     {0, ordsets:size(CRDT)};
 crdt_size({?GMAP_TYPE, {_, CRDT}}) ->
-    {orddict:size(CRDT), 0}.
+    {dict:size(CRDT), 0}.
 
 %% @doc Digest size.
 digest_size({ActiveDots, CausalContext}) ->
