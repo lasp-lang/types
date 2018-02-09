@@ -172,8 +172,17 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 -spec irreducible_is_strict_inflation(state_gmap(),
                                       state_type:digest()) ->
     boolean().
-irreducible_is_strict_inflation({?TYPE, _}=A, B) ->
-    state_type:irreducible_is_strict_inflation(A, B).
+irreducible_is_strict_inflation({?TYPE, {_CType, GMap1}},
+                                {state, {?TYPE, {_CType, GMap2}}}) ->
+    [{Key, {Type, _}=V1}] = dict:to_list(GMap1),
+    case dict:find(Key, GMap2) of
+        error ->
+            %% it will inflate if it's not a key in the other map
+            true;
+        {ok, {Type, _}=V2} ->
+            %% if it's present, recursive call
+            Type:irreducible_is_strict_inflation(V1, {state, V2})
+    end.
 
 -spec digest(state_gmap()) -> state_type:digest().
 digest({?TYPE, _}=CRDT) ->
