@@ -90,8 +90,8 @@ delta_mutate({move, Count, To}, Actor, {?TYPE, {PNCounter, GMap}}=BCounter) ->
     {?GMAP_TYPE, {?MAX_INT_TYPE, Map0}} = GMap,
     case Count =< permissions(BCounter, Actor) of
         true ->
-            Current = orddict_ext:fetch({Actor, To}, Map0, 0),
-            Map1 = orddict:store({Actor, To}, Current + Count, orddict:new()),
+            Current = dict_ext:fetch({Actor, To}, Map0, 0),
+            Map1 = dict:store({Actor, To}, Current + Count, dict:new()),
             Delta = {state_type:new(PNCounter), {?GMAP_TYPE, {?MAX_INT_TYPE, Map1}}},
             {ok, {?TYPE, Delta}};
         false ->
@@ -122,7 +122,7 @@ permissions({?TYPE, {{?PNCOUNTER_TYPE, PNCounter},
                      {?GMAP_TYPE, {?MAX_INT_TYPE, GMap}}}}, Actor) ->
     {Inc, Dec} = orddict_ext:fetch(Actor, PNCounter, {0, 0}),
     Local = Inc - Dec,
-    {Incoming, Outgoing} = orddict:fold(
+    {Incoming, Outgoing} = dict:fold(
         fun({From, To}, Value, {In0, Out0}) ->
             In1 = case To == Actor of
                 true ->
@@ -244,7 +244,8 @@ new_test() ->
 
 query_test() ->
     BCounter0 = new(),
-    BCounter1 = {?TYPE, {{?PNCOUNTER_TYPE, [{1, {2, 0}}, {2, {5, 0}}, {3, {10, 0}}]}, {?GMAP_TYPE, {?MAX_INT_TYPE, []}}}},
+    BCounter1 = {?TYPE, {{?PNCOUNTER_TYPE, [{1, {2, 0}}, {2, {5, 0}}, {3, {10, 0}}]},
+                         {?GMAP_TYPE, {?MAX_INT_TYPE, dict:from_list([])}}}},
     ?assertEqual(0, query(BCounter0)),
     ?assertEqual(17, query(BCounter1)).
 
@@ -256,21 +257,30 @@ delta_increment_test() ->
     BCounter2 = merge({?TYPE, Delta2}, BCounter1),
     {ok, {?TYPE, Delta3}} = delta_mutate(increment, 2, BCounter2),
     BCounter3 = merge({?TYPE, Delta3}, BCounter2),
-    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {1, 0}}]}, {?GMAP_TYPE, {?MAX_INT_TYPE, []}}}}, {?TYPE, Delta1}),
-    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {1, 0}}]}, {?GMAP_TYPE, {?MAX_INT_TYPE, []}}}}, BCounter1),
-    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {2, 0}}]}, {?GMAP_TYPE, {?MAX_INT_TYPE, []}}}}, {?TYPE, Delta2}),
-    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {2, 0}}]}, {?GMAP_TYPE, {?MAX_INT_TYPE, []}}}}, BCounter2),
-    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{2, {1, 0}}]}, {?GMAP_TYPE, {?MAX_INT_TYPE, []}}}}, {?TYPE, Delta3}),
-    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {2, 0}}, {2, {1, 0}}]}, {?GMAP_TYPE, {?MAX_INT_TYPE, []}}}}, BCounter3).
+    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {1, 0}}]},
+                          {?GMAP_TYPE, {?MAX_INT_TYPE, dict:from_list([])}}}}, {?TYPE, Delta1}),
+    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {1, 0}}]},
+                          {?GMAP_TYPE, {?MAX_INT_TYPE, dict:from_list([])}}}}, BCounter1),
+    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {2, 0}}]},
+                          {?GMAP_TYPE, {?MAX_INT_TYPE, dict:from_list([])}}}}, {?TYPE, Delta2}),
+    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {2, 0}}]},
+                          {?GMAP_TYPE, {?MAX_INT_TYPE, dict:from_list([])}}}}, BCounter2),
+    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{2, {1, 0}}]},
+                          {?GMAP_TYPE, {?MAX_INT_TYPE, dict:from_list([])}}}}, {?TYPE, Delta3}),
+    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {2, 0}}, {2, {1, 0}}]},
+                          {?GMAP_TYPE, {?MAX_INT_TYPE, dict:from_list([])}}}}, BCounter3).
 
 add_test() ->
     BCounter0 = new(),
     {ok, BCounter1} = mutate(increment, 1, BCounter0),
     {ok, BCounter2} = mutate(increment, 1, BCounter1),
     {ok, BCounter3} = mutate(increment, 2, BCounter2),
-    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {1, 0}}]}, {?GMAP_TYPE, {?MAX_INT_TYPE, []}}}}, BCounter1),
-    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {2, 0}}]}, {?GMAP_TYPE, {?MAX_INT_TYPE, []}}}}, BCounter2),
-    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {2, 0}}, {2, {1, 0}}]}, {?GMAP_TYPE, {?MAX_INT_TYPE, []}}}}, BCounter3).
+    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {1, 0}}]},
+                          {?GMAP_TYPE, {?MAX_INT_TYPE, dict:from_list([])}}}}, BCounter1),
+    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {2, 0}}]},
+                          {?GMAP_TYPE, {?MAX_INT_TYPE, dict:from_list([])}}}}, BCounter2),
+    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{1, {2, 0}}, {2, {1, 0}}]},
+                          {?GMAP_TYPE, {?MAX_INT_TYPE, dict:from_list([])}}}}, BCounter3).
 
 delta_decrement_test() ->
     Actor = 1,
@@ -280,7 +290,8 @@ delta_decrement_test() ->
     {ok, {?TYPE, Delta1}} = delta_mutate(decrement, Actor, BCounter1),
     BCounter2 = merge({?TYPE, Delta1}, BCounter1),
     {error, _} = delta_mutate(decrement, Actor, BCounter2),
-    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{Actor, {1, 1}}]}, {?GMAP_TYPE, {?MAX_INT_TYPE, []}}}}, BCounter2).
+    ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{Actor, {1, 1}}]},
+                          {?GMAP_TYPE, {?MAX_INT_TYPE, dict:from_list([])}}}}, BCounter2).
 
 delta_move_test() ->
     From = 1,
@@ -303,12 +314,13 @@ delta_move_test() ->
     {ok, {?TYPE, Delta4}} = delta_mutate(decrement, From, BCounter5),
     BCounter6 = merge({?TYPE, Delta4}, BCounter5),
     ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{From, {2, 0}}]},
-                          {?GMAP_TYPE, {?MAX_INT_TYPE, [{{From, To}, 2}]}}}}, BCounter3),
+                          {?GMAP_TYPE, {?MAX_INT_TYPE, dict:from_list([{{From, To}, 2}])}}}}, BCounter3),
     ?assertEqual({?TYPE, {{?PNCOUNTER_TYPE, [{From, {2, 1}}, {To, {0, 1}}]},
-                          {?GMAP_TYPE, {?MAX_INT_TYPE, [{{From, To}, 2}, {{To, From}, 1}]}}}}, BCounter6).
+                          {?GMAP_TYPE, {?MAX_INT_TYPE, dict:from_list([{{From, To}, 2},
+                                                                       {{To, From}, 1}])}}}}, BCounter6).
 
 merge_deltas_test() ->
-    GMap = {?GMAP_TYPE, {?MAX_INT_TYPE, []}},
+    GMap = {?GMAP_TYPE, {?MAX_INT_TYPE, dict:from_list([])}},
     BCounter1 = {?TYPE, {{?PNCOUNTER_TYPE, [{1, {2, 0}}, {2, {1, 0}}]}, GMap}},
     Delta1 = {?TYPE, {{?PNCOUNTER_TYPE, [{1, {4, 0}}]}, GMap}},
     Delta2 = {?TYPE, {{?PNCOUNTER_TYPE, [{2, {1, 17}}]}, GMap}},
@@ -324,7 +336,7 @@ join_decomposition_test() ->
     ok.
 
 encode_decode_test() ->
-    GMap = {?GMAP_TYPE, {?MAX_INT_TYPE, []}},
+    GMap = {?GMAP_TYPE, {?MAX_INT_TYPE, dict:from_list([])}},
     Counter = {?TYPE, {{?PNCOUNTER_TYPE, [{1, {4, 0}}, {2, {1, 0}}]}, GMap}},
     Binary = encode(erlang, Counter),
     ECounter = decode(erlang, Binary),

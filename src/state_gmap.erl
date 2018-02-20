@@ -51,7 +51,7 @@
 
 -opaque state_gmap() :: {?TYPE, payload()}.
 -type ctype() :: state_type:state_type() | {state_type:state_type(), [term()]}.
--type payload() :: {ctype(), orddict:orddict()}.
+-type payload() :: {ctype(), dict:dict()}.
 -type key() :: term().
 -type key_op() :: term().
 -type op() :: {key(), key_op()} | {key(), ctype(), key_op()}.
@@ -68,7 +68,7 @@ new() ->
 %% @doc Create a new, empty `state_gmap()'
 -spec new([term()]) -> state_gmap().
 new([CType]) ->
-    {?TYPE, {CType, orddict:new()}}.
+    {?TYPE, {CType, dict:new()}}.
 
 %% @doc Mutate a `state_gmap()'.
 -spec mutate(state_gmap_op(), type:id(), state_gmap()) ->
@@ -104,9 +104,10 @@ apply_op({Key, Op}, Actor, {?TYPE, {CType, _}}=CRDT) ->
 apply_op({Key, OpType, Op}, Actor, {?TYPE, {CType, GMap}}) ->
     {Type, Args} = state_type:extract_args(OpType),
     Bottom = Type:new(Args),
-    Current = orddict_ext:fetch(Key, GMap, Bottom),
+    Current = dict_ext:fetch(Key, GMap, Bottom),
     {ok, KeyDelta} = Type:delta_mutate(Op, Actor, Current),
-    Delta = orddict:store(Key, KeyDelta, orddict:new()),
+    % dict:store(Key, KeyDelta, dict:new()),
+    Delta = dict:from_list([{Key, KeyDelta}]),
     {?TYPE, {CType, Delta}}.
 
 %% @doc Returns the value of the `state_gmap()'.
@@ -114,10 +115,11 @@ apply_op({Key, OpType, Op}, Actor, {?TYPE, {CType, GMap}}) ->
 %%      result of `query/1' over the current value.
 -spec query(state_gmap()) -> term().
 query({?TYPE, {_, GMap}}) ->
-    lists:map(
-        fun({Key, {Type, _}=CRDT}) ->
-            {Key, Type:query(CRDT)}
+    dict:fold(
+        fun(Key, {Type, _}=CRDT, Acc) ->
+            [{Key, Type:query(CRDT)} | Acc]
         end,
+        [],
         GMap
     ).
 
@@ -130,7 +132,7 @@ query({?TYPE, {_, GMap}}) ->
 %%      will be the `merge/2' of both values.
 -spec merge(state_gmap(), state_gmap()) -> state_gmap().
 merge({?TYPE, {CType, GMap1}}, {?TYPE, {CType, GMap2}}) ->
-    GMap = orddict:merge(
+    GMap = dict:merge(
         fun(_, {Type, _}=CRDT1, {Type, _}=CRDT2) ->
             Type:merge(CRDT1, CRDT2)
         end,
@@ -140,19 +142,14 @@ merge({?TYPE, {CType, GMap1}}, {?TYPE, {CType, GMap2}}) ->
     {?TYPE, {CType, GMap}}.
 
 %% @doc Equality for `state_gmap()'.
-%%      Two `state_gmap()' are equal if they have the same keys
-%%      and for each key, their values are also `equal/2'.
 -spec equal(state_gmap(), state_gmap()) -> boolean().
 equal({?TYPE, {CType, GMap1}}, {?TYPE, {CType, GMap2}}) ->
-    Fun = fun({Type, _}=CRDT1, {Type, _}=CRDT2) ->
-        Type:equal(CRDT1, CRDT2)
-    end,
-    orddict_ext:equal(GMap1, GMap2, Fun).
+    dict:to_list(GMap1) == dict:to_list(GMap2).
 
 %% @doc Check if a `state_gmap()' is bottom
 -spec is_bottom(state_gmap()) -> boolean().
 is_bottom({?TYPE, {_CType, GMap}}) ->
-    orddict:is_empty(GMap).
+    dict:is_empty(GMap).
 
 %% @doc Given two `state_gmap()', check if the second is an inflation
 %%      of the first.
@@ -163,18 +160,8 @@ is_bottom({?TYPE, {_CType, GMap}}) ->
 %%          the correspondent value in the second `state_gmap()'
 %%          should be an inflation of the value in the first.
 -spec is_inflation(state_gmap(), state_gmap()) -> boolean().
-is_inflation({?TYPE, {CType, GMap1}}, {?TYPE, {CType, GMap2}}) ->
-    lists_ext:iterate_until(
-        fun({Key, {Type, _}=CRDT1}) ->
-            case orddict:find(Key, GMap2) of
-                {ok, CRDT2} ->
-                    Type:is_inflation(CRDT1, CRDT2);
-                error ->
-                    false
-            end
-        end,
-        GMap1
-     ).
+is_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
+    state_type:is_inflation(CRDT1, CRDT2).
 
 %% @doc Check for strict inflation.
 -spec is_strict_inflation(state_gmap(), state_gmap()) -> boolean().
@@ -185,8 +172,17 @@ is_strict_inflation({?TYPE, _}=CRDT1, {?TYPE, _}=CRDT2) ->
 -spec irreducible_is_strict_inflation(state_gmap(),
                                       state_type:digest()) ->
     boolean().
-irreducible_is_strict_inflation({?TYPE, _}=A, B) ->
-    state_type:irreducible_is_strict_inflation(A, B).
+irreducible_is_strict_inflation({?TYPE, {_CType, GMap1}},
+                                {state, {?TYPE, {_CType, GMap2}}}) ->
+    [{Key, {Type, _}=V1}] = dict:to_list(GMap1),
+    case dict:find(Key, GMap2) of
+        error ->
+            %% it will inflate if it's not a key in the other map
+            true;
+        {ok, {Type, _}=V2} ->
+            %% if it's present, recursive call
+            Type:irreducible_is_strict_inflation(V1, {state, V2})
+    end.
 
 -spec digest(state_gmap()) -> state_type:digest().
 digest({?TYPE, _}=CRDT) ->
@@ -195,8 +191,21 @@ digest({?TYPE, _}=CRDT) ->
 %% @doc Join decomposition for `state_gmap()'.
 %% @todo
 -spec join_decomposition(state_gmap()) -> [state_gmap()].
-join_decomposition({?TYPE, _}=CRDT) ->
-    [CRDT].
+join_decomposition({?TYPE, {CType, GMap}}) ->
+    dict:fold(
+        fun(Key, {Type, _}=CRDT, Acc0) ->
+            lists:foldl(
+                fun(NestedIrreducible, Acc1) ->
+                    Irreducible = {?TYPE, {CType, dict:from_list([{Key, NestedIrreducible}])}},
+                    [Irreducible | Acc1]
+                end,
+                Acc0,
+                Type:join_decomposition(CRDT)
+            )
+        end,
+        [],
+        GMap
+    ).
 
 %% @doc Delta calculation for `state_gmap()'.
 -spec delta(state_gmap(), state_type:digest()) -> state_gmap().
@@ -219,16 +228,17 @@ decode(erlang, Binary) ->
 -ifdef(TEST).
 
 new_test() ->
-    ?assertEqual({?TYPE, {?MAX_INT_TYPE, []}}, new()),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, []}}, new([?GCOUNTER_TYPE])).
+    ?assertEqual({?TYPE, {?MAX_INT_TYPE, dict:from_list([])}}, new()),
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, dict:from_list([])}}, new([?GCOUNTER_TYPE])).
 
 query_test() ->
     Counter1 = {?GCOUNTER_TYPE, [{1, 1}, {2, 13}, {3, 1}]},
     Counter2 = {?GCOUNTER_TYPE, [{2, 2}, {3, 13}, {5, 2}]},
     Map0 = new([?GCOUNTER_TYPE]),
-    Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, Counter1}, {<<"key2">>, Counter2}]}},
+    Map1 = {?TYPE, {?GCOUNTER_TYPE, dict:from_list([{<<"key1">>, Counter1},
+                                                    {<<"key2">>, Counter2}])}},
     ?assertEqual([], query(Map0)),
-    ?assertEqual([{<<"key1">>, 15}, {<<"key2">>, 17}], query(Map1)).
+    ?assertEqual([{<<"key1">>, 15}, {<<"key2">>, 17}], lists:sort(query(Map1))).
 
 delta_apply_test() ->
     Map0 = new([?GCOUNTER_TYPE]),
@@ -238,42 +248,58 @@ delta_apply_test() ->
     Map2 = merge({?TYPE, Delta2}, Map1),
     {ok, {?TYPE, Delta3}} = delta_mutate({apply, <<"key2">>, increment}, 1, Map2),
     Map3 = merge({?TYPE, Delta3}, Map2),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}}, {?TYPE, Delta1}),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}}, Map1),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{2, 1}]}}]}}, {?TYPE, Delta2}),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}, {2, 1}]}}]}}, Map2),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}}, {?TYPE, Delta3}),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}, {2, 1}]}},
-                                           {<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}}, Map3).
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE,
+                          dict:from_list([{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}])}}, {?TYPE, Delta1}),
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE,
+                          dict:from_list([{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}])}}, Map1),
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE,
+                          dict:from_list([{<<"key1">>, {?GCOUNTER_TYPE, [{2, 1}]}}])}}, {?TYPE, Delta2}),
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE,
+                          dict:from_list([{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}, {2, 1}]}}])}}, Map2),
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE,
+                          dict:from_list([{<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}])}}, {?TYPE, Delta3}),
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE,
+                          dict:from_list([{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}, {2, 1}]}},
+                                          {<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}])}}, Map3).
 
 apply_test() ->
     Map0 = new([?GCOUNTER_TYPE]),
     {ok, Map1} = mutate({apply, <<"key1">>, increment}, 1, Map0),
     {ok, Map2} = mutate({apply, <<"key1">>, increment}, 2, Map1),
     {ok, Map3} = mutate({apply, <<"key2">>, increment}, 1, Map2),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}}, Map1),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}, {2, 1}]}}]}}, Map2),
-    ?assertEqual({?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}, {2, 1}]}},
-                                           {<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}}, Map3).
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE,
+                          dict:from_list([{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}])}}, Map1),
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE,
+                          dict:from_list([{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}, {2, 1}]}}])}}, Map2),
+    ?assertEqual({?TYPE, {?GCOUNTER_TYPE,
+                          dict:from_list([{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}, {2, 1}]}},
+                                          {<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}])}}, Map3).
 
 equal_test() ->
-    Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
-    Map2 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 2}]}}]}},
-    Map3 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
+    Map1 = {?TYPE, {?GCOUNTER_TYPE,
+                    dict:from_list([{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}])}},
+    Map2 = {?TYPE, {?GCOUNTER_TYPE,
+                    dict:from_list([{<<"key1">>, {?GCOUNTER_TYPE, [{1, 2}]}}])}},
+    Map3 = {?TYPE, {?GCOUNTER_TYPE,
+                    dict:from_list([{<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}])}},
     ?assert(equal(Map1, Map1)),
     ?assertNot(equal(Map1, Map2)),
     ?assertNot(equal(Map1, Map3)).
 
 is_bottom_test() ->
     Map0 = new(),
-    Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
+    Map1 = {?TYPE, {?GCOUNTER_TYPE,
+                    dict:from_list([{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}])}},
     ?assert(is_bottom(Map0)),
     ?assertNot(is_bottom(Map1)).
 
 is_inflation_test() ->
-    Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
-    Map2 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 2}]}}]}},
-    Map3 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
+    Map1 = {?TYPE, {?GCOUNTER_TYPE,
+                    dict:from_list([{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}])}},
+    Map2 = {?TYPE, {?GCOUNTER_TYPE,
+                    dict:from_list([{<<"key1">>, {?GCOUNTER_TYPE, [{1, 2}]}}])}},
+    Map3 = {?TYPE, {?GCOUNTER_TYPE,
+                    dict:from_list([{<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}])}},
     ?assert(is_inflation(Map1, Map1)),
     ?assert(is_inflation(Map1, Map2)),
     ?assertNot(is_inflation(Map1, Map3)),
@@ -283,19 +309,35 @@ is_inflation_test() ->
     ?assertNot(state_type:is_inflation(Map1, Map3)).
 
 is_strict_inflation_test() ->
-    Map1 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
-    Map2 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 2}]}}]}},
-    Map3 = {?TYPE, {?GCOUNTER_TYPE, [{<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
+    Map1 = {?TYPE, {?GCOUNTER_TYPE,
+                    dict:from_list([{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}])}},
+    Map2 = {?TYPE, {?GCOUNTER_TYPE,
+                    dict:from_list([{<<"key1">>, {?GCOUNTER_TYPE, [{1, 2}]}}])}},
+    Map3 = {?TYPE, {?GCOUNTER_TYPE,
+                    dict:from_list([{<<"key2">>, {?GCOUNTER_TYPE, [{1, 1}]}}])}},
     ?assertNot(is_strict_inflation(Map1, Map1)),
     ?assert(is_strict_inflation(Map1, Map2)),
     ?assertNot(is_strict_inflation(Map1, Map3)).
 
 join_decomposition_test() ->
-    %% @todo
-    ok.
+    Map0 = new([?LWWREGISTER_TYPE]),
+    {ok, Map1} = mutate({apply, key1, {set, 10, x}}, undefined, Map0),
+    {ok, Map2} = mutate({apply, key1, {set, 11, a}}, undefined, Map1),
+    {ok, Map3} = mutate({apply, key2, {set, 12, b}}, undefined, Map2),
+    {ok, Map4} = mutate({apply, key3, {set, 13, c}}, undefined, Map3),
+
+    Expected = [{?TYPE, {?LWWREGISTER_TYPE,
+                         dict:from_list([{key1, {?LWWREGISTER_TYPE, {11, a}}}])}},
+                {?TYPE, {?LWWREGISTER_TYPE,
+                         dict:from_list([{key2, {?LWWREGISTER_TYPE, {12, b}}}])}},
+                {?TYPE, {?LWWREGISTER_TYPE,
+                         dict:from_list([{key3, {?LWWREGISTER_TYPE, {13, c}}}])}}],
+
+    ?assertEqual(lists:sort(Expected), lists:sort(join_decomposition(Map4))).
 
 encode_decode_test() ->
-    Map = {?TYPE, {?GCOUNTER_TYPE, [{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}]}},
+    Map = {?TYPE, {?GCOUNTER_TYPE,
+                   dict:from_list([{<<"key1">>, {?GCOUNTER_TYPE, [{1, 1}]}}])}},
     Binary = encode(erlang, Map),
     EMap = decode(erlang, Binary),
     ?assertEqual(Map, EMap).
@@ -307,7 +349,7 @@ equivalent_with_gcounter_test() ->
     {ok, Map1} = mutate({apply, Actor1, increment}, undefined, Map0),
     {ok, Map2} = mutate({apply, Actor1, increment}, undefined, Map1),
     {ok, Map3} = mutate({apply, Actor2, increment}, undefined, Map2),
-    [{Actor1, Value1}, {Actor2, Value2}] = query(Map3),
+    [{Actor1, Value1}, {Actor2, Value2}] = lists:sort(query(Map3)),
     GCounter0 = ?GCOUNTER_TYPE:new(),
     {ok, GCounter1} = ?GCOUNTER_TYPE:mutate(increment, Actor1, GCounter0),
     {ok, GCounter2} = ?GCOUNTER_TYPE:mutate(increment, Actor1, GCounter1),

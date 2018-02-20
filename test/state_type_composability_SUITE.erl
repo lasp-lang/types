@@ -268,10 +268,14 @@ pair_with_gcounter_and_gmap_test(_Config) ->
     {ok, Pair3} = ?PAIR_TYPE:mutate({fst, increment}, Actor, Pair2),
     Query = ?PAIR_TYPE:query(Pair3),
 
-    ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, []}, {?GMAP_TYPE, {?BOOLEAN_TYPE, []}}}}, Pair0),
-    ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, [{Actor, 1}]}, {?GMAP_TYPE, {?BOOLEAN_TYPE, []}}}}, Pair1),
-    ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, [{Actor, 1}]}, {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}}}}, Pair2),
-    ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, [{Actor, 2}]}, {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}}}}, Pair3),
+    ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, []},
+                               {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([])}}}}, Pair0),
+    ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, [{Actor, 1}]},
+                               {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([])}}}}, Pair1),
+    ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, [{Actor, 1}]},
+                               {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([{Actor, {?BOOLEAN_TYPE, 1}}])}}}}, Pair2),
+    ?assertEqual({?PAIR_TYPE, {{?GCOUNTER_TYPE, [{Actor, 2}]},
+                               {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([{Actor, {?BOOLEAN_TYPE, 1}}])}}}}, Pair3),
     ?assertEqual({2, [{Actor, true}]}, Query).
 
 pair_with_gmap_and_pair_with_gcounter_and_gmap_test(_Config) ->
@@ -289,31 +293,31 @@ pair_with_gmap_and_pair_with_gcounter_and_gmap_test(_Config) ->
     Query = ?PAIR_TYPE:query(Pair3),
 
     ?assertEqual({?PAIR_TYPE, {
-        {?GMAP_TYPE, {?BOOLEAN_TYPE, []}},
+        {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([])}},
         {?PAIR_TYPE, {
             {?GCOUNTER_TYPE, []},
-            {?GMAP_TYPE, {?BOOLEAN_TYPE, []}}
+            {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([])}}
         }}
     }}, Pair0),
     ?assertEqual({?PAIR_TYPE, {
-        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}},
+        {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([{Actor, {?BOOLEAN_TYPE, 1}}])}},
         {?PAIR_TYPE, {
             {?GCOUNTER_TYPE, []},
-            {?GMAP_TYPE, {?BOOLEAN_TYPE, []}}
+            {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([])}}
         }}
     }}, Pair1),
     ?assertEqual({?PAIR_TYPE, {
-        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}},
+        {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([{Actor, {?BOOLEAN_TYPE, 1}}])}},
         {?PAIR_TYPE, {
             {?GCOUNTER_TYPE, [{Actor, 1}]},
-            {?GMAP_TYPE, {?BOOLEAN_TYPE, []}}
+            {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([])}}
         }}
     }}, Pair2),
     ?assertEqual({?PAIR_TYPE, {
-        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}},
+        {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([{Actor, {?BOOLEAN_TYPE, 1}}])}},
         {?PAIR_TYPE, {
             {?GCOUNTER_TYPE, [{Actor, 1}]},
-            {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}}
+            {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([{Actor, {?BOOLEAN_TYPE, 1}}])}}
         }}
     }}, Pair3),
     ?assertEqual({
@@ -338,30 +342,30 @@ pair_with_pair_with_gcounter_and_gmap_and_gmap_test(_Config) ->
     ?assertEqual({?PAIR_TYPE, {
         {?PAIR_TYPE, {
             {?GCOUNTER_TYPE, []},
-            {?GMAP_TYPE, {?BOOLEAN_TYPE, []}}
+            {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([])}}
         }},
-        {?GMAP_TYPE, {?BOOLEAN_TYPE, []}}
+        {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([])}}
     }}, Pair0),
     ?assertEqual({?PAIR_TYPE, {
         {?PAIR_TYPE, {
             {?GCOUNTER_TYPE, []},
-            {?GMAP_TYPE, {?BOOLEAN_TYPE, []}}
+            {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([])}}
         }},
-        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}}
+        {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([{Actor, {?BOOLEAN_TYPE, 1}}])}}
     }}, Pair1),
     ?assertEqual({?PAIR_TYPE, {
         {?PAIR_TYPE, {
             {?GCOUNTER_TYPE, [{Actor, 1}]},
-            {?GMAP_TYPE, {?BOOLEAN_TYPE, []}}
+            {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([])}}
         }},
-        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}}
+        {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([{Actor, {?BOOLEAN_TYPE, 1}}])}}
     }}, Pair2),
     ?assertEqual({?PAIR_TYPE, {
         {?PAIR_TYPE, {
             {?GCOUNTER_TYPE, [{Actor, 1}]},
-            {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}}
+            {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([{Actor, {?BOOLEAN_TYPE, 1}}])}}
         }},
-        {?GMAP_TYPE, {?BOOLEAN_TYPE, [{Actor, {?BOOLEAN_TYPE, 1}}]}}
+        {?GMAP_TYPE, {?BOOLEAN_TYPE, dict:from_list([{Actor, {?BOOLEAN_TYPE, 1}}])}}
     }}, Pair3),
     ?assertEqual({
         {1, [{Actor, true}]},
@@ -377,10 +381,10 @@ gmap_with_pair_test(_Config) ->
     {ok, GMap3} = ?GMAP_TYPE:mutate({apply, Actor, {snd, true}}, Actor, GMap1),
     Query = ?GMAP_TYPE:query(GMap3),
 
-    ?assertEqual({?GMAP_TYPE, {CType, []}}, GMap0),
-    ?assertEqual({?GMAP_TYPE, {CType, [{Actor, {?PAIR_TYPE, {{?BOOLEAN_TYPE, 1}, {?BOOLEAN_TYPE, 0}}}}]}}, GMap1),
-    ?assertEqual({?GMAP_TYPE, {CType, [{Actor, {?PAIR_TYPE, {{?BOOLEAN_TYPE, 0}, {?BOOLEAN_TYPE, 1}}}}]}}, GMap2),
-    ?assertEqual({?GMAP_TYPE, {CType, [{Actor, {?PAIR_TYPE, {{?BOOLEAN_TYPE, 1}, {?BOOLEAN_TYPE, 1}}}}]}}, GMap3),
+    ?assertEqual({?GMAP_TYPE, {CType, dict:from_list([])}}, GMap0),
+    ?assertEqual({?GMAP_TYPE, {CType, dict:from_list([{Actor, {?PAIR_TYPE, {{?BOOLEAN_TYPE, 1}, {?BOOLEAN_TYPE, 0}}}}])}}, GMap1),
+    ?assertEqual({?GMAP_TYPE, {CType, dict:from_list([{Actor, {?PAIR_TYPE, {{?BOOLEAN_TYPE, 0}, {?BOOLEAN_TYPE, 1}}}}])}}, GMap2),
+    ?assertEqual({?GMAP_TYPE, {CType, dict:from_list([{Actor, {?PAIR_TYPE, {{?BOOLEAN_TYPE, 1}, {?BOOLEAN_TYPE, 1}}}}])}}, GMap3),
     ?assertEqual([{Actor, {true, true}}], Query).
 
 maps_within_maps_test(_Config) ->

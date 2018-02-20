@@ -29,7 +29,8 @@
          irreducible_is_strict_inflation/2]).
 -export([delta/2]).
 -export([extract_args/1]).
--export([crdt_size/1]).
+-export([crdt_size/1,
+         digest_size/1]).
 
 -export_type([state_type/0,
               crdt/0,
@@ -152,8 +153,18 @@ irreducible_is_strict_inflation({Type, _}=Irreducible,
     Type:is_strict_inflation(CRDT, Merged).
 
 %% @doc Generic delta calculation.
--spec delta(crdt(), digest()) -> crdt().
+-spec delta({decomposition, [crdt()]} | crdt(), digest()) -> crdt().
+delta({decomposition, Decomp}, B) ->
+    do_delta(Decomp, B);
 delta({Type, _}=A, B) ->
+    Decomp = Type:join_decomposition(A),
+    case Decomp of
+        [] -> new(A);
+        _ -> do_delta(Decomp, B)
+    end.
+
+%% @private
+do_delta([{Type, _}=H|_]=Decomp, B) ->
     lists:foldl(
         fun(Irreducible, Acc) ->
             case Type:irreducible_is_strict_inflation(Irreducible,
@@ -164,8 +175,8 @@ delta({Type, _}=A, B) ->
                     Acc
             end
         end,
-        new(A),
-        Type:join_decomposition(A)
+        new(H),
+        Decomp
     ).
 
 %% @doc extract arguments from complex (composite) types
@@ -174,27 +185,41 @@ extract_args({Type, Args}) ->
 extract_args(Type) ->
     {Type, []}.
 
-%% @doc Term size.
-crdt_size({?AWMAP_TYPE, {_CType, CRDT}}) -> crdt_size(CRDT);
-crdt_size({?AWSET_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?BCOUNTER_TYPE, {CRDT1, CRDT2}}) ->
-    crdt_size(CRDT1) + crdt_size(CRDT2);
-crdt_size({?BOOLEAN_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?DWFLAG_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?EWFLAG_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?GCOUNTER_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?GMAP_TYPE, {_CType, CRDT}}) -> crdt_size(CRDT);
-crdt_size({?GSET_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?IVAR_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?LEXCOUNTER_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?LWWREGISTER_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?MAX_INT_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?MVMAP_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?MVREGISTER_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?ORSET_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?PAIR_TYPE, {CRDT1, CRDT2}}) ->
-    crdt_size(CRDT1) + crdt_size(CRDT2);
-crdt_size({?PNCOUNTER_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size({?TWOPSET_TYPE, CRDT}) -> crdt_size(CRDT);
-crdt_size(T) ->
-    erts_debug:flat_size(T).
+%% @doc CRDT size.
+%%      First component is the metadata size,
+%%      the second component is the payload size.
+-spec crdt_size(crdt()) -> {non_neg_integer(), non_neg_integer()}.
+crdt_size({?AWSET_TYPE, {DotMap, CausalContext}}) ->
+    %% size of the dot map
+    {M, P} = dot_map:fold(
+        fun(_, DotSet, {MAcc, PAcc}) ->
+            %% size of the dot set, +1 for the key
+            {MAcc + dot_set_size(DotSet), PAcc + 1}
+        end,
+        {0, 0},
+        DotMap
+    ),
+    {M + causal_context_size(CausalContext), P};
+crdt_size({?GCOUNTER_TYPE, CRDT}) ->
+    {orddict:size(CRDT), 0};
+crdt_size({?GSET_TYPE, CRDT}) ->
+    {0, ordsets:size(CRDT)};
+crdt_size({?GMAP_TYPE, {_, CRDT}}) ->
+    {dict:size(CRDT), 0}.
+
+%% @doc Digest size.
+digest_size({ActiveDots, CausalContext}) ->
+    %% awset
+    dot_set_size(ActiveDots) +
+    causal_context_size(CausalContext).
+
+%% @private
+dot_set_size(DotSet) ->
+    ordsets:size(DotSet).
+
+%% @private
+causal_context_size({Compressed, DotSet}) ->
+    %% size of the causal context is the number of entries
+    %% in the compressed component plus the number
+    %% of the dots in the non-compressed part
+    orddict:size(Compressed) + dot_set_size(DotSet).
