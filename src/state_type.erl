@@ -157,7 +157,11 @@ irreducible_is_strict_inflation({Type, _}=Irreducible,
 delta({decomposition, Decomp}, B) ->
     do_delta(Decomp, B);
 delta({Type, _}=A, B) ->
-    do_delta(Type:join_decomposition(A), B).
+    Decomp = Type:join_decomposition(A),
+    case Decomp of
+        [] -> new(A);
+        _ -> do_delta(Decomp, B)
+    end.
 
 %% @private
 do_delta([{Type, _}=H|_]=Decomp, B) ->
