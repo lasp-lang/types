@@ -153,8 +153,14 @@ irreducible_is_strict_inflation({Type, _}=Irreducible,
     Type:is_strict_inflation(CRDT, Merged).
 
 %% @doc Generic delta calculation.
--spec delta(crdt(), digest()) -> crdt().
+-spec delta({decomposition, [crdt()]} | crdt(), digest()) -> crdt().
+delta({decomposition, Decomp}, B) ->
+    do_delta(Decomp, B);
 delta({Type, _}=A, B) ->
+    do_delta(Type:join_decomposition(A), B).
+
+%% @private
+do_delta([{Type, _}=H|_]=Decomp, B) ->
     lists:foldl(
         fun(Irreducible, Acc) ->
             case Type:irreducible_is_strict_inflation(Irreducible,
@@ -165,8 +171,8 @@ delta({Type, _}=A, B) ->
                     Acc
             end
         end,
-        new(A),
-        Type:join_decomposition(A)
+        new(H),
+        Decomp
     ).
 
 %% @doc extract arguments from complex (composite) types
