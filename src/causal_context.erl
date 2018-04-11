@@ -89,7 +89,16 @@ add_dot({Actor, Sequence}=Dot, {Compressed0, DotSet0}=CC) ->
         true ->
             %% update the compressed component
             Compressed1 = orddict:store(Actor, Sequence, Compressed0),
-            {Compressed1, DotSet0};
+
+            %% and try to compress if the next
+            %% dot of this actor belongs to the
+            %% set of outstanding dots
+            CC1 =  {Compressed1, DotSet0},
+            NextDot = {Actor, Sequence + 1},
+            case dot_set:is_element(NextDot, DotSet0) of
+                true -> compress(CC1);
+                false -> CC1
+            end;
         false ->
             case Sequence > Current + 1 of
                 true ->
