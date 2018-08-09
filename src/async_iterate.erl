@@ -40,6 +40,8 @@
                 next_position :: non_neg_integer(),
                 finished :: boolean()}).
 
+-type state() :: #state{}.
+
 %% Sleep interval when waiting for more data.
 -define(INTERVAL, 300).
 
@@ -65,7 +67,7 @@ next(Continuation) ->
 %%%===================================================================
 
 %% @private
--spec init([term()]) -> {ok, #state{}}.
+-spec init([term()]) -> {ok, state()}.
 init([Unique, Function]) ->
     %% Generate an ets table to store results.
     Tid = ets:new(Unique, []),
@@ -85,8 +87,8 @@ init([Unique, Function]) ->
                 finished=false}}.
 
 %% @private
--spec handle_call(term(), {pid(), term()}, #state{}) ->
-    {reply, term(), #state{}}.
+-spec handle_call(term(), {pid(), term()}, state()) ->
+    {reply, term(), state()}.
 handle_call(iterator, _From, #state{tid=Tid}=State) ->
     {[Match], Continuation} = ets:select(Tid, [{{'$1', '$2'}, [], ['$2']}], 1),
     {reply, {ok, {Match, Continuation}}, State};
@@ -97,12 +99,12 @@ handle_call(_Msg, _From, State) ->
     {reply, ok, State}.
 
 %% @private
--spec handle_cast(term(), #state{}) -> {noreply, #state{}}.
+-spec handle_cast(term(), state()) -> {noreply, state()}.
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
 %% @private
--spec handle_info(term(), #state{}) -> {noreply, #state{}}.
+-spec handle_info(term(), state()) -> {noreply, state()}.
 handle_info({retry, From, Continuation}, #state{finished=Finished}=State) ->
     read(From, Finished, Continuation),
     {noreply, State};
@@ -122,12 +124,12 @@ handle_info(_Msg, State) ->
     {noreply, State}.
 
 %% @private
--spec terminate(term(), #state{}) -> term().
+-spec terminate(term(), state()) -> term().
 terminate(_Reason, _State) ->
     ok.
 
 %% @private
--spec code_change(term() | {down, term()}, #state{}, term()) -> {ok, #state{}}.
+-spec code_change(term() | {down, term()}, state(), term()) -> {ok, state()}.
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
