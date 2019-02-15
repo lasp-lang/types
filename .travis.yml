@@ -5,15 +5,16 @@ otp_release:
   - 19.3
   - 18.3
 install:
-  - make
+  - wget https://s3.amazonaws.com/rebar3/rebar3 && chmod u+x rebar3
+  - REBAR=./rebar3 make
   - ./rebar3 update
 script:
-  - make eunit
-  - make ct
-  - make proper
-  - make xref
-  - make dialyzer
-  - make lint
+  - REBAR=./rebar3 make eunit
+  - REBAR=./rebar3 make ct
+  - REBAR=./rebar3 make proper
+  - REBAR=./rebar3 make xref
+  - REBAR=./rebar3 make dialyzer
+  - REBAR=./rebar3 make lint
 notifications:
   email: christopher.meiklejohn@gmail.com
   slack: lasp-lang:hiPRNnbUa3zdGrrXZfGRAF7D

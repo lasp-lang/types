@@ -2,8 +2,8 @@ PACKAGE         ?= types
 VERSION         ?= $(shell git describe --tags)
 BASE_DIR         = $(shell pwd)
 ERLANG_BIN       = $(shell dirname $(shell which erl))
-REBAR            = $(shell pwd)/rebar3
-MAKE						 = make
+REBAR           ?= rebar3
+MAKE             = make
 
 .PHONY: rel deps test eqc plots
 
